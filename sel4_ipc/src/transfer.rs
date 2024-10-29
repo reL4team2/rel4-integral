@@ -2,15 +2,21 @@ use core::intrinsics::likely;
 
 use super::endpoint::*;
 use super::notification::*;
+use sel4_common::structures_gen::endpoint;
+use sel4_common::structures_gen::notification;
 
 use sel4_common::arch::ArchReg;
 use sel4_common::arch::{n_exceptionMessage, n_syscallMessage};
 use sel4_common::fault::*;
-use sel4_common::message_info::*;
+use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::sel4_config::*;
+use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
 use sel4_common::structures::*;
 use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_tag;
+use sel4_common::structures_gen::seL4_Fault;
+use sel4_common::structures_gen::seL4_Fault_NullFault;
+use sel4_common::structures_gen::seL4_Fault_tag;
 use sel4_common::utils::*;
 use sel4_cspace::interface::*;
 use sel4_task::{possible_switch_to, set_thread_state, tcb_t, ThreadState};
@@ -22,15 +28,15 @@ pub trait Transfer {
 
     fn set_transfer_caps(
         &mut self,
-        endpoint: Option<&endpoint_t>,
-        info: &mut seL4_MessageInfo_t,
+        endpoint: Option<&endpoint>,
+        info: &mut seL4_MessageInfo,
         current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
     );
 
     fn set_transfer_caps_with_buf(
         &mut self,
-        endpoint: Option<&endpoint_t>,
-        info: &mut seL4_MessageInfo_t,
+        endpoint: Option<&endpoint>,
+        info: &mut seL4_MessageInfo,
         current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
         ipc_buffer: Option<&mut seL4_IPCBuffer>,
     );
@@ -40,7 +46,7 @@ pub trait Transfer {
     fn do_normal_transfer(
         &mut self,
         receiver: &mut tcb_t,
-        endpoint: Option<&endpoint_t>,
+        endpoint: Option<&endpoint>,
         badge: usize,
         can_grant: bool,
     );
@@ -52,7 +58,7 @@ pub trait Transfer {
     fn do_ipc_transfer(
         &mut self,
         receiver: &mut tcb_t,
-        endpoint: Option<&endpoint_t>,
+        endpoint: Option<&endpoint>,
         badge: usize,
         grant: bool,
     );
@@ -62,22 +68,23 @@ pub trait Transfer {
 
 impl Transfer for tcb_t {
     fn cancel_ipc(&mut self) {
-        let state = self.tcbState;
+        let state = &self.tcbState;
         match self.get_state() {
             ThreadState::ThreadStateBlockedOnSend | ThreadState::ThreadStateBlockedOnReceive => {
-                let ep = convert_to_mut_type_ref::<endpoint_t>(state.get_blocking_object());
-                assert_ne!(ep.get_state(), EPState::Idle);
+                let ep = convert_to_mut_type_ref::<endpoint>(state.get_blockingObject() as usize);
+                assert_ne!(ep.get_ep_state(), EPState::Idle);
                 ep.cancel_ipc(self);
             }
             ThreadState::ThreadStateBlockedOnNotification => {
-                let ntfn = convert_to_mut_type_ref::<notification_t>(state.get_blocking_object());
+                let ntfn =
+                    convert_to_mut_type_ref::<notification>(state.get_blockingObject() as usize);
                 ntfn.cancel_signal(self);
             }
 
             ThreadState::ThreadStateBlockedOnReply => {
-                self.tcbFault = seL4_Fault_t::new_null_fault();
+                self.tcbFault = seL4_Fault_NullFault::new().unsplay();
                 let slot = self.get_cspace(tcbReply);
-                let caller_slot_ptr = slot.cteMDBNode.get_next();
+                let caller_slot_ptr = slot.cteMDBNode.get_mdbNext() as usize;
                 if caller_slot_ptr != 0 {
                     convert_to_mut_type_ref::<cte_t>(caller_slot_ptr).delete_one()
                 }
@@ -88,12 +95,12 @@ impl Transfer for tcb_t {
 
     fn set_transfer_caps(
         &mut self,
-        endpoint: Option<&endpoint_t>,
-        info: &mut seL4_MessageInfo_t,
+        ep: Option<&endpoint>,
+        info: &mut seL4_MessageInfo,
         current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
     ) {
-        info.set_extra_caps(0);
-        info.set_caps_unwrapped(0);
+        info.set_extraCaps(0);
+        info.set_capsUnwrapped(0);
         let ipc_buffer = self.lookup_mut_ipc_buffer(true);
         if current_extra_caps[0] as usize == 0 || ipc_buffer.is_none() {
             return;
@@ -106,11 +113,11 @@ impl Transfer for tcb_t {
             let capability_cpy = &slot.capability.clone();
             let capability = cap::cap_endpoint_cap(capability_cpy);
             if capability.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
-                && endpoint.is_some()
-                && capability.get_capEPPtr() as usize == endpoint.unwrap().get_ptr()
+                && ep.is_some()
+                && capability.get_capEPPtr() as usize == ep.unwrap().get_ptr()
             {
                 buffer.caps_or_badges[i] = capability.get_capEPBadge() as usize;
-                info.set_caps_unwrapped(info.get_caps_unwrapped() | (1 << i));
+                info.set_capsUnwrapped(info.get_capsUnwrapped() | (1 << i));
             } else {
                 if dest_slot.is_none() {
                     break;
@@ -127,18 +134,18 @@ impl Transfer for tcb_t {
             }
             i += 1;
         }
-        info.set_extra_caps(i);
+        info.set_extraCaps(i as u64);
     }
 
     fn set_transfer_caps_with_buf(
         &mut self,
-        endpoint: Option<&endpoint_t>,
-        info: &mut seL4_MessageInfo_t,
+        ep: Option<&endpoint>,
+        info: &mut seL4_MessageInfo,
         current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
         ipc_buffer: Option<&mut seL4_IPCBuffer>,
     ) {
-        info.set_extra_caps(0);
-        info.set_caps_unwrapped(0);
+        info.set_extraCaps(0);
+        info.set_capsUnwrapped(0);
         // let ipc_buffer = self.lookup_mut_ipc_buffer(true);
         if likely(current_extra_caps[0] as usize == 0 || ipc_buffer.is_none()) {
             return;
@@ -151,11 +158,11 @@ impl Transfer for tcb_t {
             let capability_cpy = &slot.capability.clone();
             let capability = cap::cap_endpoint_cap(capability_cpy);
             if capability.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
-                && endpoint.is_some()
-                && capability.get_capEPPtr() as usize == endpoint.unwrap().get_ptr()
+                && ep.is_some()
+                && capability.get_capEPPtr() as usize == ep.unwrap().get_ptr()
             {
                 buffer.caps_or_badges[i] = capability.get_capEPBadge() as usize;
-                info.set_caps_unwrapped(info.get_caps_unwrapped() | (1 << i));
+                info.set_capsUnwrapped(info.get_capsUnwrapped() | (1 << i));
             } else {
                 if dest_slot.is_none() {
                     break;
@@ -172,56 +179,66 @@ impl Transfer for tcb_t {
             }
             i += 1;
         }
-        info.set_extra_caps(i);
+        info.set_extraCaps(i as u64);
     }
 
     fn do_fault_transfer(&self, receiver: &mut tcb_t, badge: usize) {
-        let sent = match self.tcbFault.get_fault_type() {
-            FaultType::CapFault => {
+        let sent = match self.tcbFault.get_tag() {
+            seL4_Fault_tag::seL4_Fault_CapFault => {
                 receiver.set_mr(
                     seL4_CapFault_IP,
                     self.tcbArch.get_register(ArchReg::FaultIP),
                 );
-                receiver.set_mr(seL4_CapFault_Addr, self.tcbFault.cap_fault_get_address());
+                receiver.set_mr(
+                    seL4_CapFault_Addr,
+                    seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_address() as usize,
+                );
                 receiver.set_mr(
                     seL4_CapFault_InRecvPhase,
-                    self.tcbFault.cap_fault_get_in_receive_phase(),
+                    seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_inReceivePhase() as usize,
                 );
                 receiver
                     .set_lookup_fault_mrs(seL4_CapFault_LookupFailureType, &self.tcbLookupFailure)
             }
-            FaultType::UnknownSyscall => {
+            seL4_Fault_tag::seL4_Fault_UnknownSyscall => {
                 self.copy_syscall_fault_mrs(receiver);
                 receiver.set_mr(
                     n_syscallMessage,
-                    self.tcbFault.unknown_syscall_get_syscall_number(),
+                    seL4_Fault::seL4_Fault_UnknownSyscall(&self.tcbFault).get_syscallNumber()
+                        as usize,
                 )
             }
-            FaultType::UserException => {
+            seL4_Fault_tag::seL4_Fault_UserException => {
                 self.copy_exeception_fault_mrs(receiver);
                 receiver.set_mr(
                     n_exceptionMessage,
-                    self.tcbFault.user_exeception_get_number(),
+                    seL4_Fault::seL4_Fault_UserException(&self.tcbFault).get_number() as usize,
                 );
                 receiver.set_mr(
                     n_exceptionMessage + 1,
-                    self.tcbFault.user_exeception_get_code(),
+                    seL4_Fault::seL4_Fault_UserException(&self.tcbFault).get_code() as usize,
                 )
             }
-            FaultType::VMFault => {
+            seL4_Fault_tag::seL4_Fault_VMFault => {
                 receiver.set_mr(seL4_VMFault_IP, self.tcbArch.get_register(ArchReg::FaultIP));
-                receiver.set_mr(seL4_VMFault_Addr, self.tcbFault.vm_fault_get_address());
+                receiver.set_mr(
+                    seL4_VMFault_Addr,
+                    seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_address() as usize,
+                );
                 receiver.set_mr(
                     seL4_VMFault_PrefetchFault,
-                    self.tcbFault.vm_fault_get_instruction_fault(),
+                    seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_instructionFault() as usize,
                 );
-                receiver.set_mr(seL4_VMFault_FSR, self.tcbFault.vm_fault_get_fsr())
+                receiver.set_mr(
+                    seL4_VMFault_FSR,
+                    seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_FSR() as usize,
+                )
             }
             _ => {
                 panic!("invalid fault")
             }
         };
-        let msg_info = seL4_MessageInfo_t::new(self.tcbFault.get_type(), 0, 0, sent);
+        let msg_info = seL4_MessageInfo::new(self.tcbFault.get_tag() as u64, 0, 0, sent as u64);
         receiver
             .tcbArch
             .set_register(ArchReg::MsgInfo, msg_info.to_word());
@@ -231,19 +248,19 @@ impl Transfer for tcb_t {
     fn do_normal_transfer(
         &mut self,
         receiver: &mut tcb_t,
-        endpoint: Option<&endpoint_t>,
+        ep: Option<&endpoint>,
         badge: usize,
         can_grant: bool,
     ) {
         let mut tag =
-            seL4_MessageInfo_t::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
+            seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
         let mut current_extra_caps = [0; seL4_MsgMaxExtraCaps];
         if can_grant {
             let _ = self.lookup_extra_caps(&mut current_extra_caps);
         }
-        let msg_transferred = self.copy_mrs(receiver, tag.get_length());
-        receiver.set_transfer_caps(endpoint, &mut tag, &current_extra_caps);
-        tag.set_length(msg_transferred);
+        let msg_transferred = self.copy_mrs(receiver, tag.get_length() as usize);
+        receiver.set_transfer_caps(ep, &mut tag, &current_extra_caps);
+        tag.set_length(msg_transferred as u64);
         receiver
             .tcbArch
             .set_register(ArchReg::MsgInfo, tag.to_word());
@@ -251,12 +268,11 @@ impl Transfer for tcb_t {
     }
 
     fn do_fault_reply_transfer(&mut self, receiver: &mut tcb_t) -> bool {
-        let tag =
-            seL4_MessageInfo_t::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
-        let label = tag.get_label();
-        let length = tag.get_length();
-        match receiver.tcbFault.get_fault_type() {
-            FaultType::UnknownSyscall => {
+        let tag = seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
+        let label = tag.get_label() as usize;
+        let length = tag.get_length() as usize;
+        match receiver.tcbFault.get_tag() {
+            seL4_Fault_tag::seL4_Fault_UnknownSyscall => {
                 self.copy_fault_mrs_for_reply(
                     receiver,
                     MessageID_Syscall,
@@ -264,7 +280,7 @@ impl Transfer for tcb_t {
                 );
                 return label as usize == 0;
             }
-            FaultType::UserException => {
+            seL4_Fault_tag::seL4_Fault_UserException => {
                 self.copy_fault_mrs_for_reply(
                     receiver,
                     MessageID_Exception,
@@ -278,12 +294,12 @@ impl Transfer for tcb_t {
 
     fn complete_signal(&mut self) -> bool {
         if let Some(ntfn) =
-            convert_to_option_mut_type_ref::<notification_t>(self.tcbBoundNotification)
+            convert_to_option_mut_type_ref::<notification>(self.tcbBoundNotification)
         {
-            if likely(ntfn.get_state() == NtfnState::Active) {
+            if likely(ntfn.get_ntfn_state() == NtfnState::Active) {
                 self.tcbArch
-                    .set_register(ArchReg::Badge, ntfn.get_msg_identifier());
-                ntfn.set_state(NtfnState::Idle as usize);
+                    .set_register(ArchReg::Badge, ntfn.get_ntfnMsgIdentifier() as usize);
+                ntfn.set_state(NtfnState::Idle as u64);
                 return true;
             }
         }
@@ -293,12 +309,12 @@ impl Transfer for tcb_t {
     fn do_ipc_transfer(
         &mut self,
         receiver: &mut tcb_t,
-        endpoint: Option<&endpoint_t>,
+        ep: Option<&endpoint>,
         badge: usize,
         grant: bool,
     ) {
-        if likely(self.tcbFault.get_fault_type() == FaultType::NullFault) {
-            self.do_normal_transfer(receiver, endpoint, badge, grant)
+        if likely(self.tcbFault.get_tag() == seL4_Fault_tag::seL4_Fault_NullFault) {
+            self.do_normal_transfer(receiver, ep, badge, grant)
         } else {
             self.do_fault_transfer(receiver, badge)
         }
@@ -306,8 +322,8 @@ impl Transfer for tcb_t {
 
     fn do_reply(&mut self, receiver: &mut tcb_t, slot: &mut cte_t, grant: bool) {
         assert_eq!(receiver.get_state(), ThreadState::ThreadStateBlockedOnReply);
-        let fault_type = receiver.tcbFault.get_fault_type();
-        if likely(fault_type == FaultType::NullFault) {
+        let fault_type = receiver.tcbFault.get_tag();
+        if likely(fault_type == seL4_Fault_tag::seL4_Fault_NullFault) {
             self.do_ipc_transfer(receiver, None, 0, grant);
             slot.delete_one();
             set_thread_state(receiver, ThreadState::ThreadStateRunning);

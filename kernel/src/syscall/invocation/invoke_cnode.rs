@@ -1,14 +1,14 @@
 use log::debug;
-use sel4_common::structures_gen::{cap, cap_tag};
+use sel4_common::structures_gen::{cap, cap_tag, endpoint};
 use sel4_common::{
-    cap_rights::seL4_CapRights_t,
     sel4_config::{seL4_DeleteFirst, seL4_IllegalOperation, tcbCaller},
+    shared_types_bf_gen::seL4_CapRights,
     structures::exception_t,
     utils::convert_to_mut_type_ref,
 };
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::interface::{cte_insert, cte_move, cte_swap, cte_t};
-use sel4_ipc::endpoint_t;
+use sel4_ipc::endpoint_func;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use crate::{kernel::boot::current_syscall_error, syscall::mask_cap_rights};
@@ -17,7 +17,7 @@ use crate::{kernel::boot::current_syscall_error, syscall::mask_cap_rights};
 pub fn invoke_cnode_copy(
     src_slot: &mut cte_t,
     dest_slot: &mut cte_t,
-    cap_right: seL4_CapRights_t,
+    cap_right: seL4_CapRights,
 ) -> exception_t {
     let src_cap = mask_cap_rights(cap_right, &src_slot.capability);
     let dc_ret = src_slot.derive_cap(&src_cap);
@@ -42,7 +42,7 @@ pub fn invoke_cnode_copy(
 pub fn invoke_cnode_mint(
     src_slot: &mut cte_t,
     dest_slot: &mut cte_t,
-    cap_right: seL4_CapRights_t,
+    cap_right: seL4_CapRights,
     cap_data: usize,
 ) -> exception_t {
     let src_cap = mask_cap_rights(cap_right, &src_slot.capability);
@@ -175,7 +175,7 @@ pub fn invoke_cnode_cancel_badged_sends(dest_slot: &mut cte_t) -> exception_t {
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
     let badge = cap::cap_endpoint_cap(&dest_cap).get_capEPBadge() as usize;
     if badge != 0 {
-        convert_to_mut_type_ref::<endpoint_t>(
+        convert_to_mut_type_ref::<endpoint>(
             cap::cap_endpoint_cap(&dest_cap).get_capEPPtr() as usize
         )
         .cancel_badged_sends(badge);

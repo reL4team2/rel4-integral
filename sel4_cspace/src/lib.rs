@@ -13,7 +13,6 @@
 
 pub mod capability;
 mod cte;
-mod mdb;
 mod structures;
 
 /// 需要外部实现的接口
@@ -31,9 +30,9 @@ mod tests {
     use capability::same_object_as;
     use core::arch::global_asm;
     use cte::{cte_insert, cte_move, cte_swap, cte_t, insert_new_cap, resolve_address_bits};
-    use mdb::mdb_node_t;
     use riscv::register::{stvec, utvec::TrapMode};
     use sel4_common::structures_gen::cap_tag;
+    use sel4_common::structures_gen::mdb_node;
     use sel4_common::structures_gen::{
         cap, cap_asid_control_cap, cap_asid_pool_cap, cap_cnode_cap, cap_frame_cap,
         cap_page_table_cap,
@@ -51,7 +50,7 @@ mod tests {
         println!("Entering same_object_as_test case");
         let cap1 = cap_cnode_cap::new(1, 1, 1, 1).unsplay();
         let cap3 = cap_cnode_cap::new(1, 1, 2, 1).unsplay();
-        let mdb = mdb_node_t::new(0, 0, 0, 0);
+        let mdb = mdb_node::new(0, 0, 0, 0);
         let mut cte1 = cte_t {
             capability: cap1,
             cteMDBNode: mdb,
@@ -73,24 +72,36 @@ mod tests {
         let cap2 = cap_domain_cap::new().unsplay();
         let mut cte1 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte2 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte3 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         cte_insert(&cap1, &mut cte1, &mut cte2);
         cte_insert(&cap2, &mut cte2, &mut cte3);
         assert_eq!(cte2.capability.get_tag(), cap_tag::cap_asid_control_cap);
         assert_eq!(cte3.capability.get_tag(), cap_tag::cap_domain_cap);
-        assert_eq!(cte1.cteMDBNode.get_next(), &mut cte2 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_next(), &mut cte3 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
-        assert_eq!(cte3.cteMDBNode.get_prev(), &mut cte2 as *mut cte_t as usize);
+        assert_eq!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte2 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbNext(),
+            &mut cte3 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte3.cteMDBNode.get_mdbPrev(),
+            &mut cte2 as *mut cte_t as u64
+        );
         println!("Test cte_insert_test passed");
     }
 
@@ -107,36 +118,72 @@ mod tests {
         let cap3 = cap_irq_control_cap::new().unsplay();
         let mut cte1 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte2 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte3 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte4 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         cte_insert(&cap1, &mut cte1, &mut cte2);
         cte_insert(&cap2, &mut cte2, &mut cte3);
-        assert_eq!(cte1.cteMDBNode.get_next(), &mut cte2 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_next(), &mut cte3 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
-        assert_eq!(cte3.cteMDBNode.get_prev(), &mut cte2 as *mut cte_t as usize);
+        assert_eq!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte2 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbNext(),
+            &mut cte3 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte3.cteMDBNode.get_mdbPrev(),
+            &mut cte2 as *mut cte_t as u64
+        );
         cte_move(&cap3, &mut cte2, &mut cte4);
         assert_eq!(cte4.capability.get_tag(), cap_tag::cap_irq_control_cap);
-        assert_eq!(cte4.cteMDBNode.get_next(), &mut cte3 as *mut cte_t as usize);
-        assert_eq!(cte4.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
-        assert_eq!(cte1.cteMDBNode.get_next(), &mut cte4 as *mut cte_t as usize);
-        assert_eq!(cte3.cteMDBNode.get_prev(), &mut cte4 as *mut cte_t as usize);
-        assert_ne!(cte1.cteMDBNode.get_next(), &mut cte2 as *mut cte_t as usize);
-        assert_ne!(cte3.cteMDBNode.get_prev(), &mut cte2 as *mut cte_t as usize);
-        assert_ne!(cte2.cteMDBNode.get_next(), &mut cte3 as *mut cte_t as usize);
-        assert_ne!(cte2.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
+        assert_eq!(
+            cte4.cteMDBNode.get_mdbNext(),
+            &mut cte3 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte4.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte4 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte3.cteMDBNode.get_mdbPrev(),
+            &mut cte4 as *mut cte_t as u64
+        );
+        assert_ne!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte2 as *mut cte_t as u64
+        );
+        assert_ne!(
+            cte3.cteMDBNode.get_mdbPrev(),
+            &mut cte2 as *mut cte_t as u64
+        );
+        assert_ne!(
+            cte2.cteMDBNode.get_mdbNext(),
+            &mut cte3 as *mut cte_t as u64
+        );
+        assert_ne!(
+            cte2.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
         println!("Test cte_move_test passed");
     }
 
@@ -150,35 +197,59 @@ mod tests {
         let cap2 = cap_domain_cap::new().unsplay();
         let mut cte1 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte2 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
 
         let mut cte3 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte4 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
 
         cte_insert(&cap1, &mut cte1, &mut cte2);
         cte_insert(&cap2, &mut cte3, &mut cte4);
-        assert_eq!(cte1.cteMDBNode.get_next(), &mut cte2 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
-        assert_eq!(cte3.cteMDBNode.get_next(), &mut cte4 as *mut cte_t as usize);
-        assert_eq!(cte4.cteMDBNode.get_prev(), &mut cte3 as *mut cte_t as usize);
+        assert_eq!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte2 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte3.cteMDBNode.get_mdbNext(),
+            &mut cte4 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte4.cteMDBNode.get_mdbPrev(),
+            &mut cte3 as *mut cte_t as u64
+        );
         cte_swap(&cap1, &mut cte2, &cap2, &mut cte4);
         assert_eq!(cte2.capability.get_tag(), cap_tag::cap_domain_cap);
         assert_eq!(cte4.capability.get_tag(), cap_tag::cap_asid_control_cap);
-        assert_eq!(cte4.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
-        assert_eq!(cte1.cteMDBNode.get_next(), &mut cte4 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_prev(), &mut cte3 as *mut cte_t as usize);
-        assert_eq!(cte3.cteMDBNode.get_next(), &mut cte2 as *mut cte_t as usize);
+        assert_eq!(
+            cte4.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte4 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbPrev(),
+            &mut cte3 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte3.cteMDBNode.get_mdbNext(),
+            &mut cte2 as *mut cte_t as u64
+        );
 
         println!("Test cte_swap_test passed");
     }
@@ -193,25 +264,43 @@ mod tests {
         let cap2 = cap_domain_cap::new().unsplay();
         let mut cte1 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte2 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let mut cte3 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         cte_insert(&cap1, &mut cte1, &mut cte2);
         assert_eq!(cte2.capability.get_tag(), cap_tag::cap_asid_control_cap);
-        assert_eq!(cte1.cteMDBNode.get_next(), &mut cte2 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
+        assert_eq!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte2 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
         insert_new_cap(&mut cte1, &mut cte3, &cap2);
-        assert_eq!(cte1.cteMDBNode.get_next(), &mut cte3 as *mut cte_t as usize);
-        assert_eq!(cte3.cteMDBNode.get_next(), &mut cte2 as *mut cte_t as usize);
-        assert_eq!(cte2.cteMDBNode.get_prev(), &mut cte3 as *mut cte_t as usize);
-        assert_eq!(cte3.cteMDBNode.get_prev(), &mut cte1 as *mut cte_t as usize);
+        assert_eq!(
+            cte1.cteMDBNode.get_mdbNext(),
+            &mut cte3 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte3.cteMDBNode.get_mdbNext(),
+            &mut cte2 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte2.cteMDBNode.get_mdbPrev(),
+            &mut cte3 as *mut cte_t as u64
+        );
+        assert_eq!(
+            cte3.cteMDBNode.get_mdbPrev(),
+            &mut cte1 as *mut cte_t as u64
+        );
         println!("Test insert_new_cap_test passed");
     }
 
@@ -231,7 +320,7 @@ mod tests {
         let cap2 = cap_cnode_cap::new(guard2, guardSize, 3, buffer.as_ptr() as u64);
         let mut cte1 = cte_t {
             capability: cap_null_cap::new().unsplay(),
-            cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+            cteMDBNode: mdb_node::new(0, 0, 0, 0),
         };
         let cap3 = cap_domain_cap::new().unsplay();
         let idx: u64 = 2;
@@ -293,35 +382,35 @@ mod tests {
                 let capability = cap_cnode_cap::new(0, 0, 0, 0);
                 cte_t {
                     capability: capability.unsplay(),
-                    cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+                    cteMDBNode: mdb_node::new(0, 0, 0, 0),
                 }
             }
             cap_tag::cap_frame_cap => {
                 let capability = cap_frame_cap::new(0, 0, 0, 0, 0, 0);
                 cte_t {
                     capability: capability.unsplay(),
-                    cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+                    cteMDBNode: mdb_node::new(0, 0, 0, 0),
                 }
             }
             cap_tag::cap_page_table_cap => {
                 let capability = cap_page_table_cap::new(0, 0, 0, 0);
                 cte_t {
                     capability: capability.unsplay(),
-                    cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+                    cteMDBNode: mdb_node::new(0, 0, 0, 0),
                 }
             }
             cap_tag::cap_asid_control_cap => {
                 let capability = cap_asid_control_cap::new();
                 cte_t {
                     capability: capability.unsplay(),
-                    cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+                    cteMDBNode: mdb_node::new(0, 0, 0, 0),
                 }
             }
             cap_tag::cap_asid_pool_cap => {
                 let capability = cap_asid_pool_cap::new(0, 0);
                 cte_t {
                     capability: capability.unsplay(),
-                    cteMDBNode: mdb_node_t::new(0, 0, 0, 0),
+                    cteMDBNode: mdb_node::new(0, 0, 0, 0),
                 }
             }
             _ => panic!("Invalid cap tag"),

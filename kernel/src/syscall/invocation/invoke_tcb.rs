@@ -1,12 +1,13 @@
 use sel4_common::arch::*;
-use sel4_common::structures_gen::{cap, cap_thread_cap};
+use sel4_common::message_info::seL4_MessageInfo_func;
+use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
+use sel4_common::structures_gen::{cap, cap_thread_cap, notification};
 use sel4_common::{
-    message_info::seL4_MessageInfo_t,
     sel4_config::{tcbBuffer, tcbCTable, tcbVTable},
     structures::{exception_t, seL4_IPCBuffer},
 };
 use sel4_cspace::interface::{cte_insert, cte_t, same_object_as};
-use sel4_ipc::{notification_t, Transfer};
+use sel4_ipc::Transfer;
 use sel4_task::{get_currenct_thread, rescheduleRequired, set_thread_state, tcb_t, ThreadState};
 
 use crate::syscall::{do_bind_notification, safe_unbind_notification, utils::get_syscall_arg};
@@ -61,7 +62,7 @@ pub fn invoke_tcb_read_registers(
         }
         thread.tcbArch.set_register(
             ArchReg::MsgInfo,
-            seL4_MessageInfo_t::new(0, 0, 0, i + j).to_word(),
+            seL4_MessageInfo::new(0, 0, 0, (i + j) as u64).to_word(),
         );
     }
     set_thread_state(thread, ThreadState::ThreadStateRunning);
@@ -228,7 +229,7 @@ pub fn invoke_tcb_set_ipc_buffer(
 }
 
 #[inline]
-pub fn invoke_tcb_bind_notification(tcb: &mut tcb_t, ntfn: &mut notification_t) -> exception_t {
+pub fn invoke_tcb_bind_notification(tcb: &mut tcb_t, ntfn: &mut notification) -> exception_t {
     do_bind_notification(tcb, ntfn);
     exception_t::EXCEPTION_NONE
 }

@@ -6,8 +6,9 @@ use crate::structures::{p_region_t, region_t, v_region_t};
 use crate::{BIT, ROUND_DOWN, ROUND_UP};
 use log::debug;
 use sel4_common::arch::config::{PADDR_TOP, PPTR_BASE, PPTR_TOP};
+use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::*;
-use sel4_common::structures_gen::{cap, cap_cnode_cap};
+use sel4_common::structures_gen::{cap, cap_cnode_cap, mdb_node};
 use sel4_cspace::interface::*;
 use sel4_vspace::*;
 // #[cfg(target_arch="riscv64")]
@@ -72,10 +73,12 @@ pub fn arch_get_n_paging(it_v_reg: v_region_t) -> usize {
 pub fn write_slot(ptr: *mut cte_t, capability: cap) {
     unsafe {
         (*ptr).capability = capability;
-        (*ptr).cteMDBNode = mdb_node_t::default();
+        (*ptr).cteMDBNode = mdb_node {
+            0: Bitfield { arr: [0; 2usize] },
+        };
         let mdb = &mut (*ptr).cteMDBNode;
-        mdb.set_revocable(1);
-        mdb.set_first_badged(1);
+        mdb.set_mdbRevocable(1);
+        mdb.set_mdbFirstBadged(1);
     }
 }
 

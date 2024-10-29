@@ -4,8 +4,8 @@ use crate::interrupt::*;
 use core::intrinsics::unlikely;
 use log::debug;
 use sel4_common::structures::exception_t;
-use sel4_common::structures_gen::{cap, cap_tag};
-use sel4_ipc::notification_t;
+use sel4_common::structures_gen::{cap, cap_tag, notification};
+use sel4_ipc::notification_func;
 use sel4_task::{activateThread, schedule, timerTick};
 
 #[no_mangle]
@@ -45,7 +45,7 @@ pub fn handleInterrupt(irq: usize) {
             if handler_cap.get_tag() == cap_tag::cap_notification_cap
                 && cap::cap_notification_cap(handler_cap).get_capNtfnCanSend() != 0
             {
-                let nf = convert_to_mut_type_ref::<notification_t>(
+                let nf = convert_to_mut_type_ref::<notification>(
                     cap::cap_notification_cap(handler_cap).get_capNtfnPtr() as usize,
                 );
                 nf.send_signal(cap::cap_notification_cap(handler_cap).get_capNtfnPtr() as usize);

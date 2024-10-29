@@ -18,47 +18,46 @@
 //! ```
 
 use super::sel4_config::seL4_MsgMaxLength;
-use crate::plus_define_bitfield;
 
-use crate::arch::MessageLabel;
+use crate::{
+    arch::MessageLabel, sel4_bitfield_types::Bitfield, shared_types_bf_gen::seL4_MessageInfo,
+};
 
-plus_define_bitfield! {
-    seL4_MessageInfo_t, 1, 0, 0, 0 => {
-        new, 0 => {
-            label, get_usize_label, set_label, 0, 12, 52, 0, false,
-            capsUnwrapped, get_caps_unwrapped, set_caps_unwrapped, 0, 9, 3, 0, false,
-            extraCaps, get_extra_caps, set_extra_caps, 0, 7, 2, 0, false,
-            length, get_length, set_length, 0, 0, 7, 0, false
-        }
-    }
+pub trait seL4_MessageInfo_func {
+    fn from_word(w: usize) -> Self;
+    fn from_word_security(w: usize) -> Self;
+    fn to_word(&self) -> usize;
+    fn get_message_label(&self) -> MessageLabel;
 }
 
-impl seL4_MessageInfo_t {
+impl seL4_MessageInfo_func for seL4_MessageInfo {
     /// Creates a new `seL4_MessageInfo_t` from a word.
     #[inline]
-    pub fn from_word(w: usize) -> Self {
-        Self { words: [w] }
+    fn from_word(w: usize) -> Self {
+        Self {
+            0: Bitfield { arr: [w as u64] },
+        }
     }
 
     /// Creates a new `seL4_MessageInfo_t` from a word with security checks.
     #[inline]
-    pub fn from_word_security(w: usize) -> Self {
+    fn from_word_security(w: usize) -> Self {
         let mut mi = Self::from_word(w);
-        if mi.get_length() > seL4_MsgMaxLength {
-            mi.set_length(seL4_MsgMaxLength);
+        if mi.get_length() > seL4_MsgMaxLength as u64 {
+            mi.set_length(seL4_MsgMaxLength as u64);
         }
         mi
     }
 
     /// Converts the `seL4_MessageInfo_t` to a word.
     #[inline]
-    pub fn to_word(&self) -> usize {
-        self.words[0]
+    fn to_word(&self) -> usize {
+        self.0.arr[0] as usize
     }
 
     /// Gets the label of the message.
     #[inline]
-    pub fn get_label(&self) -> MessageLabel {
-        unsafe { core::mem::transmute::<u32, MessageLabel>(self.get_usize_label() as u32) }
+    fn get_message_label(&self) -> MessageLabel {
+        unsafe { core::mem::transmute::<u32, MessageLabel>(self.get_label() as u32) }
     }
 }

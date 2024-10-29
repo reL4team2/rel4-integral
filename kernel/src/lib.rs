@@ -32,7 +32,7 @@ mod compatibility;
 mod ffi;
 mod interfaces_impl;
 
-pub use sel4_common::{plus_define_bitfield, BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
+pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
 
 #[no_mangle]
 pub extern "C" fn halt() {

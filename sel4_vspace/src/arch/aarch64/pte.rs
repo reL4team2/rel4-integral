@@ -32,12 +32,6 @@ impl VMPageSize {
     }
 }
 
-// #[allow(unused)]
-// pub enum pgde_tag_t {
-//     pgde_invalid = 0,
-//     pgde_pud = 3,
-// }
-
 #[allow(unused)]
 pub enum pte_tag_t {
     pte_table = 3,
@@ -45,19 +39,6 @@ pub enum pte_tag_t {
     pte_4k_page = 7,
     pte_invalid = 0,
 }
-
-// #[allow(unused)]
-// pub enum pude_tag_t {
-//     pude_invalid = 0,
-//     pude_1g = 1,
-//     pude_pd = 3,
-// }
-
-// #[allow(unused)]
-// pub enum pde_tag_t {
-//     pde_large = 1,
-//     pde_small = 3,
-// }
 
 bitflags::bitflags! {
     /// Possible flags for a page table entry.
@@ -133,18 +114,6 @@ impl PTE {
     pub fn get_ppn(&self) -> usize {
         (self.0 & 0xfffffffff000) >> 10
     }
-
-    // pub fn as_pgde(&self) -> PGDE {
-    //     PGDE::new_from_pte(self.0)
-    // }
-
-    // pub fn as_pude(&self) -> PUDE {
-    //     PUDE::new_from_pte(self.0)
-    // }
-
-    // pub fn as_pde(&self) -> PDE {
-    //     PDE::new_from_pte(self.0)
-    // }
 
     #[inline]
     pub const fn pte_is_page_type(&self) -> bool {

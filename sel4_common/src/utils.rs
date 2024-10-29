@@ -2,64 +2,6 @@
 use core::slice;
 
 use crate::sel4_config::*;
-#[macro_export]
-/// Define a bitfield struct with the given name, total words, type index, type offset, type bits, and a list of variants.
-macro_rules! plus_define_bitfield {
-    ($name:ident, $total_words:expr, $type_index:expr, $type_offset:expr, $type_bits:expr =>
-        { $($variant:ident, $type_value:expr => { $($field:ident, $get_field:ident, $set_field:ident, $index:expr, $offset:expr, $bits:expr, $shift:expr, $sign_ext: expr),* }),* }) => {
-        #[repr(C)]
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
-        pub struct $name {
-            pub words: [usize; $total_words],
-        }
-
-        impl $name {
-            pub const WIDTH: usize = $total_words;
-            $(
-                #[inline]
-                pub fn $variant($($field: usize),*) -> Self {
-                    let mut value = $name::default();
-                    $(
-                        let mask = (((1u128 << $bits) - 1)) as usize;
-                        value.words[$index] |= ((($field >> $shift) & mask) << $offset);
-                    )*
-                    value.words[$type_index] |= (($type_value & ((1usize << $type_bits) - 1)) << $type_offset);
-
-                    value
-                }
-
-                $(
-                    #[inline]
-                    pub const fn $get_field(&self) -> usize {
-                        let mask = ((1u128 << $bits) - 1) as usize;
-                        let mut ret = ((self.words[$index] >> $offset) & mask) << $shift;
-                        #[cfg(target_arch = "riscv64")]
-                        if $sign_ext && (ret & (1usize << 38)) != 0 {
-                            ret |= 0xffffff8000000000;
-                        }
-                        #[cfg(target_arch = "aarch64")]
-                        if $sign_ext && (ret & (1usize << 47)) != 0 {
-                            ret |= 0xffff800000000000;
-                        }
-                        ret
-                    }
-
-                    #[inline]
-                    pub fn $set_field(&mut self, new_field: usize) {
-                        let mask = ((1u128 << $bits) - 1) as usize;
-                        self.words[$index] &= !(mask << $offset);
-                        self.words[$index] |= (((new_field >> $shift) & mask) << $offset);
-                    }
-                )*
-            )*
-
-            #[inline]
-            pub fn get_type(&self) -> usize {
-                (self.words[$type_index] >> $type_offset) & ((1usize << $type_bits) - 1)
-            }
-        }
-    };
-}
 
 #[macro_export]
 /// Return fill the given number of bits with 1.

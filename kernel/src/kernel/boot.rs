@@ -1,8 +1,9 @@
 extern crate core;
 
 use sel4_common::sel4_bitfield_types::Bitfield;
+use sel4_common::structures_gen::seL4_Fault;
 use sel4_common::{
-    fault::seL4_Fault_t, sel4_config::seL4_MsgMaxExtraCaps, structures_gen::lookup_fault,
+    sel4_config::seL4_MsgMaxExtraCaps, structures_gen::lookup_fault,
     utils::convert_to_option_mut_type_ref,
 };
 use sel4_cspace::interface::cte_t;
@@ -15,8 +16,8 @@ pub static mut current_lookup_fault: lookup_fault = lookup_fault(Bitfield { arr:
 
 #[no_mangle]
 // #[link_section = ".boot.bss"]
-pub static mut current_fault: seL4_Fault_t = seL4_Fault_t {
-    words: [0; seL4_Fault_t::WIDTH],
+pub static mut current_fault: seL4_Fault = seL4_Fault {
+    0: Bitfield { arr: [0; 2usize] },
 };
 
 #[no_mangle]

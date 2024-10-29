@@ -11,14 +11,13 @@ use sel4_common::sel4_config::{
     tcbCTable, tcbVTable,
 };
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
-use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, cap_thread_cap};
+use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, cap_thread_cap, notification};
 use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_common::BIT;
 #[cfg(target_arch = "aarch64")]
 use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::interface::cte_t;
-use sel4_ipc::notification_t;
 use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
 
 use crate::{
@@ -619,7 +618,7 @@ fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let ntfn = convert_to_mut_type_ref::<notification_t>(ntfn_cap.get_capNtfnPtr() as usize);
+    let ntfn = convert_to_mut_type_ref::<notification>(ntfn_cap.get_capNtfnPtr() as usize);
 
     if ntfn_cap.get_capNtfnCanReceive() == 0 {
         debug!("TCB BindNotification: Insufficient access rights");
@@ -629,7 +628,7 @@ fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    if ntfn.get_queue_head() != 0 || ntfn.get_queue_tail() != 0 {
+    if ntfn.get_ntfnQueue_head() != 0 || ntfn.get_ntfnQueue_tail() != 0 {
         debug!("TCB BindNotification: Notification cannot be bound.");
         unsafe {
             current_syscall_error._type = seL4_IllegalOperation;

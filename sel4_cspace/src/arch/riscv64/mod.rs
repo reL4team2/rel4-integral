@@ -1,6 +1,6 @@
 use sel4_common::{
     arch::maskVMRights,
-    cap_rights::seL4_CapRights_t,
+    shared_types_bf_gen::seL4_CapRights,
     structures::exception_t,
     structures_gen::{cap, cap_null_cap, cap_tag},
     utils::pageBitsForSize,
@@ -80,7 +80,7 @@ impl cte_t {
     }
 }
 
-pub fn arch_mask_cap_rights(rights: seL4_CapRights_t, capability: &cap) -> cap {
+pub fn arch_mask_cap_rights(rights: seL4_CapRights, capability: &cap) -> cap {
     if capability.get_tag() == cap_tag::cap_frame_cap {
         let mut vm_rights =
             vm_rights_from_word(cap::cap_frame_cap(capability).get_capFVMRights() as usize);

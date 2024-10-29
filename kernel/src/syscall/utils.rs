@@ -8,11 +8,11 @@ use crate::{
 };
 use log::debug;
 use sel4_common::arch::{maskVMRights, msgRegisterNum, ArchReg};
-use sel4_common::cap_rights::seL4_CapRights_t;
 use sel4_common::sel4_config::seL4_MinUntypedBits;
+use sel4_common::shared_types_bf_gen::seL4_CapRights;
 use sel4_common::structures_gen::{
     cap, cap_Splayed, cap_cnode_cap, cap_frame_cap, cap_tag, lookup_fault_depth_mismatch,
-    lookup_fault_invalid_root,
+    lookup_fault_invalid_root, notification,
 };
 use sel4_common::{
     sel4_config::*,
@@ -27,7 +27,7 @@ use sel4_common::{
 use sel4_cspace::arch::arch_mask_cap_rights;
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::interface::{cte_t, resolve_address_bits};
-use sel4_ipc::notification_t;
+use sel4_ipc::notification_func;
 use sel4_task::{get_currenct_thread, lookupSlot_ret_t, tcb_t};
 
 pub fn alignUp(baseValue: usize, alignment: usize) -> usize {
@@ -130,13 +130,13 @@ pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap_frame_cap) -> except
 }
 
 #[inline]
-pub fn do_bind_notification(tcb: &mut tcb_t, nftn: &mut notification_t) {
+pub fn do_bind_notification(tcb: &mut tcb_t, nftn: &mut notification) {
     nftn.bind_tcb(tcb);
     tcb.bind_notification(nftn.get_ptr());
 }
 
 #[inline]
-pub fn do_unbind_notification(tcb: &mut tcb_t, nftn: &mut notification_t) {
+pub fn do_unbind_notification(tcb: &mut tcb_t, nftn: &mut notification) {
     nftn.unbind_tcb();
     tcb.unbind_notification();
 }
@@ -145,7 +145,7 @@ pub fn do_unbind_notification(tcb: &mut tcb_t, nftn: &mut notification_t) {
 pub fn safe_unbind_notification(tcb: &mut tcb_t) {
     let nftn = tcb.tcbBoundNotification;
     if nftn != 0 {
-        do_unbind_notification(tcb, convert_to_mut_type_ref::<notification_t>(nftn))
+        do_unbind_notification(tcb, convert_to_mut_type_ref::<notification>(nftn))
     }
 }
 
@@ -238,7 +238,7 @@ pub fn ensureEmptySlot(slot: *mut cte_t) -> exception_t {
     unsafe { ensure_empty_slot(&*slot) }
 }
 
-pub fn mask_cap_rights(rights: seL4_CapRights_t, capability: &cap) -> cap {
+pub fn mask_cap_rights(rights: seL4_CapRights, capability: &cap) -> cap {
     if capability.isArchCap() {
         return arch_mask_cap_rights(rights, capability);
     }
@@ -246,20 +246,21 @@ pub fn mask_cap_rights(rights: seL4_CapRights_t, capability: &cap) -> cap {
         cap_Splayed::endpoint_cap(data) => {
             let capability_copy = &capability.clone();
             let new_cap = cap::cap_endpoint_cap(capability_copy);
-            new_cap.set_capCanSend(data.get_capCanSend() & rights.get_allow_write() as u64);
-            new_cap.set_capCanReceive(data.get_capCanReceive() & rights.get_allow_read() as u64);
-            new_cap.set_capCanGrant(data.get_capCanGrant() & rights.get_allow_grant() as u64);
+            new_cap.set_capCanSend(data.get_capCanSend() & rights.get_capAllowWrite() as u64);
+            new_cap.set_capCanReceive(data.get_capCanReceive() & rights.get_capAllowRead() as u64);
+            new_cap.set_capCanGrant(data.get_capCanGrant() & rights.get_capAllowGrant() as u64);
             new_cap.set_capCanGrantReply(
-                data.get_capCanGrantReply() & rights.get_allow_grant_reply() as u64,
+                data.get_capCanGrantReply() & rights.get_capAllowGrantReply() as u64,
             );
             capability_copy.clone()
         }
         cap_Splayed::notification_cap(data) => {
             let capability_copy = &capability.clone();
             let new_cap = cap::cap_notification_cap(capability_copy);
-            new_cap.set_capNtfnCanSend(data.get_capNtfnCanSend() & rights.get_allow_write() as u64);
+            new_cap
+                .set_capNtfnCanSend(data.get_capNtfnCanSend() & rights.get_capAllowWrite() as u64);
             new_cap.set_capNtfnCanReceive(
-                data.get_capNtfnCanReceive() & rights.get_allow_read() as u64,
+                data.get_capNtfnCanReceive() & rights.get_capAllowRead() as u64,
             );
             capability_copy.clone()
         }
@@ -267,7 +268,7 @@ pub fn mask_cap_rights(rights: seL4_CapRights_t, capability: &cap) -> cap {
             let capability_copy = &capability.clone();
             let new_cap = cap::cap_reply_cap(capability_copy);
             new_cap.set_capReplyCanGrant(
-                data.get_capReplyCanGrant() & rights.get_allow_grant() as u64,
+                data.get_capReplyCanGrant() & rights.get_capAllowGrant() as u64,
             );
             capability_copy.clone()
         }

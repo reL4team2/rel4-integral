@@ -1,5 +1,6 @@
 use log::debug;
-use sel4_common::cap_rights::seL4_CapRights_t;
+use sel4_common::sel4_bitfield_types::Bitfield;
+use sel4_common::shared_types_bf_gen::seL4_CapRights;
 use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_cnode_cap;
 use sel4_common::structures_gen::cap_tag;
@@ -114,7 +115,9 @@ fn decode_cnode_invoke_with_two_slot(
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let cap_right = seL4_CapRights_t::from_word(get_syscall_arg(4, buffer));
+            let cap_right = seL4_CapRights(Bitfield {
+                arr: [get_syscall_arg(4, buffer) as u64; 1],
+            });
             return invoke_cnode_copy(src_slot, dest_slot, cap_right);
         }
 
@@ -126,7 +129,9 @@ fn decode_cnode_invoke_with_two_slot(
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let cap_right = seL4_CapRights_t::from_word(get_syscall_arg(4, buffer));
+            let cap_right = seL4_CapRights(Bitfield {
+                arr: [get_syscall_arg(4, buffer) as u64; 1],
+            });
             let cap_data = get_syscall_arg(5, buffer);
             return invoke_cnode_mint(src_slot, dest_slot, cap_right, cap_data);
         }

@@ -5,12 +5,12 @@ use crate::kernel::boot::current_lookup_fault;
 use crate::syscall::safe_unbind_notification;
 use sel4_common::sel4_config::{tcbCNodeEntries, tcbCTable, tcbVTable};
 use sel4_common::structures::exception_t;
-use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag};
+use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, endpoint, notification};
 use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::compatibility::{ZombieType_ZombieTCB, Zombie_new};
 use sel4_cspace::interface::finaliseCap_ret;
-use sel4_ipc::{endpoint_t, notification_t, Transfer};
+use sel4_ipc::{endpoint_func, notification_func, Transfer};
 use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;
@@ -176,7 +176,7 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
         cap_tag::cap_endpoint_cap => {
             if _final {
                 // cancelAllIPC(cap.get_ep_ptr() as *mut endpoint_t);
-                convert_to_mut_type_ref::<endpoint_t>(
+                convert_to_mut_type_ref::<endpoint>(
                     cap::cap_endpoint_cap(capability).get_capEPPtr() as usize,
                 )
                 .cancel_all_ipc()
@@ -187,7 +187,7 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
         }
         cap_tag::cap_notification_cap => {
             if _final {
-                let ntfn = convert_to_mut_type_ref::<notification_t>(
+                let ntfn = convert_to_mut_type_ref::<notification>(
                     cap::cap_notification_cap(capability).get_capNtfnPtr() as usize,
                 );
                 ntfn.safe_unbind_tcb();

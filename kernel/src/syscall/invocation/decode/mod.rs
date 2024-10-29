@@ -9,7 +9,7 @@ mod decode_untyped_invocation;
 use core::intrinsics::unlikely;
 
 use log::debug;
-use sel4_common::structures_gen::{cap, cap_Splayed};
+use sel4_common::structures_gen::{cap, cap_Splayed, endpoint, notification};
 use sel4_common::{
     arch::MessageLabel,
     sel4_config::seL4_InvalidCapability,
@@ -17,7 +17,7 @@ use sel4_common::{
     utils::convert_to_mut_type_ref,
 };
 use sel4_cspace::interface::cte_t;
-use sel4_ipc::{endpoint_t, notification_t, Transfer};
+use sel4_ipc::{endpoint_func, notification_func, Transfer};
 use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
 
 use crate::kernel::boot::current_syscall_error;
@@ -69,7 +69,7 @@ pub fn decode_invocation(
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            convert_to_mut_type_ref::<endpoint_t>(data.get_capEPPtr() as usize).send_ipc(
+            convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).send_ipc(
                 get_currenct_thread(),
                 block,
                 call,
@@ -93,7 +93,7 @@ pub fn decode_invocation(
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            convert_to_mut_type_ref::<notification_t>(data.get_capNtfnPtr() as usize)
+            convert_to_mut_type_ref::<notification>(data.get_capNtfnPtr() as usize)
                 .send_signal(data.get_capNtfnBadge() as usize);
             exception_t::EXCEPTION_NONE
         }

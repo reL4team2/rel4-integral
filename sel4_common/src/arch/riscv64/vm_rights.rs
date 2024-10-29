@@ -1,4 +1,4 @@
-use crate::cap_rights::seL4_CapRights_t;
+use crate::shared_types_bf_gen::seL4_CapRights;
 
 #[repr(usize)]
 #[derive(PartialEq, Eq)]
@@ -23,12 +23,12 @@ pub fn RISCVGetReadFromVMRights(vm_rights: &vm_rights_t) -> bool {
 ///
 /// Balance the rights program want and the rights pages have, decide which rights return to new alloced page.
 #[no_mangle]
-pub fn maskVMRights(vm_rights: vm_rights_t, rights: seL4_CapRights_t) -> vm_rights_t {
-    if vm_rights == vm_rights_t::VMReadOnly && rights.get_allow_read() != 0 {
+pub fn maskVMRights(vm_rights: vm_rights_t, rights: seL4_CapRights) -> vm_rights_t {
+    if vm_rights == vm_rights_t::VMReadOnly && rights.get_capAllowRead() != 0 {
         return vm_rights_t::VMReadOnly;
     }
-    if vm_rights == vm_rights_t::VMReadWrite && rights.get_allow_read() != 0 {
-        return if rights.get_allow_write() == 0 {
+    if vm_rights == vm_rights_t::VMReadWrite && rights.get_capAllowRead() != 0 {
+        return if rights.get_capAllowWrite() == 0 {
             vm_rights_t::VMReadOnly
         } else {
             vm_rights_t::VMReadWrite

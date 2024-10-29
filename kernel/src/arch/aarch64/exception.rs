@@ -15,11 +15,13 @@ use aarch64_cpu::registers::Readable;
 use aarch64_cpu::registers::TTBR0_EL1;
 use log::debug;
 use sel4_common::arch::ArchReg::*;
-use sel4_common::fault::seL4_Fault_t;
 use sel4_common::print;
 use sel4_common::sel4_config::seL4_MsgMaxLength;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::cap_tag;
+use sel4_common::structures_gen::seL4_Fault_UnknownSyscall;
+use sel4_common::structures_gen::seL4_Fault_UserException;
+use sel4_common::structures_gen::seL4_Fault_VMFault;
 use sel4_common::utils::global_read;
 use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedule};
 
@@ -85,7 +87,7 @@ pub fn handleUnknownSyscall(w: isize) -> exception_t {
         return exception_t::EXCEPTION_NONE;
     }
     unsafe {
-        current_fault = seL4_Fault_t::new_unknown_syscall_fault(w as usize);
+        current_fault = seL4_Fault_UnknownSyscall::new(w as u64).unsplay();
         handle_fault(get_currenct_thread());
     }
     schedule();
@@ -96,7 +98,7 @@ pub fn handleUnknownSyscall(w: isize) -> exception_t {
 #[no_mangle]
 pub fn handleUserLevelFault(w_a: usize, w_b: usize) -> exception_t {
     unsafe {
-        current_fault = seL4_Fault_t::new_user_exeception(w_a, w_b);
+        current_fault = seL4_Fault_UserException::new(w_a as u64, w_b as u64).unsplay();
         handle_fault(get_currenct_thread());
     }
     schedule();
@@ -159,16 +161,19 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
             let fault = get_esr();
             log::debug!("fault addr: {:#x} esr: {:#x}", addr, fault);
             unsafe {
-                current_fault = seL4_Fault_t::new_vm_fault(addr, fault, 0);
+                current_fault = seL4_Fault_VMFault::new(addr as u64, fault as u64, 0)
+                    .unsplay()
+                    .clone();
             }
-            log::debug!("current_fault: {:#x?}", global_read!(current_fault));
+            let current_fault_cpy = unsafe { current_fault.clone() };
+            log::debug!("current_fault: {:#x?}", global_read!(current_fault_cpy));
             exception_t::EXCEPTION_FAULT
         }
         ARMPrefetchAbort => {
             let pc = get_currenct_thread().tcbArch.get_register(FaultIP);
             let fault = get_esr();
             unsafe {
-                current_fault = seL4_Fault_t::new_vm_fault(pc, fault, 1);
+                current_fault = seL4_Fault_VMFault::new(pc as u64, fault as u64, 1).unsplay();
             }
 
             log::debug!("ttbr0_el1: {:#x?}", TTBR0_EL1.get());

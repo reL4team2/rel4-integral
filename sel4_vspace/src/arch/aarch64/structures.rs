@@ -2,8 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use crate::{vm_attributes_t, PTE};
 use sel4_common::{
-    plus_define_bitfield, sel4_config::asidLowBits, structures_gen::asid_map,
-    utils::convert_to_mut_type_ref, BIT,
+    sel4_config::asidLowBits, structures_gen::asid_map, utils::convert_to_mut_type_ref, BIT,
 };
 
 use super::machine::mair_types;
@@ -44,31 +43,6 @@ pub struct lookupPTSlot_ret_t {
     pub ptBitsLeft: usize,
 }
 
-// #[repr(C)]
-// pub struct lookupPGDSlot_ret_t {
-//     pub status: exception_t,
-//     pub pgdSlot: *mut PGDE, // *mut pgde_t
-// }
-
-// #[repr(C)]
-// pub struct lookupPDSlot_ret_t {
-//     pub status: exception_t,
-//     pub pdSlot: *mut PDE, // *mut pde_t
-// }
-
-// #[repr(C)]
-// pub struct lookupPUDSlot_ret_t {
-//     pub status: exception_t,
-//     pub pudSlot: *mut PUDE, // *mut pude_t
-// }
-
-// #[repr(C)]
-// pub struct lookupFrame_ret_t {
-//     pub frameBase: usize,
-//     pub frameSize: usize,
-//     pub valid: bool,
-// }
-
 /// 用于存放`asid`对应的根页表基址，是一个`usize`的数组，其中`asid`按低`asidLowBits`位进行索引
 #[repr(C)]
 #[derive(Clone, Debug)]
@@ -102,28 +76,4 @@ pub(super) fn asid_pool_from_addr(addr: usize) -> &'static mut asid_pool_t {
     // convert_to_mut_slice::<>(addr, BIT!(asidLowBits))
     assert_ne!(addr, 0);
     convert_to_mut_type_ref(addr)
-}
-
-plus_define_bitfield! {
-    pgde_t, 1, 0, 0, 0 => {
-        new_pud, 0 => {
-            pud_base_address, get_pud_base_address, set_pud_base_address, 0, 12, 36, 0, false
-        }
-    }
-}
-
-plus_define_bitfield! {
-    pude_t, 1, 0, 0, 0 => {
-        new_pd, 0 => {
-            pud_base_address, get_pud_base_address, set_pud_base_address, 0, 12, 36, 0, false
-        }
-    }
-}
-
-plus_define_bitfield! {
-    pde_t, 1, 0, 0, 0 => {
-        new_small, 0 => {
-            pud_base_address, get_pud_base_address, set_pud_base_address, 0, 12, 36, 0, false
-        }
-    }
 }

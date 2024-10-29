@@ -10,46 +10,6 @@ use sel4_task::get_currenct_thread;
 use sel4_vspace::asid_t;
 use sel4_vspace::setCurrentUserVSpaceRoot;
 use sel4_vspace::ttbr_new;
-use sel4_vspace::{vptr_t, PTE};
-
-#[repr(C)]
-struct lookupPGDSlot_ret_t {
-    status: exception_t,
-    pgdSlot: usize, // *mut pgde_t
-}
-
-#[repr(C)]
-struct lookupPDSlot_ret_t {
-    status: exception_t,
-    pdSlot: usize, // *mut pde_t
-}
-
-#[repr(C)]
-struct lookupPUDSlot_ret_t {
-    status: exception_t,
-    pudSlot: usize, // *mut pude_t
-}
-
-#[no_mangle]
-extern "C" fn lookupPGDSlot(_vspace: *mut PTE, _vptr: vptr_t) -> lookupPGDSlot_ret_t {
-    // which is realized under sel4_vspace/src/arch/aarch64/pte.rs as a member function of PTE in this commit
-    // ZhiyuanSue
-    unimplemented!("lookupPGDSlot")
-}
-
-#[no_mangle]
-extern "C" fn lookupPDSlot(_vspace: *mut PTE, _vptr: vptr_t) -> lookupPDSlot_ret_t {
-    // which is realized under sel4_vspace/src/arch/aarch64/pte.rs as a member function of PTE in this commit
-    // ZhiyuanSue
-    unimplemented!("lookupPDSlot")
-}
-
-#[no_mangle]
-extern "C" fn lookupPUDSlot(_vspace: *mut PTE, _vptr: vptr_t) -> lookupPUDSlot_ret_t {
-    // which is realized under sel4_vspace/src/arch/aarch64/pte.rs as a member function of PTE in this commit
-    // ZhiyuanSue
-    unimplemented!("lookupPUDSlot")
-}
 
 #[no_mangle]
 // typedef word_t cptr_t;

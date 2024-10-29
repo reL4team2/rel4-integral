@@ -10,7 +10,10 @@ use core::intrinsics::unlikely;
 
 use log::debug;
 use sel4_common::arch::{msgRegisterNum, ArchReg};
-use sel4_common::{fault::seL4_Fault_t, message_info::seL4_MessageInfo_t, structures::exception_t};
+use sel4_common::message_info::seL4_MessageInfo_func;
+use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
+use sel4_common::structures::exception_t;
+use sel4_common::structures_gen::seL4_Fault_CapFault;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use crate::kernel::boot::current_fault;
@@ -21,14 +24,13 @@ use crate::syscall::{handle_fault, lookup_extra_caps_with_buf};
 #[no_mangle]
 pub fn handleInvocation(isCall: bool, isBlocking: bool) -> exception_t {
     let thread = get_currenct_thread();
-    let info =
-        seL4_MessageInfo_t::from_word_security(thread.tcbArch.get_register(ArchReg::MsgInfo));
+    let info = seL4_MessageInfo::from_word_security(thread.tcbArch.get_register(ArchReg::MsgInfo));
     let cptr = thread.tcbArch.get_register(ArchReg::Cap);
     let lu_ret = thread.lookup_slot(cptr);
     if unlikely(lu_ret.status != exception_t::EXCEPTION_NONE) {
         debug!("Invocation of invalid cap {:#x}.", cptr);
         unsafe {
-            current_fault = seL4_Fault_t::new_cap_fault(cptr, 0);
+            current_fault = seL4_Fault_CapFault::new(cptr as u64, 0).unsplay();
         }
         if isBlocking {
             handle_fault(thread);
@@ -46,14 +48,14 @@ pub fn handleInvocation(isCall: bool, isBlocking: bool) -> exception_t {
         return exception_t::EXCEPTION_NONE;
     }
 
-    let mut length = info.get_length();
+    let mut length = info.get_length() as usize;
     if unlikely(length > msgRegisterNum && buffer.is_none()) {
         length = msgRegisterNum;
     }
 
     let capability = unsafe { (*(lu_ret.slot)).capability.clone() };
     let status = decode_invocation(
-        info.get_label(),
+        info.get_message_label(),
         length,
         unsafe { &mut *lu_ret.slot },
         &capability,

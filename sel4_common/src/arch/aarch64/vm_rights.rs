@@ -1,4 +1,4 @@
-use crate::cap_rights::seL4_CapRights_t;
+use crate::shared_types_bf_gen::seL4_CapRights;
 
 #[repr(usize)]
 #[derive(PartialEq, Eq)]
@@ -8,12 +8,12 @@ pub enum vm_rights_t {
     VMReadOnly = 3,
 }
 
-pub fn maskVMRights(vm_rights: vm_rights_t, rights: seL4_CapRights_t) -> vm_rights_t {
-    if vm_rights == vm_rights_t::VMReadOnly && rights.get_allow_read() != 0 {
+pub fn maskVMRights(vm_rights: vm_rights_t, rights: seL4_CapRights) -> vm_rights_t {
+    if vm_rights == vm_rights_t::VMReadOnly && rights.get_capAllowRead() != 0 {
         return vm_rights_t::VMReadOnly;
     }
-    if vm_rights == vm_rights_t::VMReadWrite && rights.get_allow_read() != 0 {
-        if rights.get_allow_write() != 0 {
+    if vm_rights == vm_rights_t::VMReadWrite && rights.get_capAllowRead() != 0 {
+        if rights.get_capAllowWrite() != 0 {
             return vm_rights_t::VMReadWrite;
         } else {
             return vm_rights_t::VMReadOnly;
