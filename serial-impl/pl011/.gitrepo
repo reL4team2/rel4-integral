@@ -7,6 +7,6 @@
 	remote = git@github.com:rel4team/serial-impl-pl011.git
 	branch = mi_dev
 	commit = 83e073e19e74420a877b7b099e02c7667e6d6244
- 	parent = bc4f6a646eb657a810efe89159f5149d719f31f5
+ 	parent = 10585e14aa5f7f1881e98e6ae102d235d01cde37
 	method = merge
 	cmdver = 0.4.9
