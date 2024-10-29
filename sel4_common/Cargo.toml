@@ -9,5 +9,8 @@ log = "0.4.21"
 spin = { version = "0.9", features = ["use_ticket_mutex"] }
 driver-collect = { git = "https://github.com/rel4team/driver-collect.git", branch = "mi_dev"}
 
+[build-dependencies]
+rust_sel4_pbf_parser= { git = "https://github.com/ZhiyuanSue/rust_sel4_pbf_parser", branch = "mi_dev" }
+
 [features]
 ENABLE_SMP = []

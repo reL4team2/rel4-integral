@@ -1,13 +1,13 @@
 use core::intrinsics::unlikely;
 
 use log::debug;
+use sel4_common::structures_gen::{cap, cap_tag};
 use sel4_common::{
     arch::MessageLabel,
     sel4_config::*,
     structures::{exception_t, seL4_IPCBuffer},
     utils::convert_to_mut_type_ref,
 };
-use sel4_cspace::interface::CapTag;
 use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
 
 use crate::{
@@ -49,8 +49,8 @@ pub fn decode_domain_invocation(
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let thread_cap = get_extra_cap_by_index(0).unwrap().cap;
-    if unlikely(thread_cap.get_cap_type() != CapTag::CapThreadCap) {
+    let thread_cap = cap::cap_thread_cap(&get_extra_cap_by_index(0).unwrap().capability);
+    if unlikely(thread_cap.clone().unsplay().get_tag() != cap_tag::cap_thread_cap) {
         debug!("Domain Configure: thread cap required.");
         unsafe {
             current_syscall_error._type = seL4_InvalidArgument;
@@ -60,6 +60,6 @@ pub fn decode_domain_invocation(
     }
 
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    convert_to_mut_type_ref::<tcb_t>(thread_cap.get_tcb_ptr()).set_domain(domain);
+    convert_to_mut_type_ref::<tcb_t>(thread_cap.get_capTCBPtr() as usize).set_domain(domain);
     exception_t::EXCEPTION_NONE
 }

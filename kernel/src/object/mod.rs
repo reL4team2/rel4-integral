@@ -2,7 +2,8 @@ use crate::structures::lookupCapAndSlot_ret_t;
 use crate::syscall::handle_fault;
 use sel4_common::arch::MessageLabel;
 use sel4_common::structures::exception_t;
-use sel4_cspace::interface::{cap_t, cte_t};
+use sel4_common::structures_gen::{cap, cap_null_cap};
+use sel4_cspace::interface::cte_t;
 use sel4_task::tcb_t;
 
 #[no_mangle]
@@ -11,7 +12,7 @@ pub fn decodeRISCVMMUInvocation(
     _length: usize,
     _cptr: usize,
     _cte: *mut cte_t,
-    _cap: &mut cap_t,
+    _cap: &mut cap,
     _call: bool,
     _buffer: *mut usize,
 ) -> exception_t {
@@ -48,7 +49,7 @@ pub extern "C" fn lookupCapAndSlot(thread: *mut tcb_t, cPtr: usize) -> lookupCap
         let ret = lookupCapAndSlot_ret_t {
             status: lu_ret.status,
             slot: 0 as *mut cte_t,
-            cap: cap_t::new_null_cap(),
+            capability: cap_null_cap::new().unsplay(),
         };
         return ret;
     }
@@ -56,7 +57,7 @@ pub extern "C" fn lookupCapAndSlot(thread: *mut tcb_t, cPtr: usize) -> lookupCap
         let ret = lookupCapAndSlot_ret_t {
             status: exception_t::EXCEPTION_NONE,
             slot: lu_ret.slot,
-            cap: (*lu_ret.slot).cap.clone(),
+            capability: (*lu_ret.slot).capability.clone(),
         };
         ret
     }

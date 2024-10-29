@@ -1,6 +1,9 @@
 use log::debug;
 use sel4_common::cap_rights::seL4_CapRights_t;
-use sel4_common::fault::lookup_fault_t;
+use sel4_common::structures_gen::cap;
+use sel4_common::structures_gen::cap_cnode_cap;
+use sel4_common::structures_gen::cap_tag;
+use sel4_common::structures_gen::lookup_fault_missing_capability;
 use sel4_common::{
     arch::MessageLabel,
     sel4_config::{
@@ -9,7 +12,7 @@ use sel4_common::{
     structures::{exception_t, seL4_IPCBuffer},
     utils::convert_to_mut_type_ref,
 };
-use sel4_cspace::interface::{cap_t, cte_t, CapTag};
+use sel4_cspace::interface::cte_t;
 
 use crate::{
     kernel::boot::{current_lookup_fault, current_syscall_error, get_extra_cap_by_index},
@@ -19,7 +22,7 @@ use crate::{
 pub fn decode_cnode_invocation(
     invLabel: MessageLabel,
     length: usize,
-    cap: &cap_t,
+    capability: &cap_cnode_cap,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
     if invLabel < MessageLabel::CNodeRevoke || invLabel > MessageLabel::CNodeSaveCaller {
@@ -39,7 +42,7 @@ pub fn decode_cnode_invocation(
     }
     let index = get_syscall_arg(0, buffer);
     let w_bits = get_syscall_arg(1, buffer);
-    let lu_ret = lookup_slot_for_cnode_op(false, cap, index, w_bits);
+    let lu_ret = lookup_slot_for_cnode_op(false, capability, index, w_bits);
 
     if lu_ret.status != exception_t::EXCEPTION_NONE {
         debug!("CNode operation: Target slot invalid.");
@@ -78,8 +81,8 @@ fn decode_cnode_invoke_with_two_slot(
 
     let src_index = get_syscall_arg(2, buffer);
     let src_depth = get_syscall_arg(3, buffer);
-    let src_root = get_extra_cap_by_index(0).unwrap().cap;
-    if dest_slot.cap.get_cap_type() != CapTag::CapNullCap {
+    let src_root = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
+    if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
         debug!("CNode Copy/Mint/Move/Mutate: Destination not empty.");
         unsafe {
             current_syscall_error._type = seL4_DeleteFirst;
@@ -93,11 +96,11 @@ fn decode_cnode_invoke_with_two_slot(
         return lu_ret.status;
     }
     let src_slot = convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize);
-    if src_slot.cap.get_cap_type() == CapTag::CapNullCap {
+    if src_slot.capability.get_tag() == cap_tag::cap_null_cap {
         unsafe {
             current_syscall_error._type = seL4_FailedLookup;
             current_syscall_error.failedLookupWasSource = 1;
-            current_lookup_fault = lookup_fault_t::new_missing_cap(src_depth);
+            current_lookup_fault = lookup_fault_missing_capability::new(src_depth as u64).unsplay();
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -169,8 +172,8 @@ fn decode_cnode_rotate(
     let src_idnex = get_syscall_arg(6, buffer);
     let src_depth = get_syscall_arg(7, buffer);
 
-    let pivot_root = get_extra_cap_by_index(0).unwrap().cap;
-    let src_root = get_extra_cap_by_index(1).unwrap().cap;
+    let pivot_root = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
+    let src_root = cap::cap_cnode_cap(&get_extra_cap_by_index(1).unwrap().capability);
 
     let lu_ret = lookup_slot_for_cnode_op(true, &src_root, src_idnex, src_depth);
     if lu_ret.status != exception_t::EXCEPTION_NONE {
@@ -192,7 +195,7 @@ fn decode_cnode_rotate(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if src_slot.get_ptr() != dest_slot.get_ptr() {
-        if dest_slot.cap.get_cap_type() != CapTag::CapNullCap {
+        if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
             unsafe {
                 current_syscall_error._type = seL4_DeleteFirst;
             }
@@ -200,20 +203,21 @@ fn decode_cnode_rotate(
         }
     }
 
-    if src_slot.cap.get_cap_type() == CapTag::CapNullCap {
+    if src_slot.capability.get_tag() == cap_tag::cap_null_cap {
         unsafe {
             current_syscall_error._type = seL4_FailedLookup;
             current_syscall_error.failedLookupWasSource = 1;
-            current_lookup_fault = lookup_fault_t::new_missing_cap(src_depth);
+            current_lookup_fault = lookup_fault_missing_capability::new(src_depth as u64).unsplay();
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    if pivot_slot.cap.get_cap_type() == CapTag::CapNullCap {
+    if pivot_slot.capability.get_tag() == cap_tag::cap_null_cap {
         unsafe {
             current_syscall_error._type = seL4_FailedLookup;
             current_syscall_error.failedLookupWasSource = 0;
-            current_lookup_fault = lookup_fault_t::new_missing_cap(pivot_depth);
+            current_lookup_fault =
+                lookup_fault_missing_capability::new(pivot_depth as u64).unsplay();
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }

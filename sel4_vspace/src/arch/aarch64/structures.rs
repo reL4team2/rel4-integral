@@ -2,7 +2,8 @@ use core::ops::{Deref, DerefMut};
 
 use crate::{vm_attributes_t, PTE};
 use sel4_common::{
-    plus_define_bitfield, sel4_config::asidLowBits, utils::convert_to_mut_type_ref, BIT,
+    plus_define_bitfield, sel4_config::asidLowBits, structures_gen::asid_map,
+    utils::convert_to_mut_type_ref, BIT,
 };
 
 use super::machine::mair_types;
@@ -70,8 +71,8 @@ pub struct lookupPTSlot_ret_t {
 
 /// 用于存放`asid`对应的根页表基址，是一个`usize`的数组，其中`asid`按低`asidLowBits`位进行索引
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct asid_pool_t([asid_map_t; BIT!(asidLowBits)]);
+#[derive(Clone, Debug)]
+pub struct asid_pool_t([asid_map; BIT!(asidLowBits)]);
 
 /// Dereference for asid_pool_t.
 ///
@@ -86,7 +87,7 @@ impl DerefMut for asid_pool_t {
 ///
 /// Allow directly accessing values
 impl Deref for asid_pool_t {
-    type Target = [asid_map_t; BIT!(asidLowBits)];
+    type Target = [asid_map; BIT!(asidLowBits)];
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -123,15 +124,6 @@ plus_define_bitfield! {
     pde_t, 1, 0, 0, 0 => {
         new_small, 0 => {
             pud_base_address, get_pud_base_address, set_pud_base_address, 0, 12, 36, 0, false
-        }
-    }
-}
-
-plus_define_bitfield! {
-    asid_map_t, 1, 0, 0, 1 => {
-        new_none, 0 => {},
-        new_vspace, 1 => {
-            vspace_root , get_vspace_root , set_vspace_root , 0, 12, 36, 12 ,true
         }
     }
 }

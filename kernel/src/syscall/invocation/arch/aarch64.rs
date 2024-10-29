@@ -1,8 +1,9 @@
+use sel4_common::structures_gen::cap;
 use sel4_common::{
     arch::{vm_rights_t, ObjectType},
     sel4_config::{asidInvalid, ARM_Huge_Page, ARM_Large_Page, ARM_Small_Page},
+    structures_gen::{cap_frame_cap, cap_page_table_cap, cap_vspace_cap},
 };
-use sel4_cspace::arch::cap_t;
 use sel4_vspace::pptr_t;
 
 pub fn arch_create_object(
@@ -10,35 +11,40 @@ pub fn arch_create_object(
     region_base: pptr_t,
     user_size: usize,
     device_mem: usize,
-) -> cap_t {
+) -> cap {
     match obj_type {
-        ObjectType::seL4_ARM_SmallPageObject => cap_t::new_frame_cap(
-            device_mem,
-            vm_rights_t::VMReadWrite as _,
+        ObjectType::seL4_ARM_SmallPageObject => cap_frame_cap::new(
+            asidInvalid as u64,
+            region_base as u64,
+            ARM_Small_Page as u64,
             0,
-            ARM_Small_Page,
-            asidInvalid,
-            region_base,
-        ),
-        ObjectType::seL4_ARM_LargePageObject => cap_t::new_frame_cap(
-            device_mem,
             vm_rights_t::VMReadWrite as _,
+            device_mem as u64,
+        )
+        .unsplay(),
+        ObjectType::seL4_ARM_LargePageObject => cap_frame_cap::new(
+            asidInvalid as u64,
+            region_base as u64,
+            ARM_Large_Page as u64,
             0,
-            ARM_Large_Page,
-            asidInvalid,
-            region_base,
-        ),
-        ObjectType::seL4_ARM_HugePageObject => cap_t::new_frame_cap(
-            device_mem,
             vm_rights_t::VMReadWrite as _,
+            device_mem as u64,
+        )
+        .unsplay(),
+        ObjectType::seL4_ARM_HugePageObject => cap_frame_cap::new(
+            asidInvalid as u64,
+            region_base as u64,
+            ARM_Huge_Page as u64,
             0,
-            ARM_Huge_Page,
-            asidInvalid,
-            region_base,
-        ),
-        ObjectType::seL4_ARM_VSpaceObject => cap_t::new_vspace_cap(asidInvalid, region_base, 0),
+            vm_rights_t::VMReadWrite as _,
+            device_mem as u64,
+        )
+        .unsplay(),
+        ObjectType::seL4_ARM_VSpaceObject => {
+            cap_vspace_cap::new(asidInvalid as u64, region_base as u64, 0).unsplay()
+        }
         ObjectType::seL4_ARM_PageTableObject => {
-            cap_t::new_page_table_cap(asidInvalid, region_base, 0, 0)
+            cap_page_table_cap::new(asidInvalid as u64, region_base as u64, 0, 0).unsplay()
         }
         _ => {
             unimplemented!(

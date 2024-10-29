@@ -5,7 +5,7 @@ pub mod utils;
 use super::arch::handleUnknownSyscall;
 use core::intrinsics::unlikely;
 use sel4_common::arch::ArchReg;
-use sel4_common::fault::{lookup_fault_t, seL4_Fault_t, FaultType};
+use sel4_common::fault::{seL4_Fault_t, FaultType};
 // use sel4_common::ffi_call;
 use sel4_common::sel4_config::tcbCaller;
 
@@ -26,8 +26,8 @@ pub const SysDebugSnapshot: isize = -13;
 pub const SysDebugNameThread: isize = -14;
 pub const SysGetClock: isize = -30;
 use sel4_common::structures::exception_t;
+use sel4_common::structures_gen::{cap, cap_Splayed, cap_tag, lookup_fault_missing_capability};
 use sel4_common::utils::{convert_to_mut_type_ref, ptr_to_mut};
-use sel4_cspace::interface::CapTag;
 use sel4_ipc::{endpoint_t, notification_t, Transfer};
 use sel4_task::{
     activateThread, get_currenct_thread, rescheduleRequired, schedule, set_thread_state, tcb_t,
@@ -63,7 +63,6 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
     match syscall {
         SysSend => {
             let ret = handleInvocation(false, true);
-
             if unlikely(ret != exception_t::EXCEPTION_NONE) {
                 let irq = getActiveIRQ();
                 if irq != irqInvalid {
@@ -107,7 +106,7 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
 }
 
 fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
-    let origin_lookup_fault = unsafe { current_lookup_fault };
+    let origin_lookup_fault = unsafe { current_lookup_fault.clone() };
     let lu_ret = thread.lookup_slot(thread.tcbFaultHandler);
     if lu_ret.status != exception_t::EXCEPTION_NONE {
         unsafe {
@@ -115,26 +114,26 @@ fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
         }
         return exception_t::EXCEPTION_FAULT;
     }
-    let handler_cap = &mut ptr_to_mut(lu_ret.slot).cap;
-    if handler_cap.get_cap_type() == CapTag::CapEndpointCap
-        && (handler_cap.get_ep_can_grant() != 0 || handler_cap.get_ep_can_grant_reply() != 0)
+    let handler_cap = cap::cap_endpoint_cap(&ptr_to_mut(lu_ret.slot).capability);
+    if handler_cap.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
+        && (handler_cap.get_capCanGrant() != 0 || handler_cap.get_capCanGrantReply() != 0)
     {
         thread.tcbFault = unsafe { current_fault };
         if thread.tcbFault.get_fault_type() == FaultType::CapFault {
             thread.tcbLookupFailure = origin_lookup_fault;
         }
-        convert_to_mut_type_ref::<endpoint_t>(handler_cap.get_ep_ptr()).send_ipc(
+        convert_to_mut_type_ref::<endpoint_t>(handler_cap.get_capEPPtr() as usize).send_ipc(
             thread,
             true,
             true,
-            handler_cap.get_ep_can_grant() != 0,
-            handler_cap.get_ep_badge(),
+            handler_cap.get_capCanGrant() != 0,
+            handler_cap.get_capEPBadge() as usize,
             true,
         );
     } else {
         unsafe {
             current_fault = seL4_Fault_t::new_cap_fault(thread.tcbFaultHandler, 0);
-            current_lookup_fault = lookup_fault_t::new_missing_cap(0);
+            current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
         }
         return exception_t::EXCEPTION_FAULT;
     }
@@ -151,13 +150,13 @@ pub fn handle_fault(thread: &mut tcb_t) {
 fn handle_reply() {
     let current_thread = get_currenct_thread();
     let caller_slot = current_thread.get_cspace_mut_ref(tcbCaller);
-    let caller_cap = &caller_slot.cap;
-    if caller_cap.get_cap_type() == CapTag::CapReplyCap {
-        if caller_cap.get_reply_master() != 0 {
+    let caller_cap = cap::cap_reply_cap(&caller_slot.capability);
+    if caller_cap.clone().unsplay().get_tag() == cap_tag::cap_reply_cap {
+        if caller_cap.get_capReplyMaster() != 0 {
             return;
         }
-        let caller = convert_to_mut_type_ref::<tcb_t>(caller_cap.get_reply_tcb_ptr());
-        current_thread.do_reply(caller, caller_slot, caller_cap.get_reply_can_grant() != 0);
+        let caller = convert_to_mut_type_ref::<tcb_t>(caller_cap.get_capTCBPtr() as usize);
+        current_thread.do_reply(caller, caller_slot, caller_cap.get_capReplyCanGrant() != 0);
     }
 }
 
@@ -171,33 +170,33 @@ fn handle_recv(block: bool) {
         }
         return handle_fault(current_thread);
     }
-    let ipc_cap = unsafe { (*lu_ret.slot).cap };
-    match ipc_cap.get_cap_type() {
-        CapTag::CapEndpointCap => {
-            if unlikely(ipc_cap.get_ep_can_receive() == 0) {
+    let ipc_cap = unsafe { (*lu_ret.slot).capability.clone() };
+    match ipc_cap.splay() {
+        cap_Splayed::endpoint_cap(data) => {
+            if unlikely(data.get_capCanReceive() == 0) {
                 unsafe {
-                    current_lookup_fault = lookup_fault_t::new_missing_cap(0);
+                    current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
                     current_fault = seL4_Fault_t::new_cap_fault(ep_cptr, 1);
                 }
                 return handle_fault(current_thread);
             }
             current_thread.delete_caller_cap();
-            convert_to_mut_type_ref::<endpoint_t>(ipc_cap.get_ep_ptr()).receive_ipc(
+            convert_to_mut_type_ref::<endpoint_t>(data.get_capEPPtr() as usize).receive_ipc(
                 current_thread,
                 block,
-                ipc_cap.get_ep_can_grant() != 0,
+                data.get_capCanGrant() != 0,
             );
         }
 
-        CapTag::CapNotificationCap => {
-            let ntfn = convert_to_mut_type_ref::<notification_t>(ipc_cap.get_nf_ptr());
+        cap_Splayed::notification_cap(data) => {
+            let ntfn = convert_to_mut_type_ref::<notification_t>(data.get_capNtfnPtr() as usize);
             let bound_tcb_ptr = ntfn.get_bound_tcb();
             if unlikely(
-                ipc_cap.get_nf_can_receive() == 0
+                data.get_capNtfnCanReceive() == 0
                     || (bound_tcb_ptr != 0 && bound_tcb_ptr != current_thread.get_ptr()),
             ) {
                 unsafe {
-                    current_lookup_fault = lookup_fault_t::new_missing_cap(0);
+                    current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
                     current_fault = seL4_Fault_t::new_cap_fault(ep_cptr, 1);
                 }
                 return handle_fault(current_thread);
@@ -206,7 +205,7 @@ fn handle_recv(block: bool) {
         }
         _ => {
             unsafe {
-                current_lookup_fault = lookup_fault_t::new_missing_cap(0);
+                current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
                 current_fault = seL4_Fault_t::new_cap_fault(ep_cptr, 1);
             }
             return handle_fault(current_thread);

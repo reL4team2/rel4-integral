@@ -1,13 +1,18 @@
 use crate::BIT;
 use log::debug;
-use sel4_common::fault::lookup_fault_t;
+use sel4_common::structures_gen::cap;
+use sel4_common::structures_gen::cap_cnode_cap;
+use sel4_common::structures_gen::cap_null_cap;
+use sel4_common::structures_gen::cap_tag;
+use sel4_common::structures_gen::cap_untyped_cap;
+use sel4_common::structures_gen::lookup_fault_missing_capability;
 use sel4_common::{
     arch::{MessageLabel, ObjectType},
     sel4_config::*,
     structures::*,
     utils::convert_to_mut_type_ref,
 };
-use sel4_cspace::interface::{cap_t, cte_t, CapTag};
+use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use crate::syscall::{alignUp, FREE_INDEX_TO_OFFSET, GET_FREE_REF};
@@ -24,7 +29,7 @@ pub fn decode_untyed_invocation(
     inv_label: MessageLabel,
     length: usize,
     slot: &mut cte_t,
-    cap: &cap_t,
+    capability: &cap_untyped_cap,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
     if inv_label != MessageLabel::UntypedRetype {
@@ -79,7 +84,8 @@ pub fn decode_untyed_invocation(
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
-    let mut node_cap = cap_t::default();
+    let cap_null_new = &cap_null_cap::new().unsplay();
+    let mut node_cap = cap::cap_cnode_cap(cap_null_new);
     let status = get_target_cnode(node_index, node_depth, &mut node_cap);
     if status != exception_t::EXCEPTION_NONE {
         return status;
@@ -96,14 +102,13 @@ pub fn decode_untyed_invocation(
         unsafe {
             current_syscall_error._type = seL4_RevokeFirst;
         }
-        (cap.get_untyped_free_index(), false)
+        (capability.get_capFreeIndex() as usize, false)
     } else {
         (0, true)
     };
 
-    let free_ref = GET_FREE_REF(cap.get_untyped_ptr(), free_index);
-    let untyped_free_bytes = BIT!(cap.get_untyped_block_size()) - FREE_INDEX_TO_OFFSET(free_index);
-
+    let free_ref = GET_FREE_REF(capability.get_capPtr() as usize, free_index);
+    let untyped_free_bytes = BIT!(capability.get_capBlockSize()) - FREE_INDEX_TO_OFFSET(free_index);
     if (untyped_free_bytes >> obj_size) < node_window {
         debug!(
             "Untyped Retype: Insufficient memory({} * {} bytes needed, {} bytes available)",
@@ -122,7 +127,7 @@ pub fn decode_untyed_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let device_mem = cap.get_frame_is_device() != 0;
+    let device_mem = capability.get_capIsDevice() != 0;
     if device_mem && new_type.is_arch_type() && new_type != ObjectType::UnytpedObject {
         debug!("Untyped Retype: Creating kernel objects with device untyped");
         unsafe {
@@ -140,7 +145,7 @@ pub fn decode_untyed_invocation(
         aligned_free_ref,
         new_type,
         user_obj_size,
-        convert_to_mut_type_ref::<cte_t>(node_cap.get_cnode_ptr()),
+        convert_to_mut_type_ref::<cte_t>(node_cap.get_capCNodePtr() as usize),
         node_offset,
         node_window,
         device_mem as usize,
@@ -170,35 +175,44 @@ fn check_object_type(new_type: ObjectType, user_obj_size: usize) -> exception_t 
 }
 
 #[inline]
-fn get_target_cnode(node_index: usize, node_depth: usize, node_cap: &mut cap_t) -> exception_t {
+fn get_target_cnode(
+    node_index: usize,
+    node_depth: usize,
+    node_cap: &mut cap_cnode_cap,
+) -> exception_t {
     let target_node_cap = if node_depth == 0 {
-        get_extra_cap_by_index(0).unwrap().cap
+        &get_extra_cap_by_index(0).unwrap().capability
     } else {
-        let root_cap = get_extra_cap_by_index(0).unwrap().cap;
+        let root_cap = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
         let lu_ret = lookup_slot_for_cnode_op(false, &root_cap, node_index, node_depth);
         if lu_ret.status != exception_t::EXCEPTION_NONE {
             debug!("Untyped Retype: Invalid destination address.");
             return lu_ret.status;
         }
-        unsafe { (*lu_ret.slot).cap }
+        unsafe { &(*lu_ret.slot).capability }
     };
 
-    if target_node_cap.get_cap_type() != CapTag::CapCNodeCap {
+    if target_node_cap.get_tag() != cap_tag::cap_cnode_cap {
         debug!("Untyped Retype: Destination cap invalid or read-only.");
         unsafe {
             current_syscall_error._type = seL4_FailedLookup;
             current_syscall_error.failedLookupWasSource = 0;
-            current_lookup_fault = lookup_fault_t::new_missing_cap(node_depth);
+            current_lookup_fault =
+                lookup_fault_missing_capability::new(node_depth as u64).unsplay();
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    *node_cap = target_node_cap;
+    *node_cap = cap::cap_cnode_cap(&target_node_cap).clone();
     exception_t::EXCEPTION_NONE
 }
 
 #[inline]
-fn check_cnode_slot(node_cap: &cap_t, node_offset: usize, node_window: usize) -> exception_t {
-    let node_size = 1 << node_cap.get_cnode_radix();
+fn check_cnode_slot(
+    node_cap: &cap_cnode_cap,
+    node_offset: usize,
+    node_window: usize,
+) -> exception_t {
+    let node_size = 1 << node_cap.get_capCNodeRadix();
     if node_offset > (node_size - 1) {
         debug!(
             "Untyped Retype: Destination node offset {} too large.",
@@ -235,9 +249,9 @@ fn check_cnode_slot(node_cap: &cap_t, node_offset: usize, node_window: usize) ->
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let dest_cnode = convert_to_mut_type_ref::<cte_t>(node_cap.get_cnode_ptr());
+    let dest_cnode = convert_to_mut_type_ref::<cte_t>(node_cap.get_capCNodePtr() as usize);
     for i in node_offset..(node_offset + node_window) {
-        if dest_cnode.get_offset_slot(i).cap.get_cap_type() != CapTag::CapNullCap {
+        if dest_cnode.get_offset_slot(i).capability.get_tag() != cap_tag::cap_null_cap {
             debug!(
                 "Untyped Retype: Slot {:#x} in destination window non-empty.",
                 i

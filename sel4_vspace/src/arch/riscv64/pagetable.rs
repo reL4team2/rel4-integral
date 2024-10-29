@@ -6,9 +6,9 @@ use sel4_common::{
         KERNEL_ELF_BASE, KERNEL_ELF_PADDR_BASE, PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_BASE_OFFSET,
         PPTR_TOP,
     },
-    fault::lookup_fault_t,
     sel4_config::{seL4_PageBits, PT_INDEX_BITS},
     structures::exception_t,
+    structures_gen::lookup_fault,
     utils::pageBitsForSize,
     BIT, ROUND_DOWN,
 };
@@ -169,7 +169,7 @@ pub fn unmapPage(
     asid: asid_t,
     vptr: vptr_t,
     pptr: pptr_t,
-) -> Result<(), lookup_fault_t> {
+) -> Result<(), lookup_fault> {
     /*
         let find_ret = find_vspace_for_asid(asid);
         if find_ret.status != exception_t::EXCEPTION_NONE {

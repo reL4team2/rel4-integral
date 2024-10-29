@@ -6,12 +6,14 @@ use crate::{
 
 use crate::{BIT, IS_ALIGNED, MASK};
 use log::debug;
-use sel4_common::sel4_config::{seL4_MaxUntypedBits, seL4_MinUntypedBits};
 use sel4_common::utils::MAX_FREE_INDEX;
-use sel4_cspace::interface::*;
+use sel4_common::{
+    sel4_config::{seL4_MaxUntypedBits, seL4_MinUntypedBits},
+    structures_gen::{cap_cnode_cap, cap_untyped_cap},
+};
 use sel4_vspace::*;
 
-pub fn create_untypeds(root_cnode_cap: &cap_t, boot_mem_reuse_reg: region_t) -> bool {
+pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: region_t) -> bool {
     unsafe {
         let first_untyped_slot = ndks_boot.slot_pos_cur;
         let mut start = 0;
@@ -79,7 +81,7 @@ pub fn create_untypeds(root_cnode_cap: &cap_t, boot_mem_reuse_reg: region_t) -> 
 }
 
 fn create_untypeds_for_region(
-    root_cnode_cap: &cap_t,
+    root_cnode_cap: &cap_cnode_cap,
     device_memory: bool,
     mut reg: region_t,
     first_untyped_slot: seL4_SlotPos,
@@ -112,7 +114,7 @@ fn create_untypeds_for_region(
 }
 
 fn provide_untyped_cap(
-    root_cnode_cap: &cap_t,
+    root_cnode_cap: &cap_cnode_cap,
     device_memory: bool,
     pptr: usize,
     size_bits: usize,
@@ -156,13 +158,13 @@ fn provide_untyped_cap(
                 isDevice: device_memory as u8,
                 padding: [0; 6],
             };
-            let ut_cap = cap_t::new_untyped_cap(
-                MAX_FREE_INDEX(size_bits),
-                device_memory as usize,
-                size_bits,
-                pptr,
+            let ut_cap = cap_untyped_cap::new(
+                MAX_FREE_INDEX(size_bits) as u64,
+                device_memory as u64,
+                size_bits as u64,
+                pptr as u64,
             );
-            ret = provide_cap(root_cnode_cap, ut_cap.clone());
+            ret = provide_cap(root_cnode_cap, ut_cap.unsplay().clone());
         } else {
             debug!("Kernel init: Too many untyped regions for boot info");
             ret = true

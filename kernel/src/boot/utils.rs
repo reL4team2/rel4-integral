@@ -7,6 +7,7 @@ use crate::{BIT, ROUND_DOWN, ROUND_UP};
 use log::debug;
 use sel4_common::arch::config::{PADDR_TOP, PPTR_BASE, PPTR_TOP};
 use sel4_common::sel4_config::*;
+use sel4_common::structures_gen::{cap, cap_cnode_cap};
 use sel4_cspace::interface::*;
 use sel4_vspace::*;
 // #[cfg(target_arch="riscv64")]
@@ -68,9 +69,9 @@ pub fn arch_get_n_paging(it_v_reg: v_region_t) -> usize {
     n
 }
 
-pub fn write_slot(ptr: *mut cte_t, cap: cap_t) {
+pub fn write_slot(ptr: *mut cte_t, capability: cap) {
     unsafe {
-        (*ptr).cap = cap;
+        (*ptr).capability = capability;
         (*ptr).cteMDBNode = mdb_node_t::default();
         let mdb = &mut (*ptr).cteMDBNode;
         mdb.set_revocable(1);
@@ -78,7 +79,7 @@ pub fn write_slot(ptr: *mut cte_t, cap: cap_t) {
     }
 }
 
-pub fn provide_cap(root_cnode_cap: &cap_t, cap: cap_t) -> bool {
+pub fn provide_cap(root_cnode_cap: &cap_cnode_cap, capability: cap) -> bool {
     unsafe {
         if ndks_boot.slot_pos_cur >= BIT!(CONFIG_ROOT_CNODE_SIZE_BITS) {
             debug!(
@@ -87,8 +88,8 @@ pub fn provide_cap(root_cnode_cap: &cap_t, cap: cap_t) -> bool {
             );
             return false;
         }
-        let ptr = root_cnode_cap.get_cap_ptr() as *mut cte_t;
-        write_slot(ptr.add(ndks_boot.slot_pos_cur), cap);
+        let ptr = root_cnode_cap.get_capCNodePtr() as *mut cte_t;
+        write_slot(ptr.add(ndks_boot.slot_pos_cur), capability);
         ndks_boot.slot_pos_cur += 1;
         return true;
     }

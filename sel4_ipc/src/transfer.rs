@@ -9,6 +9,8 @@ use sel4_common::fault::*;
 use sel4_common::message_info::*;
 use sel4_common::sel4_config::*;
 use sel4_common::structures::*;
+use sel4_common::structures_gen::cap;
+use sel4_common::structures_gen::cap_tag;
 use sel4_common::utils::*;
 use sel4_cspace::interface::*;
 use sel4_task::{possible_switch_to, set_thread_state, tcb_t, ThreadState};
@@ -101,25 +103,26 @@ impl Transfer for tcb_t {
         let mut i = 0;
         while i < seL4_MsgMaxExtraCaps && current_extra_caps[i] as usize != 0 {
             let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
-            let cap = &slot.cap.clone();
-            if cap.get_cap_type() == CapTag::CapEndpointCap
+            let capability_cpy = &slot.capability.clone();
+            let capability = cap::cap_endpoint_cap(capability_cpy);
+            if capability.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
                 && endpoint.is_some()
-                && cap.get_ep_ptr() == endpoint.unwrap().get_ptr()
+                && capability.get_capEPPtr() as usize == endpoint.unwrap().get_ptr()
             {
-                buffer.caps_or_badges[i] = cap.get_ep_badge();
+                buffer.caps_or_badges[i] = capability.get_capEPBadge() as usize;
                 info.set_caps_unwrapped(info.get_caps_unwrapped() | (1 << i));
             } else {
                 if dest_slot.is_none() {
                     break;
                 } else {
                     let dest = dest_slot.take();
-                    let dc_ret = slot.derive_cap(cap);
+                    let dc_ret = slot.derive_cap(&capability.clone().unsplay());
                     if dc_ret.status != exception_t::EXCEPTION_NONE
-                        || dc_ret.cap.get_cap_type() == CapTag::CapNullCap
+                        || dc_ret.capability.get_tag() == cap_tag::cap_null_cap
                     {
                         break;
                     }
-                    cte_insert(&dc_ret.cap, slot, dest.unwrap());
+                    cte_insert(&dc_ret.capability, slot, dest.unwrap());
                 }
             }
             i += 1;
@@ -145,25 +148,26 @@ impl Transfer for tcb_t {
         let mut i = 0;
         while i < seL4_MsgMaxExtraCaps && current_extra_caps[i] as usize != 0 {
             let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
-            let cap = &slot.cap.clone();
-            if cap.get_cap_type() == CapTag::CapEndpointCap
+            let capability_cpy = &slot.capability.clone();
+            let capability = cap::cap_endpoint_cap(capability_cpy);
+            if capability.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
                 && endpoint.is_some()
-                && cap.get_ep_ptr() == endpoint.unwrap().get_ptr()
+                && capability.get_capEPPtr() as usize == endpoint.unwrap().get_ptr()
             {
-                buffer.caps_or_badges[i] = cap.get_ep_badge();
+                buffer.caps_or_badges[i] = capability.get_capEPBadge() as usize;
                 info.set_caps_unwrapped(info.get_caps_unwrapped() | (1 << i));
             } else {
                 if dest_slot.is_none() {
                     break;
                 } else {
                     let dest = dest_slot.take();
-                    let dc_ret = slot.derive_cap(cap);
+                    let dc_ret = slot.derive_cap(&capability.clone().unsplay());
                     if dc_ret.status != exception_t::EXCEPTION_NONE
-                        || dc_ret.cap.get_cap_type() == CapTag::CapNullCap
+                        || dc_ret.capability.get_tag() == cap_tag::cap_null_cap
                     {
                         break;
                     }
-                    cte_insert(&dc_ret.cap, slot, dest.unwrap());
+                    cte_insert(&dc_ret.capability, slot, dest.unwrap());
                 }
             }
             i += 1;

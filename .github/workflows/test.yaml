@@ -60,7 +60,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly-2024-02-01
-          components: rust-src
+          components: rust-src rustfmt
           rustflags:
           target: riscv64imac-unknown-none-elf aarch64-unknown-none-softfloat
       - name: Install qemu

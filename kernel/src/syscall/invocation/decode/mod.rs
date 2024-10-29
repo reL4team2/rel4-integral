@@ -9,13 +9,14 @@ mod decode_untyped_invocation;
 use core::intrinsics::unlikely;
 
 use log::debug;
+use sel4_common::structures_gen::{cap, cap_Splayed};
 use sel4_common::{
     arch::MessageLabel,
     sel4_config::seL4_InvalidCapability,
     structures::{exception_t, seL4_IPCBuffer},
     utils::convert_to_mut_type_ref,
 };
-use sel4_cspace::interface::{cap_t, cte_t, CapTag};
+use sel4_cspace::interface::cte_t;
 use sel4_ipc::{endpoint_t, notification_t, Transfer};
 use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
 
@@ -34,18 +35,19 @@ pub fn decode_invocation(
     label: MessageLabel,
     length: usize,
     slot: &mut cte_t,
-    cap: &cap_t,
+    capability: &cap,
     cap_index: usize,
     block: bool,
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    match cap.get_cap_type() {
-        CapTag::CapNullCap | CapTag::CapZombieCap => {
+    // println!("decode invocation {}",capability.get_tag());
+    match capability.clone().splay() {
+        cap_Splayed::null_cap(_) | cap_Splayed::zombie_cap(_) => {
             debug!(
                 "Attempted to invoke a null or zombie cap {:#x}, {:?}.",
                 cap_index,
-                cap.get_cap_type()
+                capability.get_tag()
             );
             unsafe {
                 current_syscall_error._type = seL4_InvalidCapability;
@@ -54,8 +56,8 @@ pub fn decode_invocation(
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
 
-        CapTag::CapEndpointCap => {
-            if unlikely(cap.get_ep_can_send() == 0) {
+        cap_Splayed::endpoint_cap(data) => {
+            if unlikely(data.get_capCanSend() == 0) {
                 debug!(
                     "Attempted to invoke a read-only endpoint cap {}.",
                     cap_index
@@ -67,19 +69,19 @@ pub fn decode_invocation(
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            convert_to_mut_type_ref::<endpoint_t>(cap.get_ep_ptr()).send_ipc(
+            convert_to_mut_type_ref::<endpoint_t>(data.get_capEPPtr() as usize).send_ipc(
                 get_currenct_thread(),
                 block,
                 call,
-                cap.get_ep_can_grant() != 0,
-                cap.get_ep_badge(),
-                cap.get_ep_can_grant_reply() != 0,
+                data.get_capCanGrant() != 0,
+                data.get_capEPBadge() as usize,
+                data.get_capCanGrantReply() != 0,
             );
             return exception_t::EXCEPTION_NONE;
         }
 
-        CapTag::CapNotificationCap => {
-            if unlikely(cap.get_nf_can_send() == 0) {
+        cap_Splayed::notification_cap(data) => {
+            if unlikely(data.get_capNtfnCanSend() == 0) {
                 debug!(
                     "Attempted to invoke a read-only notification cap {}.",
                     cap_index
@@ -91,13 +93,13 @@ pub fn decode_invocation(
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            convert_to_mut_type_ref::<notification_t>(cap.get_nf_ptr())
-                .send_signal(cap.get_nf_badge());
+            convert_to_mut_type_ref::<notification_t>(data.get_capNtfnPtr() as usize)
+                .send_signal(data.get_capNtfnBadge() as usize);
             exception_t::EXCEPTION_NONE
         }
 
-        CapTag::CapReplyCap => {
-            if unlikely(cap.get_reply_master() != 0) {
+        cap_Splayed::reply_cap(data) => {
+            if unlikely(data.get_capReplyMaster() != 0) {
                 debug!("Attempted to invoke an invalid reply cap {}.", cap_index);
                 unsafe {
                     current_syscall_error._type = seL4_InvalidCapability;
@@ -107,18 +109,26 @@ pub fn decode_invocation(
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
             get_currenct_thread().do_reply(
-                convert_to_mut_type_ref::<tcb_t>(cap.get_reply_tcb_ptr()),
+                convert_to_mut_type_ref::<tcb_t>(data.get_capTCBPtr() as usize),
                 slot,
-                cap.get_reply_can_grant() != 0,
+                data.get_capReplyCanGrant() != 0,
             );
             exception_t::EXCEPTION_NONE
         }
-        CapTag::CapThreadCap => decode_tcb_invocation(label, length, cap, slot, call, buffer),
-        CapTag::CapDomainCap => decode_domain_invocation(label, length, buffer),
-        CapTag::CapCNodeCap => decode_cnode_invocation(label, length, cap, buffer),
-        CapTag::CapUntypedCap => decode_untyed_invocation(label, length, slot, cap, buffer),
-        CapTag::CapIrqControlCap => decode_irq_control_invocation(label, length, slot, buffer),
-        CapTag::CapIrqHandlerCap => decode_irq_handler_invocation(label, cap.get_irq_handler()),
+        cap_Splayed::thread_cap(data) => {
+            decode_tcb_invocation(label, length, &data, slot, call, buffer)
+        }
+        cap_Splayed::domain_cap(_) => decode_domain_invocation(label, length, buffer),
+        cap_Splayed::cnode_cap(data) => decode_cnode_invocation(label, length, &data, buffer),
+        cap_Splayed::untyped_cap(data) => {
+            decode_untyed_invocation(label, length, slot, &data, buffer)
+        }
+        cap_Splayed::irq_control_cap(_) => {
+            decode_irq_control_invocation(label, length, slot, buffer)
+        }
+        cap_Splayed::irq_handler_cap(data) => {
+            decode_irq_handler_invocation(label, data.get_capIRQ() as usize)
+        }
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }

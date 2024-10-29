@@ -1,1 +1,1 @@
-pub use super::cap::zombie::{ZombieType_ZombieTCB, Zombie_new};
+pub use super::capability::zombie::{ZombieType_ZombieTCB, Zombie_new};

@@ -7,13 +7,13 @@ use crate::arch::VAddr;
 use crate::{asid_t, find_vspace_for_asid, paddr_to_pptr, pptr_t, pptr_to_paddr, vptr_t, PTE};
 use sel4_common::arch::MessageLabel;
 use sel4_common::structures::exception_t;
+use sel4_common::structures_gen::{cap_tag, cap_vspace_cap};
 use sel4_common::utils::{pageBitsForSize, ptr_to_mut};
 use sel4_common::{
-    fault::lookup_fault_t,
     sel4_config::{seL4_PageBits, PT_INDEX_BITS},
+    structures_gen::lookup_fault,
     BIT,
 };
-use sel4_cspace::{arch::CapTag, interface::cap_t};
 pub const PageAlignedLen: usize = BIT!(PT_INDEX_BITS);
 #[repr(align(4096))]
 #[derive(Clone, Copy)]
@@ -118,8 +118,8 @@ pub fn set_kernel_page_table_by_index(idx: usize, pte: PTE) {
 /// 根据给定的`vspace_root`设置相应的页表，会检查`vspace_root`是否合法，如果不合法默认设置为内核页表
 ///
 /// Use page table in vspace_root to set the satp register.
-pub fn set_vm_root(vspace_root: &cap_t) -> Result<(), lookup_fault_t> {
-    setCurrentUserVSpaceRoot(pptr_to_paddr(vspace_root.get_vs_base_ptr()));
+pub fn set_vm_root(vspace_root: &cap_vspace_cap) -> Result<(), lookup_fault> {
+    setCurrentUserVSpaceRoot(pptr_to_paddr(vspace_root.get_capVSBasePtr() as usize));
     Ok(())
 }
 
@@ -188,11 +188,11 @@ pub fn activate_kernel_vspace() {
 pub fn set_vm_root_for_flush_with_thread_root(
     vspace: *mut PTE,
     asid: asid_t,
-    thread_root: &cap_t,
+    thread_root: &cap_vspace_cap,
 ) -> bool {
-    if thread_root.get_cap_type() == CapTag::CapVspaceCap
-        && thread_root.get_vs_is_mapped() != 0
-        && thread_root.get_vs_base_ptr() == vspace as usize
+    if thread_root.clone().unsplay().get_tag() == cap_tag::cap_vspace_cap
+        && thread_root.get_capVSIsMapped() != 0
+        && thread_root.get_capVSBasePtr() == vspace as u64
     {
         return false;
     }
@@ -335,7 +335,7 @@ pub fn unmapPage(
     asid: asid_t,
     vptr: vptr_t,
     pptr: pptr_t,
-) -> Result<(), lookup_fault_t> {
+) -> Result<(), lookup_fault> {
     let addr = pptr_to_paddr(pptr);
     let find_ret = find_vspace_for_asid(asid);
     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {

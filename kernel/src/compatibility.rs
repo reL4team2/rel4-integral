@@ -1,5 +1,5 @@
-use sel4_common::structures::seL4_IPCBuffer;
-use sel4_cspace::interface::{cap_t, cte_t};
+use sel4_common::{structures::seL4_IPCBuffer, structures_gen::cap};
+use sel4_cspace::interface::cte_t;
 use sel4_task::{set_thread_state, tcb_t, ThreadState};
 use sel4_vspace::{vptr_t, PTE};
 
@@ -10,7 +10,7 @@ pub fn isMDBParentOf() {
 }
 
 #[no_mangle]
-pub fn deriveCap(_slot: *mut cte_t, _cap: &cap_t) {
+pub fn deriveCap(_slot: *mut cte_t, _cap: &cap) {
     panic!("should not be invoked!")
 }
 

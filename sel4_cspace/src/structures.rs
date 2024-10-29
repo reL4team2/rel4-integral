@@ -1,7 +1,8 @@
 use crate::cte::cte_t;
-use sel4_common::structures::exception_t;
-
-use super::arch::cap_t;
+use sel4_common::{
+    structures::exception_t,
+    structures_gen::{cap, cap_null_cap},
+};
 
 /// This struct is used when finaliseSlot return a value,
 ///
@@ -13,11 +14,11 @@ use super::arch::cap_t;
 ///
 /// cleanupInfo: When finalise tcb_cap or cnode_cap, cleanupInfo is zombie_cap, otherwise cleanupInfo is null_cap
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct finaliseSlot_ret {
     pub status: exception_t,
     pub success: bool,
-    pub cleanupInfo: cap_t,
+    pub cleanupInfo: cap,
 }
 
 impl Default for finaliseSlot_ret {
@@ -25,16 +26,16 @@ impl Default for finaliseSlot_ret {
         finaliseSlot_ret {
             status: exception_t::EXCEPTION_NONE,
             success: true,
-            cleanupInfo: cap_t::default(),
+            cleanupInfo: cap_null_cap::new().unsplay(),
         }
     }
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone, Copy, Default)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct finaliseCap_ret {
-    pub remainder: cap_t,
-    pub cleanupInfo: cap_t,
+    pub remainder: cap,
+    pub cleanupInfo: cap,
 }
 
 #[repr(C)]

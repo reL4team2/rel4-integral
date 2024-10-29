@@ -1,10 +1,11 @@
 use sel4_common::arch::*;
+use sel4_common::structures_gen::{cap, cap_thread_cap};
 use sel4_common::{
     message_info::seL4_MessageInfo_t,
     sel4_config::{tcbBuffer, tcbCTable, tcbVTable},
     structures::{exception_t, seL4_IPCBuffer},
 };
-use sel4_cspace::interface::{cap_t, cte_insert, cte_t, same_object_as};
+use sel4_cspace::interface::{cte_insert, cte_t, same_object_as};
 use sel4_ipc::{notification_t, Transfer};
 use sel4_task::{get_currenct_thread, rescheduleRequired, set_thread_state, tcb_t, ThreadState};
 
@@ -168,21 +169,22 @@ pub fn invoke_tcb_set_space(
     target: &mut tcb_t,
     slot: &mut cte_t,
     fault_ep: usize,
-    croot_new_cap: cap_t,
+    croot_new_cap: &cap,
     croot_src_slot: &mut cte_t,
-    vroot_new_cap: cap_t,
+    vroot_new_cap: &cap,
     vroot_src_slot: &mut cte_t,
 ) -> exception_t {
-    let target_cap = cap_t::new_thread_cap(target.get_ptr());
+    let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
     target.tcbFaultHandler = fault_ep;
     let root_slot = target.get_cspace_mut_ref(tcbCTable);
     let status = root_slot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
-    if same_object_as(&croot_new_cap, &croot_src_slot.cap) && same_object_as(&target_cap, &slot.cap)
+    if same_object_as(croot_new_cap, &croot_src_slot.capability)
+        && same_object_as(&target_cap, &slot.capability)
     {
-        cte_insert(&croot_new_cap, croot_src_slot, root_slot);
+        cte_insert(croot_new_cap, croot_src_slot, root_slot);
     }
 
     let root_vslot = target.get_cspace_mut_ref(tcbVTable);
@@ -190,9 +192,10 @@ pub fn invoke_tcb_set_space(
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
-    if same_object_as(&vroot_new_cap, &vroot_src_slot.cap) && same_object_as(&target_cap, &slot.cap)
+    if same_object_as(vroot_new_cap, &vroot_src_slot.capability)
+        && same_object_as(&target_cap, &slot.capability)
     {
-        cte_insert(&vroot_new_cap, vroot_src_slot, root_vslot);
+        cte_insert(vroot_new_cap, vroot_src_slot, root_vslot);
     }
     exception_t::EXCEPTION_NONE
 }
@@ -201,10 +204,10 @@ pub fn invoke_tcb_set_ipc_buffer(
     target: &mut tcb_t,
     slot: &mut cte_t,
     buffer_addr: usize,
-    buffer_cap: cap_t,
+    buffer_cap: cap,
     buffer_src_slot: Option<&mut cte_t>,
 ) -> exception_t {
-    let target_cap = cap_t::new_thread_cap(target.get_ptr());
+    let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
     let buffer_slot = target.get_cspace_mut_ref(tcbBuffer);
     let status = buffer_slot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
@@ -212,8 +215,8 @@ pub fn invoke_tcb_set_ipc_buffer(
     }
     target.tcbIPCBuffer = buffer_addr;
     if let Some(buffer_src_slot) = buffer_src_slot {
-        if same_object_as(&buffer_cap, &buffer_src_slot.cap)
-            && same_object_as(&target_cap, &slot.cap)
+        if same_object_as(&buffer_cap, &buffer_src_slot.capability)
+            && same_object_as(&target_cap, &slot.capability)
         {
             cte_insert(&buffer_cap, buffer_src_slot, buffer_slot);
         }

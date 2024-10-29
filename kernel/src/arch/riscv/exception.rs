@@ -16,7 +16,7 @@ use sel4_common::fault::seL4_Fault_t;
 use sel4_common::print;
 use sel4_common::sel4_config::seL4_MsgMaxLength;
 use sel4_common::structures::exception_t;
-use sel4_cspace::arch::CapTag;
+use sel4_common::structures_gen::cap_tag;
 use sel4_task::{activateThread, get_currenct_thread, schedule};
 
 #[no_mangle]
@@ -44,16 +44,16 @@ pub fn handleUnknownSyscall(w: isize) -> exception_t {
     if w == SysDebugCapIdentify {
         let cptr = thread.tcbArch.get_register(Cap);
         let lu_ret = lookupCapAndSlot(thread, cptr);
-        let cap_type = lu_ret.cap.get_cap_type();
+        let cap_type = lu_ret.capability.get_tag();
         thread.tcbArch.set_register(Cap, cap_type as usize);
         return exception_t::EXCEPTION_NONE;
     }
     if w == SysDebugNameThread {
         let cptr = thread.tcbArch.get_register(Cap);
         let lu_ret = lookupCapAndSlot(thread, cptr);
-        let cap_type = lu_ret.cap.get_cap_type();
+        let cap_type = lu_ret.capability.get_tag();
 
-        if cap_type != CapTag::CapThreadCap {
+        if cap_type != cap_tag::cap_thread_cap {
             debug!("SysDebugNameThread: cap is not a TCB, halting");
             halt();
         }
