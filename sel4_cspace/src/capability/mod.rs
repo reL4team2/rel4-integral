@@ -1,7 +1,4 @@
-//! 该模块定义了几乎全部的`capability`，可以在`sel4_common`中找到`plus_define_bitfield!`宏的具体实现，
-//! 该宏在生成`capability`的同时，会生成每个字段的`get``set`方法
-//! cap_t 表示一个capability，由两个机器字组成，包含了类型、对象元数据以及指向内核对象的指针。
-//! 每个类型的capability的每个字段都实现了get和set方法。
+//! 该模块在rust_sel4_pbf_parser模块生成的结构体的基础上，进行了一些功能的添加和封装。
 //!
 //! 记录在阅读代码段过程中用到的`cap`的特定字段含义：
 //!

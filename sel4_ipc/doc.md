@@ -1,6 +1,6 @@
 # endpoint
 endpoint是一种基本的通信机制，用于线程（或进程）之间的同步和异步消息传递。endpoint允许线程以发送（Send）、接收（Recv）或回复（Reply）的形式进行通信。这些操作可以通过IPC（Inter-Process Communication）机制实现，允许线程之间安全地交换信息。
-在rel4_kernel中，endpoint被表示为一个结构体（通过plus_define_bitfield!宏定义），其中包含了队列头部、队列尾部和状态等字段。这些字段用于管理通过endpoint发送和接收消息的tcb队列。EPState枚举定义了endpoint可能的状态，包括：
+在rel4_kernel中，endpoint被表示为一个结构体（通过rust_sel4_pbf_parser脚本生成的），其中包含了队列头部、队列尾部和状态等字段。这些字段用于管理通过endpoint发送和接收消息的tcb队列。EPState枚举定义了endpoint可能的状态，包括：
 - Idle：表示endpoint当前没有进行任何消息传递操作。
 - Send：表示有线程正在尝试通过endpoint发送消息。
 - Recv：表示有线程正在尝试从endpoint接收消息。
