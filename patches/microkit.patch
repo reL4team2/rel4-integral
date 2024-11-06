@@ -1,0 +1,165 @@
+diff --git a/kernel/src/arch/aarch64/boot.rs b/kernel/src/arch/aarch64/boot.rs
+index 3eded36..74b80c3 100644
+--- a/kernel/src/arch/aarch64/boot.rs
++++ b/kernel/src/arch/aarch64/boot.rs
+@@ -9,8 +9,8 @@ use crate::arch::aarch64::platform::{cleanInvalidateL1Caches, init_cpu, invalida
+ use crate::{
+     arch::init_freemem,
+     boot::{
+-        bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
+-        ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
++        bi_finalise, calculate_extra_bi_size_bits, create_untypeds, create_untypeds_for_region,
++        init_core_state, init_dtb, ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
+     },
+     config::{BI_FRAME_SIZE_BITS, USER_TOP},
+     structures::{p_region_t, seL4_SlotRegion, v_region_t},
+@@ -26,6 +26,8 @@ pub fn try_init_kernel(
+     dtb_phys_addr: usize,
+     dtb_size: usize,
+     ki_boot_end: usize,
++    extra_device_addr_start: usize,
++    extra_deviec_size: usize,
+ ) -> bool {
+     // Init logging for log crate
+     sel4_common::logging::init();
+@@ -38,6 +40,12 @@ pub fn try_init_kernel(
+         start: ui_p_reg_start,
+         end: ui_p_reg_end,
+     };
++
++    let extra_device_p_reg = p_region_t {
++        start: extra_device_addr_start,
++        end: extra_device_addr_start + extra_deviec_size,
++    };
++
+     let ui_reg = paddr_to_pptr_reg(&ui_p_reg);
+ 
+     let mut extra_bi_size = 0;
+@@ -84,7 +92,11 @@ pub fn try_init_kernel(
+     }
+ 
+     // FIXED: init_freemem should be p_region_t, but is region_t before.
+-    if !init_freemem(ui_p_reg.clone(), dtb_p_reg.unwrap().clone()) {
++    if !init_freemem(
++        ui_p_reg.clone(),
++        dtb_p_reg.unwrap().clone(),
++        extra_device_p_reg.clone(),
++    ) {
+         debug!("ERROR: free memory management initialization failed\n");
+         return false;
+     }
+@@ -102,7 +114,18 @@ pub fn try_init_kernel(
+         create_idle_thread();
+         cleanInvalidateL1Caches();
+         init_core_state(initial_thread);
+-        if !create_untypeds(&root_cnode_cap, boot_mem_reuse_reg) {
++
++        let first_untyped_slot = unsafe { ndks_boot.slot_pos_cur };
++        if extra_device_addr_start != 0 {
++            create_untypeds_for_region(
++                &root_cnode_cap,
++                true,
++                paddr_to_pptr_reg(&extra_device_p_reg),
++                first_untyped_slot,
++            );
++        }
++
++        if !create_untypeds(&root_cnode_cap, boot_mem_reuse_reg, first_untyped_slot) {
+             debug!("ERROR: could not create untypteds for kernel image boot memory");
+         }
+         unsafe {
+diff --git a/kernel/src/arch/aarch64/platform.rs b/kernel/src/arch/aarch64/platform.rs
+index 5659251..5bf33a4 100644
+--- a/kernel/src/arch/aarch64/platform.rs
++++ b/kernel/src/arch/aarch64/platform.rs
+@@ -54,7 +54,11 @@ pub fn init_cpu() -> bool {
+     true
+ }
+ 
+-pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
++pub fn init_freemem(
++    ui_p_reg: p_region_t,
++    dtb_p_reg: p_region_t,
++    extra_device_p_reg: p_region_t,
++) -> bool {
+     unsafe {
+         res_reg[0].start = paddr_to_pptr(kpptr_to_paddr(KERNEL_ELF_BASE));
+         res_reg[0].end = paddr_to_pptr(kpptr_to_paddr(ffi_addr!(ki_end)));
+@@ -69,8 +73,13 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
+         }
+         unsafe {
+             res_reg[index] = paddr_to_pptr_reg(&dtb_p_reg);
+-            index += 1;
+         }
++        index += 1;
++    }
++
++    if extra_device_p_reg.start != 0 {
++        unsafe { res_reg[index] = paddr_to_pptr_reg(&extra_device_p_reg) }
++        index += 1;
+     }
+ 
+     // here use the MODE_RESERVED:ARRAY_SIZE(mode_reserved_region) to judge
+diff --git a/kernel/src/boot/interface.rs b/kernel/src/boot/interface.rs
+index 3725848..70448d0 100644
+--- a/kernel/src/boot/interface.rs
++++ b/kernel/src/boot/interface.rs
+@@ -25,6 +25,8 @@ pub fn rust_try_init_kernel(
+     v_entry: usize,
+     dtb_phys_addr: usize,
+     dtb_size: usize,
++    extra_device_addr_start: usize,
++    extra_deviec_size: usize,
+ ) -> bool {
+     try_init_kernel(
+         ui_p_reg_start,
+@@ -34,6 +36,8 @@ pub fn rust_try_init_kernel(
+         dtb_phys_addr,
+         dtb_size,
+         ki_boot_end as usize,
++        extra_device_addr_start,
++        extra_deviec_size,
+     )
+ }
+ 
+diff --git a/kernel/src/boot/mod.rs b/kernel/src/boot/mod.rs
+index 1199737..e782e2a 100644
+--- a/kernel/src/boot/mod.rs
++++ b/kernel/src/boot/mod.rs
+@@ -27,7 +27,7 @@ use sel4_task::*;
+ use sel4_vspace::*;
+ 
+ pub use root_server::root_server_init;
+-pub use untyped::create_untypeds;
++pub use untyped::{create_untypeds, create_untypeds_for_region};
+ 
+ #[cfg(feature = "ENABLE_SMP")]
+ pub use utils::{provide_cap, write_slot};
+diff --git a/kernel/src/boot/untyped.rs b/kernel/src/boot/untyped.rs
+index af60762..c3272ba 100644
+--- a/kernel/src/boot/untyped.rs
++++ b/kernel/src/boot/untyped.rs
+@@ -13,9 +13,12 @@ use sel4_common::{
+ };
+ use sel4_vspace::*;
+ 
+-pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: region_t) -> bool {
++pub fn create_untypeds(
++    root_cnode_cap: &cap_cnode_cap,
++    boot_mem_reuse_reg: region_t,
++    first_untyped_slot: seL4_SlotPos,
++) -> bool {
+     unsafe {
+-        let first_untyped_slot = ndks_boot.slot_pos_cur;
+         let mut start = 0;
+         for i in 0..ndks_boot.resv_count {
+             let reg = paddr_to_pptr_reg(&p_region_t {
+@@ -80,7 +83,7 @@ pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: regio
+     }
+ }
+ 
+-fn create_untypeds_for_region(
++pub fn create_untypeds_for_region(
+     root_cnode_cap: &cap_cnode_cap,
+     device_memory: bool,
+     mut reg: region_t,
