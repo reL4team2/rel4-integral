@@ -68,6 +68,8 @@ pub struct seL4_BootInfo {
     pub extraBIPages: seL4_SlotRegion,
     pub initThreadCNodeSizeBits: usize,
     pub initThreadDomain: usize,
+    #[cfg(feature = "KERNEL_MCS")]
+    schedcontrol: seL4_SlotRegion,
     pub untyped: seL4_SlotRegion,
     pub untypedList: [seL4_UntypedDesc; CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS],
 }
@@ -92,6 +94,8 @@ pub struct rootserver_mem_t {
     pub boot_info: usize,
     pub extra_bi: usize,
     pub tcb: usize,
+    #[cfg(feature = "KERNEL_MCS")]
+    pub sc: usize,
     pub paging: region_t,
 }
 

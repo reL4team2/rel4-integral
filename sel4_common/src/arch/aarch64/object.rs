@@ -3,7 +3,7 @@ use crate::sel4_config::{
     ARMHugePageBits, ARMLargePageBits, ARMSmallPageBits, ARM_Huge_Page, ARM_Large_Page,
     ARM_Small_Page,
 };
-
+#[cfg(not(feature = "KERNEL_MCS"))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 /// Represents the type of an object.
 pub enum ObjectType {
@@ -12,11 +12,30 @@ pub enum ObjectType {
     EndpointObject = 2,
     NotificationObject = 3,
     CapTableObject = 4,
+    // aarch64 relevant object
     seL4_ARM_HugePageObject = 5,
     seL4_ARM_VSpaceObject = 6,
     seL4_ARM_SmallPageObject = 7,
     seL4_ARM_LargePageObject = 8,
     seL4_ARM_PageTableObject = 9,
+}
+
+#[cfg(feature = "KERNEL_MCS")]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum ObjectType {
+    UnytpedObject = 0,
+    TCBObject = 1,
+    EndpointObject = 2,
+    NotificationObject = 3,
+    CapTableObject = 4,
+    SchedContextObject = 5,
+    ReplyObject = 6,
+    // aarch64 relevant object
+    seL4_ARM_HugePageObject = 7,
+    seL4_ARM_VSpaceObject = 8,
+    seL4_ARM_SmallPageObject = 9,
+    seL4_ARM_LargePageObject = 10,
+    seL4_ARM_PageTableObject = 11,
 }
 
 impl ObjectType {

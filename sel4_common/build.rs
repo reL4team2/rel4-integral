@@ -32,17 +32,32 @@ fn main() {
         }
     }
     let target = env::var("TARGET").unwrap_or_else(|_| "unknown-target".to_string());
-    if target == String::from("aarch64-unknown-none-softfloat") {
-        pbf_parser(
-            String::from("./pbf/aarch64"),
-            dir_path.to_str().unwrap().to_string(),
-        );
-    } else if target == String::from("riscv64imac-unknown-none-elf") {
-        pbf_parser(
-            String::from("./pbf/riscv64"),
-            dir_path.to_str().unwrap().to_string(),
-        );
+    if std::env::var("CARGO_FEATURE_KERNEL_MCS").is_ok() {
+        if target == String::from("aarch64-unknown-none-softfloat") {
+            pbf_parser(
+                String::from("./pbf/aarch64/mcs"),
+                dir_path.to_str().unwrap().to_string(),
+            );
+        } else if target == String::from("riscv64imac-unknown-none-elf") {
+            pbf_parser(
+                String::from("./pbf/riscv64/mcs"),
+                dir_path.to_str().unwrap().to_string(),
+            );
+        }
+    } else {
+        if target == String::from("aarch64-unknown-none-softfloat") {
+            pbf_parser(
+                String::from("./pbf/aarch64/nomcs"),
+                dir_path.to_str().unwrap().to_string(),
+            );
+        } else if target == String::from("riscv64imac-unknown-none-elf") {
+            pbf_parser(
+                String::from("./pbf/riscv64/nomcs"),
+                dir_path.to_str().unwrap().to_string(),
+            );
+        }
     }
+
     let current_dir = env::current_dir().unwrap();
     let src_file_1 = path::Path::new(&dir_path).join("structures.bf.rs");
     let dest_file_1 = path::Path::new(&current_dir).join("src/structures_gen.rs");

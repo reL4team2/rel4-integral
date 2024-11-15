@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument('-p', '--platform', dest='platform', default='spike', help="set-platform")
     parser.add_argument('-c', '--cpu', dest="cpu_nums", type=int,
                         help="kernel & qemu cpu nums", default=1)
+    parser.add_argument('-m', '--mcs', dest='mcs', default='off', help="set-mcs")
     args = parser.parse_args()
     return args
 
@@ -48,6 +49,10 @@ if __name__ == "__main__":
     elif args.platform == "qemu-arm-virt":
         target = "aarch64-unknown-none-softfloat"
     
+    mcs = False
+    if args.mcs == "on":
+        mcs = True
+    
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
     os.makedirs(build_dir)
@@ -58,21 +63,41 @@ if __name__ == "__main__":
             sys.exit(-1)
     else:
         if args.cpu_nums > 1:
-            if not exec_shell(f"cargo build --release --target {target} --features ENABLE_SMP"):
-                clean_config()
-                sys.exit(-1)
+            if mcs == True:
+                print("[ Config ] multi cpu and mcs\n")
+                if not exec_shell(f"cargo build --release --target {target} --features \"ENABLE_SMP KERNEL_MCS\""):
+                    clean_config()
+                    sys.exit(-1)
+            else:
+                print("[ Config ] multi cpu no mcs\n")
+                if not exec_shell(f"cargo build --release --target {target} --features ENABLE_SMP"):
+                    clean_config()
+                    sys.exit(-1)
         else:
-            if not exec_shell(f"cargo build --release --target {target}"):
-                clean_config()
-                sys.exit(-1)
+            if mcs == True:
+                print("[ Config ] single cpu and mcs\n")
+                if not exec_shell(f"cargo build --release --target {target} --features \"KERNEL_MCS\""):
+                    clean_config()
+                    sys.exit(-1)
+            else:
+                print("[ Config ] single cpu no mcs\n")
+                if not exec_shell(f"cargo build --release --target {target}"):
+                    clean_config()
+                    sys.exit(-1)
     
     if args.cpu_nums > 1:
-        shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE -DSMP=TRUE && ninja"
+        shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE -DSMP=TRUE "
+        if mcs==True:
+            shell_command = shell_command + " -DMCS=TRUE "
+        shell_command = shell_command + " && ninja"
         if not exec_shell(shell_command):
             clean_config()
             sys.exit(-1)
         sys.exit(0)
-    shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE && ninja"
+    shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE "
+    if mcs==True:
+        shell_command = shell_command + " -DMCS=TRUE "
+    shell_command = shell_command + " && ninja"
     if not exec_shell(shell_command):
         clean_config()
         sys.exit(-1)

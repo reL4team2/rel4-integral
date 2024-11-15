@@ -14,6 +14,10 @@ pub mod ffi;
 pub mod logging;
 pub mod message_info;
 pub mod object;
+#[cfg(feature = "KERNEL_MCS")]
+pub mod reply;
+#[cfg(feature = "KERNEL_MCS")]
+pub mod sched_context;
 pub mod sel4_bitfield_types;
 pub mod sel4_config;
 pub mod shared_types_bf_gen;

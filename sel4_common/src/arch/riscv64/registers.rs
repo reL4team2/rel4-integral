@@ -7,6 +7,11 @@ pub(super) const sp: usize = 1;
 // const tp: usize = 3;
 pub(super) const TLS_BASE: usize = 3;
 // const t0: usize = 4;
+// #ifdef CONFIG_KERNEL_MCS
+//     nbsendRecvDest = 4,
+// #endif
+#[cfg(feature = "KERNEL_MCS")]
+pub const nbsendRecvDest: usize = 4;
 // const t1: usize = 5;
 // const t2: usize = 6;
 // const s0: usize = 7;
@@ -21,6 +26,11 @@ pub(super) const msgInfoRegister: usize = 10;
 // const a4: usize = 13;
 // const a5: usize = 14;
 // const a6: usize = 15;
+// #ifdef CONFIG_KERNEL_MCS
+//     replyRegister = 15,
+// #endif
+#[cfg(feature = "KERNEL_MCS")]
+pub const replyRegister: usize = 15;
 // const a7: usize = 16;
 // const s2: usize = 17;
 // const s3: usize = 18;
@@ -55,6 +65,8 @@ pub const SSTATUS_SPP: usize = 0x00000100;
 pub const n_syscallMessage: usize = 10;
 pub const n_exceptionMessage: usize = 2;
 pub const MAX_MSG_SIZE: usize = n_syscallMessage;
+#[cfg(feature = "KERNEL_MCS")]
+pub const n_timeoutMessage: usize = 32;
 pub const fault_messages: [[usize; MAX_MSG_SIZE]; 2] = [
     [33, 1, 0, 9, 10, 11, 12, 13, 14, 15],
     [33, 1, 0, 0, 0, 0, 0, 0, 0, 0],

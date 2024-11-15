@@ -6,6 +6,9 @@ use super::arch::handleUnknownSyscall;
 use core::intrinsics::unlikely;
 use sel4_common::arch::ArchReg;
 // use sel4_common::ffi_call;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::arch::ArchReg::*;
+#[cfg(not(feature = "KERNEL_MCS"))]
 use sel4_common::sel4_config::tcbCaller;
 
 pub const SysCall: isize = -1;
@@ -57,6 +60,7 @@ pub fn slowpath(syscall: usize) {
 }
 
 #[no_mangle]
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub fn handleSyscall(_syscall: usize) -> exception_t {
     let syscall: isize = _syscall as isize;
     // if hart_id() == 0 {
@@ -106,6 +110,79 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
     activateThread();
     exception_t::EXCEPTION_NONE
 }
+#[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+pub fn handleSyscall(_syscall: usize) -> exception_t {
+    let syscall: isize = _syscall as isize;
+    // if hart_id() == 0 {
+    //     debug!("handle syscall: {}", syscall);
+    // }
+    // TODO: MCS
+    // updateTimestamp();
+    // if (likely(checkBudgetRestart())) {
+    match syscall {
+        SysSend => {
+            let ret = handleInvocation(
+                false,
+                true,
+                false,
+                false,
+                get_currenct_thread().tcbArch.get_register(Cap),
+            );
+            if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                let irq = getActiveIRQ();
+                if irq != irqInvalid {
+                    handleInterrupt(irq);
+                }
+            }
+        }
+        SysNBSend => {
+            let ret = handleInvocation(
+                false,
+                false,
+                false,
+                false,
+                get_currenct_thread().tcbArch.get_register(Cap),
+            );
+            if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                let irq = getActiveIRQ();
+                if irq != irqInvalid {
+                    handleInterrupt(irq);
+                }
+            }
+        }
+        SysCall => {
+            let ret = handleInvocation(
+                true,
+                true,
+                true,
+                false,
+                get_currenct_thread().tcbArch.get_register(Cap),
+            );
+            if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                let irq = getActiveIRQ();
+                if irq != irqInvalid {
+                    handleInterrupt(irq);
+                }
+            }
+        }
+        SysRecv => {
+            // TODO: MCS
+            handle_recv(true, true);
+        }
+        // TODO: MCS
+        SysNBRecv => {
+            // TODO: MCS
+            handle_recv(true, true)
+        }
+        SysYield => handle_yield(),
+        _ => panic!("Invalid syscall"),
+    }
+    // }
+    schedule();
+    activateThread();
+    exception_t::EXCEPTION_NONE
+}
 
 fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
     let origin_lookup_fault = unsafe { current_lookup_fault.clone() };
@@ -148,7 +225,11 @@ pub fn handle_fault(thread: &mut tcb_t) {
         set_thread_state(thread, ThreadState::ThreadStateInactive);
     }
 }
-
+// #[cfg(feature="KERNEL_MCS")]
+// #[inline]
+// pub fn lookupReply() -> lookupCap_ret_t
+// TODO: MCS
+#[cfg(not(feature = "KERNEL_MCS"))]
 fn handle_reply() {
     let current_thread = get_currenct_thread();
     let caller_slot = current_thread.get_cspace_mut_ref(tcbCaller);
@@ -161,7 +242,56 @@ fn handle_reply() {
         current_thread.do_reply(caller, caller_slot, caller_cap.get_capReplyCanGrant() != 0);
     }
 }
+#[cfg(feature = "KERNEL_MCS")]
+fn handle_recv(block: bool, canReply: bool) {
+    let current_thread = get_currenct_thread();
+    let ep_cptr = current_thread.tcbArch.get_register(ArchReg::Cap);
+    let lu_ret = current_thread.lookup_slot(ep_cptr);
+    if lu_ret.status != exception_t::EXCEPTION_NONE {
+        unsafe {
+            current_fault = seL4_Fault_CapFault::new(ep_cptr as u64, 1).unsplay();
+        }
+        return handle_fault(current_thread);
+    }
+    let ipc_cap = unsafe { (*lu_ret.slot).capability.clone() };
+    match ipc_cap.splay() {
+        cap_Splayed::endpoint_cap(data) => {
+            if unlikely(data.get_capCanReceive() == 0) {
+                unsafe {
+                    current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
+                    current_fault = seL4_Fault_CapFault::new(ep_cptr as u64, 1).unsplay();
+                }
+                return handle_fault(current_thread);
+            }
+            // TODO: MCS
+        }
 
+        cap_Splayed::notification_cap(data) => {
+            let ntfn = convert_to_mut_type_ref::<notification>(data.get_capNtfnPtr() as usize);
+            let bound_tcb_ptr = ntfn.get_ntfnBoundTCB();
+            if unlikely(
+                data.get_capNtfnCanReceive() == 0
+                    || (bound_tcb_ptr != 0 && bound_tcb_ptr != current_thread.get_ptr() as u64),
+            ) {
+                unsafe {
+                    current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
+                    current_fault = seL4_Fault_CapFault::new(ep_cptr as u64, 1).unsplay();
+                }
+                return handle_fault(current_thread);
+            }
+            return ntfn.receive_signal(current_thread, block);
+        }
+        _ => {
+            unsafe {
+                current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
+                current_fault = seL4_Fault_CapFault::new(ep_cptr as u64, 1).unsplay();
+            }
+            return handle_fault(current_thread);
+        }
+    }
+}
+
+#[cfg(not(feature = "KERNEL_MCS"))]
 fn handle_recv(block: bool) {
     let current_thread = get_currenct_thread();
     let ep_cptr = current_thread.tcbArch.get_register(ArchReg::Cap);
@@ -216,7 +346,14 @@ fn handle_recv(block: bool) {
 }
 
 fn handle_yield() {
-    get_currenct_thread().sched_dequeue();
-    get_currenct_thread().sched_append();
-    rescheduleRequired();
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        // TODO: MCS
+    }
+    #[cfg(not(feature = "KERNEL_MCS"))]
+    {
+        get_currenct_thread().sched_dequeue();
+        get_currenct_thread().sched_append();
+        rescheduleRequired();
+    }
 }

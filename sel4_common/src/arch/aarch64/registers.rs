@@ -18,6 +18,10 @@ pub(super) const msgInfoRegister: usize = 1;
 // #ifdef CONFIG_KERNEL_MCS
 //     nbsendRecvDest              = 8,
 // #endif
+#[cfg(feature = "KERNEL_MCS")]
+pub const replyRegister: usize = 6;
+#[cfg(feature = "KERNEL_MCS")]
+pub const nbsendRecvDest: usize = 8;
 //     X9                          = 9,    /* 0x48 */
 //     X10                         = 10,   /* 0x50 */
 //     X11                         = 11,   /* 0x58 */
@@ -60,6 +64,8 @@ pub(super) const TPIDRRO_EL0: usize = 36;
 pub const CONTEXT_REG_NUM: usize = 37;
 pub const n_exceptionMessage: usize = 3;
 pub const n_syscallMessage: usize = 12;
+#[cfg(feature = "KERNEL_MCS")]
+pub const n_timeoutMessage: usize = 34;
 pub const msgRegisterNum: usize = 4;
 pub const msgRegister: [usize; msgRegisterNum] = [2, 3, 4, 5];
 pub const MAX_MSG_SIZE: usize = n_syscallMessage;

@@ -141,6 +141,7 @@ impl endpoint_func for endpoint {
     /// * `can_grant` - If the IPC can grant
     /// * `badge` - The badge of the IPC
     /// * `can_grant_reply` - If the IPC can grant the reply
+    #[cfg(not(feature = "KERNEL_MCS"))]
     fn send_ipc(
         &mut self,
         src_thread: &mut tcb_t,
@@ -200,6 +201,59 @@ impl endpoint_func for endpoint {
             }
         }
     }
+    // TODO: MCS
+    #[cfg(feature = "KERNEL_MCS")]
+    fn send_ipc(
+        &mut self,
+        src_thread: &mut tcb_t,
+        blocking: bool,
+        do_call: bool,
+        can_grant: bool,
+        badge: usize,
+        can_grant_reply: bool,
+    ) {
+        match self.get_ep_state() {
+            EPState::Idle | EPState::Send => {
+                if blocking {
+                    src_thread
+                        .tcbState
+                        .set_tsType(ThreadState::ThreadStateBlockedOnSend as u64);
+                    src_thread
+                        .tcbState
+                        .set_blockingObject(self.get_ptr() as u64);
+                    src_thread
+                        .tcbState
+                        .set_blockingIPCCanGrant(can_grant as u64);
+                    src_thread.tcbState.set_blockingIPCBadge(badge as u64);
+                    src_thread
+                        .tcbState
+                        .set_blockingIPCCanGrantReply(can_grant_reply as u64);
+                    src_thread.tcbState.set_blockingIPCIsCall(do_call as u64);
+                    schedule_tcb(src_thread);
+
+                    let mut queue = self.get_queue();
+                    queue.ep_append(src_thread);
+                    self.set_state(EPState::Send as u64);
+                    self.set_queue(&queue);
+                }
+            }
+
+            EPState::Recv => {
+                let mut queue = self.get_queue();
+                let op_dest_thread = convert_to_option_mut_type_ref::<tcb_t>(queue.head);
+                assert!(op_dest_thread.is_some());
+                let dest_thread = op_dest_thread.unwrap();
+                queue.ep_dequeue(dest_thread);
+                self.set_queue(&queue);
+                if queue.empty() {
+                    self.set_state(EPState::Idle as u64);
+                }
+                src_thread.do_ipc_transfer(dest_thread, Some(self), badge, can_grant);
+
+                // TODO: MCS
+            }
+        }
+    }
 
     /// Receive an IPC from the endpoint, if the endpoint is idle or recv, the tcb will be blocked immediately
     /// , otherwise the thread will be transferred from the src thread(queue head)
@@ -207,6 +261,7 @@ impl endpoint_func for endpoint {
     /// * `thread` - The thread to receive the IPC
     /// * `is_blocking` - If the IPC is blocking
     /// * `grant` - If the IPC can grant
+    #[cfg(not(feature = "KERNEL_MCS"))]
     fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, grant: bool) {
         if thread.complete_signal() {
             return;
@@ -250,6 +305,46 @@ impl endpoint_func for endpoint {
                     set_thread_state(sender, ThreadState::ThreadStateRunning);
                     possible_switch_to(sender);
                 }
+            }
+        }
+    }
+    //TODO: MCS
+    #[cfg(feature = "KERNEL_MCS")]
+    fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, grant: bool) {
+        //TODO: MCS
+        if thread.complete_signal() {
+            return;
+        }
+        match self.get_ep_state() {
+            EPState::Idle | EPState::Recv => {
+                if is_blocking {
+                    thread.tcbState.set_blockingObject(self.get_ptr() as u64);
+                    //TODO: MCS
+                    set_thread_state(thread, ThreadState::ThreadStateBlockedOnReceive);
+                    let mut queue = self.get_queue();
+                    queue.ep_append(thread);
+                    self.set_state(EPState::Recv as u64);
+                    self.set_queue(&queue);
+                } else {
+                    // NBReceive failed
+                    thread.tcbArch.set_register(ArchReg::Badge, 0);
+                }
+            }
+            EPState::Send => {
+                let mut queue = self.get_queue();
+                assert!(!queue.empty());
+                let sender = convert_to_mut_type_ref::<tcb_t>(queue.head);
+                queue.ep_dequeue(sender);
+                self.set_queue(&queue);
+                if queue.empty() {
+                    self.set_state(EPState::Idle as u64);
+                }
+                let badge = sender.tcbState.get_blockingIPCBadge() as usize;
+                let can_grant = sender.tcbState.get_blockingIPCCanGrant() != 0;
+                let can_grant_reply = sender.tcbState.get_blockingIPCCanGrantReply() != 0;
+                sender.do_ipc_transfer(thread, Some(self), badge, can_grant);
+                let do_call = sender.tcbState.get_blockingIPCIsCall() != 0;
+                // TODO: MCS
             }
         }
     }

@@ -3,8 +3,9 @@ use crate::sel4_config::{
     RISCV_Mega_Page,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 /// Represents the type of an object.
+#[cfg(not(feature = "KERNEL_MCS"))]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ObjectType {
     UnytpedObject = 0,
     TCBObject = 1,
@@ -16,6 +17,22 @@ pub enum ObjectType {
     NormalPageObject = 6,
     MegaPageObject = 7,
     PageTableObject = 8,
+}
+#[cfg(feature = "KERNEL_MCS")]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum ObjectType {
+    UnytpedObject = 0,
+    TCBObject = 1,
+    EndpointObject = 2,
+    NotificationObject = 3,
+    CapTableObject = 4,
+    SchedContextObject = 5,
+    ReplyObject = 6,
+    // RISCV relevant object
+    GigaPageObject = 7,
+    NormalPageObject = 8,
+    MegaPageObject = 9,
+    PageTableObject = 10,
 }
 
 impl ObjectType {

@@ -4,9 +4,13 @@ use crate::BIT;
 pub const wordRadix: usize = 6;
 pub const wordBits: usize = BIT!(wordRadix);
 pub const seL4_EndpointBits: usize = 4;
-pub const seL4_NotificationBits: usize = 4;
+#[cfg(feature = "KERNEL_MCS")]
+pub const seL4_NotificationBits: usize = 6;
+#[cfg(feature = "KERNEL_MCS")]
+pub const seL4_ReplyBits: usize = 5;
+#[cfg(not(feature = "KERNEL_MCS"))]
+pub const seL4_NotificationBits: usize = 5;
 pub const seL4_SlotBits: usize = 5;
-pub const seL4_ReplyBits: usize = 4;
 pub const seL4_MinUntypedBits: usize = 4;
 pub const seL4_MaxUntypedBits: usize = 38;
 
@@ -82,8 +86,17 @@ pub const TCB_SIZE_BITS: usize = seL4_TCBBits - 1;
 pub const TCB_OFFSET: usize = BIT!(TCB_SIZE_BITS);
 pub const tcbCTable: usize = 0;
 pub const tcbVTable: usize = 1;
+#[cfg(feature = "KERNEL_MCS")]
+pub const tcbBuffer: usize = 2;
+#[cfg(feature = "KERNEL_MCS")]
+pub const tcbFaultHandler: usize = 3;
+#[cfg(feature = "KERNEL_MCS")]
+pub const tcbTimeoutHandler: usize = 4;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const tcbReply: usize = 2;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const tcbCaller: usize = 3;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const tcbBuffer: usize = 4;
 pub const tcbCNodeEntries: usize = 5;
 
@@ -114,6 +127,8 @@ pub const seL4_MsgExtraCapBits: usize = 2;
 pub const seL4_MsgMaxExtraCaps: usize = BIT!(seL4_MsgExtraCapBits) - 1;
 pub const MessageID_Syscall: usize = 0;
 pub const MessageID_Exception: usize = 1;
+#[cfg(feature = "KERNEL_MCS")]
+pub const MessageID_TimeoutReply: usize = 2;
 
 pub const seL4_IPCBufferSizeBits: usize = 10;
 

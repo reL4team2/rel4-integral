@@ -49,6 +49,8 @@ pub static mut rootserver: rootserver_mem_t = rootserver_mem_t {
     boot_info: 0,
     extra_bi: 0,
     tcb: 0,
+    #[cfg(feature = "KERNEL_MCS")]
+    sc: 0,
     paging: region_t {
         start: (0),
         end: (0),
@@ -95,6 +97,11 @@ pub fn root_server_init(
     ) {
         return None;
     }
+
+    // #ifdef CONFIG_KERNEL_MCS
+    //     init_sched_control(root_cnode_cap, CONFIG_MAX_NUM_NODES);
+    // #endif
+
     let ipcbuf_cap = unsafe { create_ipcbuf_frame_cap(&root_cnode_cap, &it_pd_cap, ipcbuf_vptr) };
     if ipcbuf_cap.clone().unsplay().get_tag() == cap_tag::cap_null_cap {
         debug!("ERROR: could not create IPC buffer for initial thread");
@@ -140,6 +147,7 @@ unsafe fn create_initial_thread(
     ipcbuf_vptr: usize,
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
+    // TODO: MCS
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
     tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
     tcb.tcbArch = ArchTCB::default();
@@ -176,6 +184,7 @@ unsafe fn create_initial_thread(
     tcb.tcbMCP = seL4_MaxPrio;
     tcb.tcbPriority = seL4_MaxPrio;
     set_thread_state(tcb, ThreadState::ThreadStateRunning);
+    #[cfg(not(feature = "KERNEL_MCS"))]
     tcb.setup_reply_master();
     ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
     ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
@@ -204,6 +213,7 @@ unsafe fn create_initial_thread(
     ipcbuf_vptr: usize,
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
+    // TODO: MCS
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
     tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
     tcb.tcbArch = ArchTCB::default();
@@ -240,6 +250,7 @@ unsafe fn create_initial_thread(
     tcb.tcbMCP = seL4_MaxPrio;
     tcb.tcbPriority = seL4_MaxPrio;
     set_thread_state(tcb, ThreadState::ThreadStateRunning);
+    #[cfg(not(feature = "KERNEL_MCS"))]
     tcb.setup_reply_master();
     ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
     ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
@@ -310,6 +321,13 @@ fn create_it_asid_pool(root_cnode_cap: &cap_cnode_cap) -> cap_asid_pool_cap {
     );
     ap_cap
 }
+
+#[cfg(feature = "KERNEL_MCS")]
+//TODO: MCS
+fn init_sched_control(root_cnode_cap: &cap_cnode_cap, num_nodes: usize) -> bool {
+    true
+}
+
 #[cfg(target_arch = "aarch64")]
 fn create_frame_ui_frames(
     root_cnode_cap: &cap_cnode_cap,

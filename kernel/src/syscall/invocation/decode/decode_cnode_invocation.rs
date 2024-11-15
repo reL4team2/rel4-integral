@@ -59,6 +59,7 @@ pub fn decode_cnode_invocation(
         }
         MessageLabel::CNodeRevoke => invoke_cnode_revoke(dest_slot),
         MessageLabel::CNodeDelete => invoke_cnode_delete(dest_slot),
+        #[cfg(not(feature = "KERNEL_MCS"))]
         MessageLabel::CNodeSaveCaller => invoke_cnode_save_caller(dest_slot),
         MessageLabel::CNodeCancelBadgedSends => invoke_cnode_cancel_badged_sends(dest_slot),
         MessageLabel::CNodeRotate => decode_cnode_rotate(dest_slot, length, buffer),

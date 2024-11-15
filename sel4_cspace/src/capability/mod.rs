@@ -105,7 +105,10 @@ impl cap_func for cap {
                 cap::cap_cnode_cap(self).get_capCNodeRadix() as usize + seL4_SlotBits
             }
             cap_tag::cap_page_table_cap => PT_SIZE_BITS,
+            #[cfg(feature = "KERNEL_MCS")]
             cap_tag::cap_reply_cap => seL4_ReplyBits,
+            #[cfg(not(feature = "KERNEL_MCS"))]
+            cap_tag::cap_reply_cap => 0,
             _ => 0,
         }
     }

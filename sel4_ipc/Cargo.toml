@@ -11,3 +11,4 @@ sel4_vspace = { git = "https://github.com/rel4team/sel4_vspace.git", branch = "m
 sel4_task = { git = "https://github.com/rel4team/sel4_task.git", branch = "mi_dev" }
 
 [features]
+KERNEL_MCS = []
