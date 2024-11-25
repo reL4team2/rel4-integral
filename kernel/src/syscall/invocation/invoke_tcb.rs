@@ -156,7 +156,7 @@ pub fn invoke_tcb_resume(thread: &mut tcb_t) -> exception_t {
 
 #[inline]
 pub fn invoke_tcb_set_mcp(target: &mut tcb_t, mcp: usize) -> exception_t {
-    target.set_mcp_priority(mcp);
+    target.set_mc_priority(mcp);
     exception_t::EXCEPTION_NONE
 }
 

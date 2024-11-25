@@ -12,21 +12,54 @@ use sel4_common::arch::ArchReg::*;
 use sel4_common::sel4_config::tcbCaller;
 
 pub const SysCall: isize = -1;
+pub const SYSCALL_MAX: isize = SysCall;
 pub const SysReplyRecv: isize = -2;
+
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const SysSend: isize = -3;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const SysNBSend: isize = -4;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const SysRecv: isize = -5;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const SysReply: isize = -6;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const SysYield: isize = -7;
+
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysNBSendRecv: isize = -3;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysNBSendWait: isize = -4;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysSend: isize = -5;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysNBSend: isize = -6;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysRecv: isize = -7;
+
 pub const SysNBRecv: isize = -8;
 
-pub const SysDebugPutChar: isize = -9;
-pub const SysDebugDumpScheduler: isize = -10;
-pub const SysDebugHalt: isize = -11;
-pub const SysDebugCapIdentify: isize = -12;
-pub const SysDebugSnapshot: isize = -13;
-pub const SysDebugNameThread: isize = -14;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysWait: isize = -9;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysNBWait: isize = -10;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysYield: isize = -11;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SYSCALL_MIN: isize = SysYield;
+#[cfg(not(feature = "KERNEL_MCS"))]
+pub const SYSCALL_MIN: isize = SysNBRecv;
+
+pub const SysDebugPutChar: isize = SYSCALL_MIN - 1;
+pub const SysDebugDumpScheduler: isize = SysDebugPutChar - 1;
+pub const SysDebugHalt: isize = SysDebugDumpScheduler - 1;
+pub const SysDebugCapIdentify: isize = SysDebugHalt - 1;
+pub const SysDebugSnapshot: isize = SysDebugCapIdentify - 1;
+pub const SysDebugNameThread: isize = SysDebugSnapshot - 1;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const SysGetClock: isize = -30;
+#[cfg(feature = "KERNEL_MCS")]
+pub const SysGetClock: isize = -33;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{
     cap, cap_Splayed, cap_tag, endpoint, lookup_fault_missing_capability, notification,
@@ -49,7 +82,7 @@ use self::invocation::handleInvocation;
 
 #[no_mangle]
 pub fn slowpath(syscall: usize) {
-    if (syscall as isize) < -8 || (syscall as isize) > -1 {
+    if (syscall as isize) < SYSCALL_MIN || (syscall as isize) > SYSCALL_MAX {
         // using ffi_call! macro to call c function
         handleUnknownSyscall(syscall as isize);
         // ffi_call!(handleUnknownSyscall(id: usize => syscall));
@@ -170,7 +203,21 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
             // TODO: MCS
             handle_recv(true, true);
         }
-        // TODO: MCS
+		SysWait => {
+			handle_recv(true,false);
+		}
+		SysNBWait => {
+			handle_recv(false,false);
+		}
+		SysReplyRecv => {
+			// TODO: MCS
+		}
+		SysNBSendRecv => {
+			// TODO: MCS
+		}
+		SysNBSendWait => {
+			// TODO: MCS
+		}
         SysNBRecv => {
             // TODO: MCS
             handle_recv(true, true)
@@ -183,7 +230,35 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
     activateThread();
     exception_t::EXCEPTION_NONE
 }
-
+#[cfg(feature = "KERNEL_MCS")]
+fn send_fault_ipc(thread: &mut tcb_t, handlerCap: &cap, can_donate: bool) -> bool {
+    // TODO: MCS
+    if handlerCap.get_tag() == cap_tag::cap_endpoint_cap {
+        assert!(cap::cap_endpoint_cap(&handlerCap).get_capCanSend() != 0);
+        assert!(
+            cap::cap_endpoint_cap(&handlerCap).get_capCanGrant() != 0
+                || cap::cap_endpoint_cap(&handlerCap).get_capCanGrantReply() != 0
+        );
+        thread.tcbFault = unsafe { current_fault.clone() };
+        convert_to_mut_type_ref::<endpoint>(
+            cap::cap_endpoint_cap(&handlerCap).get_capEPPtr() as usize
+        )
+        .send_ipc(
+            thread,
+            true,
+            false,
+            cap::cap_endpoint_cap(&handlerCap).get_capCanGrant() != 0,
+            cap::cap_endpoint_cap(&handlerCap).get_capEPBadge() as usize,
+            cap::cap_endpoint_cap(&handlerCap).get_capCanGrantReply() != 0,
+            can_donate,
+        );
+        return true;
+    } else {
+        assert!(handlerCap.get_tag() == cap_tag::cap_null_cap);
+        return false;
+    }
+}
+#[cfg(not(feature = "KERNEL_MCS"))]
 fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
     let origin_lookup_fault = unsafe { current_lookup_fault.clone() };
     let lu_ret = thread.lookup_slot(thread.tcbFaultHandler);
@@ -220,9 +295,53 @@ fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
 }
 
 #[inline]
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub fn handle_fault(thread: &mut tcb_t) {
     if send_fault_ipc(thread) != exception_t::EXCEPTION_NONE {
         set_thread_state(thread, ThreadState::ThreadStateInactive);
+    }
+}
+#[inline]
+#[cfg(feature = "KERNEL_MCS")]
+pub fn handle_fault(thread: &mut tcb_t) {
+    use sel4_common::sel4_config::tcbFaultHandler;
+    let cte = thread.get_cspace(tcbFaultHandler);
+    let hasFaultHandler = send_fault_ipc(thread, &cte.capability, thread.tcbSchedContext != 0);
+    if !hasFaultHandler {
+        set_thread_state(thread, ThreadState::ThreadStateInactive);
+    }
+}
+#[inline]
+#[cfg(feature = "KERNEL_MCS")]
+pub fn handleTimeout(tptr: &mut tcb_t) {
+    use sel4_common::sel4_config::tcbTimeoutHandler;
+
+    assert!(tptr.validTimeoutHandler());
+    let cte = tptr.get_cspace(tcbTimeoutHandler);
+    send_fault_ipc(tptr, &cte.capability, false);
+}
+#[inline]
+#[cfg(feature = "KERNEL_MCS")]
+#[no_mangle]
+pub fn endTimeslice(can_timeout_fault: bool) {
+    use sel4_common::structures_gen::seL4_Fault_Timeout;
+    use sel4_task::{ksCurSC, sched_context::sched_context_t};
+
+    unsafe {
+        let thread = get_currenct_thread();
+        let sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+        if can_timeout_fault && !sched_context.is_round_robin() && thread.validTimeoutHandler() {
+            current_fault = seL4_Fault_Timeout::new(sched_context.scBadge as u64).unsplay();
+            handleTimeout(thread);
+        } else if sched_context.refill_ready() && sched_context.refill_sufficient(0) {
+            /* apply round robin */
+            assert!(sched_context.refill_sufficient(0));
+            assert!(thread.tcbState.get_tcbQueued() == 0);
+            thread.sched_append();
+        } else {
+            /* postpone until ready */
+            sched_context.postpone();
+        }
     }
 }
 // #[cfg(feature="KERNEL_MCS")]

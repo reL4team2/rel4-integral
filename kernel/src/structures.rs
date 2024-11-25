@@ -69,7 +69,7 @@ pub struct seL4_BootInfo {
     pub initThreadCNodeSizeBits: usize,
     pub initThreadDomain: usize,
     #[cfg(feature = "KERNEL_MCS")]
-    schedcontrol: seL4_SlotRegion,
+    pub schedcontrol: seL4_SlotRegion,
     pub untyped: seL4_SlotRegion,
     pub untypedList: [seL4_UntypedDesc; CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS],
 }

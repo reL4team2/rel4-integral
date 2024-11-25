@@ -18,16 +18,26 @@ use sel4_common::sel4_config::{
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe};
 use sel4_common::{BIT, MASK};
 
+use crate::deps::ksIdleThreadTCB;
+#[cfg(feature = "KERNEL_MCS")]
+use crate::sched_context::{sched_context_t, MIN_REFILLS};
+use crate::tcb::{set_thread_state, tcb_t};
+use crate::tcb_queue::tcb_queue_t;
+use crate::thread_state::ThreadState;
+#[cfg(feature = "KERNEL_MCS")]
+use crate::{deps::ksIdleThreadSC, sched_context::refill_budget_check, tcb_Release_Dequeue};
+#[cfg(feature = "ENABLE_SMP")]
+use sel4_common::utils::cpu_id;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::{
+    arch::usToTicks,
+    platform::time_def::{ticks_t, time_t, US_IN_MS},
+    sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
+};
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{
     get_arm_global_user_vspace_base, kpptr_to_paddr, setCurrentUserVSpaceRoot, ttbr_new,
 };
-
-use crate::tcb::{set_thread_state, tcb_t};
-use crate::tcb_queue::tcb_queue_t;
-use crate::thread_state::ThreadState;
-#[cfg(feature = "ENABLE_SMP")]
-use sel4_common::utils::cpu_id;
 
 #[cfg(feature = "ENABLE_SMP")]
 #[derive(Debug, Copy, Clone)]
@@ -98,6 +108,30 @@ pub static mut ksIdleThread: usize = 0;
 pub static mut ksSchedulerAction: usize = 1;
 
 #[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+pub static mut ksReleaseHead: usize = 0;
+
+#[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+pub static mut ksCurSC: usize = 0;
+
+#[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+pub static mut ksConsumed: time_t = 0;
+
+#[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+pub static mut ksCurTime: time_t = 0;
+
+#[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+pub static mut ksReprogram: bool = false;
+
+#[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+pub static mut ksIdleSC: usize = 0;
+
+#[no_mangle]
 pub static mut ksReadyQueues: [tcb_queue_t; NUM_READY_QUEUES] =
     [tcb_queue_t { head: 0, tail: 0 }; NUM_READY_QUEUES];
 
@@ -119,7 +153,7 @@ pub static mut ksDomSchedule: [dschedule_t; ksDomScheduleLength] = [dschedule_t 
 }; ksDomScheduleLength];
 
 #[allow(non_camel_case_types)]
-type prio_t = usize;
+pub type prio_t = usize;
 
 #[inline]
 /// Get the idle thread, and returns a mutable tcb reference to the idle thread.
@@ -417,6 +451,7 @@ fn chooseThread() {
 }
 
 #[no_mangle]
+#[cfg(not(feature = "KERNEL_MCS"))]
 /// Reschedule threads, and enqueue the current thread if current ks scheduler action is not to resume the current thread and choose new thread.
 pub fn rescheduleRequired() {
     if get_ks_scheduler_action() != SchedulerAction_ResumeCurrentThread
@@ -427,14 +462,230 @@ pub fn rescheduleRequired() {
     // ksSchedulerAction = SchedulerAction_ChooseNewThread;
     set_ks_scheduler_action(SchedulerAction_ChooseNewThread);
 }
+#[no_mangle]
+#[cfg(feature = "KERNEL_MCS")]
+/// Reschedule threads, and enqueue the current thread if current ks scheduler action is not to resume the current thread and choose new thread.
+pub fn rescheduleRequired() {
+    let action = get_ks_scheduler_action();
+    if action != SchedulerAction_ResumeCurrentThread && action != SchedulerAction_ChooseNewThread {
+        let action_tcb = convert_to_mut_type_ref::<tcb_t>(action);
+        if action_tcb.is_schedulable() {
+            let action_sched_context =
+                convert_to_mut_type_ref::<sched_context_t>(action_tcb.tcbSchedContext);
+            assert!(action_sched_context.refill_sufficient(0));
+            assert!(action_sched_context.refill_ready());
+            action_tcb.sched_enqueue();
+        }
+    }
+    set_ks_scheduler_action(SchedulerAction_ChooseNewThread);
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn awaken() {
+    while unsafe {
+        unlikely(
+            ksReleaseHead != 0
+                && convert_to_mut_type_ref::<sched_context_t>(
+                    convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedContext,
+                )
+                .refill_ready(),
+        )
+    } {
+        let awakened = tcb_Release_Dequeue();
+        /* the currently running thread cannot have just woken up */
+        unsafe {
+            assert!((*awakened).get_ptr() != ksCurThread);
+            /* round robin threads should not be in the release queue */
+            assert!(
+                !convert_to_mut_type_ref::<sched_context_t>((*awakened).tcbSchedContext)
+                    .is_round_robin()
+            );
+            /* threads HEAD refill should always be >= MIN_BUDGET */
+            assert!(
+                convert_to_mut_type_ref::<sched_context_t>((*awakened).tcbSchedContext)
+                    .refill_sufficient(0)
+            );
+            possible_switch_to(&mut *awakened);
+            /* changed head of release queue -> need to reprogram */
+            ksReprogram = true;
+        }
+    }
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn isCurDomainExpired() -> bool {
+    use sel4_common::sel4_config::numDomains;
+    numDomains > 1 && unsafe { ksDomainTime } == 0
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn updateTimestamp() {
+    use sel4_common::{
+        platform::{timer, Timer_func},
+        sel4_config::numDomains,
+    };
+
+    use crate::sched_context::{MAX_RELEASE_TIME, MIN_BUDGET};
+
+    unsafe {
+        let prev = ksCurTime;
+        ksCurTime = timer.getCurrentTime();
+        assert!(ksCurTime < MAX_RELEASE_TIME());
+        let consumed = ksCurTime - prev;
+        ksConsumed += consumed;
+        if numDomains > 1 {
+            if consumed + MIN_BUDGET() >= ksDomainTime {
+                ksDomainTime = 0;
+            } else {
+                ksDomainTime -= consumed;
+            }
+        }
+    }
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn checkDomainTime() {
+    if unlikely(isCurDomainExpired()) {
+        unsafe { ksReprogram = true };
+        rescheduleRequired();
+    }
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn checkBudget() -> bool {
+    unsafe {
+        let current_sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+        assert!(current_sched_context.refill_ready());
+        if likely(current_sched_context.refill_sufficient(ksConsumed)) {
+            if unlikely(isCurDomainExpired()) {
+                return false;
+            }
+            return true;
+        }
+        chargeBudget(ksConsumed, true);
+    }
+    false
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn setNextInterrupt() {
+    use sel4_common::{
+        arch::getTimerPrecision,
+        platform::{timer, Timer_func},
+        sel4_config::numDomains,
+    };
+
+    unsafe {
+        let mut next_interrupt = ksCurTime
+            + (*convert_to_mut_type_ref::<sched_context_t>(
+                convert_to_mut_type_ref::<tcb_t>(ksCurThread).tcbSchedContext,
+            )
+            .refill_head())
+            .rAmount;
+        if numDomains > 1 {
+            next_interrupt = core::cmp::min(next_interrupt, ksCurTime + ksDomainTime);
+        }
+        if ksReleaseHead != 0 {
+            next_interrupt = core::cmp::min(
+                (*convert_to_mut_type_ref::<sched_context_t>(
+                    convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedContext,
+                )
+                .refill_head())
+                .rTime,
+                next_interrupt,
+            );
+        }
+        timer.setDeadline(next_interrupt - getTimerPrecision());
+    }
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn chargeBudget(consumed: ticks_t, canTimeoutFault: bool) {
+    use crate::{endTimeslice, sched_context::MIN_BUDGET};
+
+    unsafe {
+        if likely(ksCurSC != ksIdleSC) {
+            let current_sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+            if current_sched_context.is_round_robin() {
+                assert!(current_sched_context.refill_size() == MIN_REFILLS);
+                (*current_sched_context.refill_head()).rAmount +=
+                    (*current_sched_context.refill_tail()).rAmount;
+                (*current_sched_context.refill_tail()).rAmount = 0;
+            } else {
+                refill_budget_check(consumed);
+            }
+
+            assert!((*current_sched_context.refill_head()).rAmount >= MIN_BUDGET());
+            current_sched_context.scConsumed += consumed;
+        }
+        ksConsumed = 0;
+        let thread = get_currenct_thread();
+        if likely(thread.is_schedulable()) {
+            assert!(thread.tcbSchedContext == ksCurSC);
+            endTimeslice(canTimeoutFault);
+            rescheduleRequired();
+            ksReprogram = true;
+        }
+    }
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn commitTime() {
+    unsafe {
+        let current_sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+        if likely(current_sched_context.scRefillMax != 0 && ksCurSC != ksIdleSC) {
+            if likely(ksConsumed > 0) {
+                assert!(current_sched_context.refill_sufficient(ksConsumed));
+                assert!(current_sched_context.refill_ready());
+
+                if (current_sched_context.is_round_robin()) {
+                    assert!(current_sched_context.refill_size() == MIN_REFILLS);
+                    (*current_sched_context.refill_head()).rAmount -= ksConsumed;
+                    (*current_sched_context.refill_tail()).rAmount += ksConsumed;
+                } else {
+                    refill_budget_check(ksConsumed);
+                }
+                assert!(current_sched_context.refill_sufficient(0));
+                assert!(current_sched_context.refill_ready());
+            }
+            current_sched_context.scConsumed += ksConsumed;
+        }
+    }
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn switch_sched_context() {
+    let thread = get_currenct_thread();
+    unsafe {
+        if unlikely(ksCurSC != thread.tcbSchedContext) {
+            ksReprogram = true;
+            if convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
+                .sc_constant_bandwidth()
+            {
+                convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
+                    .refill_unblock_check();
+            }
+
+            assert!(
+                convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext).refill_ready()
+            );
+            assert!(
+                convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
+                    .refill_sufficient(0)
+            );
+        }
+
+        if ksReprogram {
+            commitTime();
+        }
+
+        ksCurSC = thread.tcbSchedContext;
+    }
+}
 
 #[no_mangle]
 /// Schedule threads.
 pub fn schedule() {
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        awaken();
+        checkDomainTime();
+    }
     if get_ks_scheduler_action() != SchedulerAction_ResumeCurrentThread {
         let was_runnable: bool;
         let current_tcb = get_currenct_thread();
-        if current_tcb.is_runnable() {
+        if current_tcb.is_schedulable() {
             was_runnable = true;
             current_tcb.sched_enqueue();
         } else {
@@ -446,6 +697,7 @@ pub fn schedule() {
         } else {
             // let candidate = ksSchedulerAction as *mut tcb_t;
             let candidate = convert_to_mut_type_ref::<tcb_t>(get_ks_scheduler_action());
+            assert!(candidate.is_schedulable());
             let fastfail = get_currenct_thread().get_ptr() == get_idle_thread().get_ptr()
                 || candidate.tcbPriority < get_currenct_thread().tcbPriority;
             if fastfail && !isHighestPrio(unsafe { ksCurDomain }, candidate.tcbPriority) {
@@ -468,6 +720,14 @@ pub fn schedule() {
         doMaskReschedule(ksSMP[cpu_id()].ipiReschedulePending);
         ksSMP[cpu_id()].ipiReschedulePending = 0;
     }
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        switch_sched_context();
+        if unsafe { ksReprogram } {
+            setNextInterrupt();
+            unsafe { ksReprogram = false };
+        }
+    }
 }
 
 #[inline]
@@ -475,7 +735,7 @@ pub fn schedule() {
 pub fn schedule_tcb(tcb_ref: &tcb_t) {
     if tcb_ref.get_ptr() == get_currenct_thread_unsafe().get_ptr()
         && get_ks_scheduler_action() == SchedulerAction_ResumeCurrentThread
-        && !tcb_ref.is_runnable()
+        && !tcb_ref.is_schedulable()
     {
         rescheduleRequired();
     }
@@ -499,13 +759,29 @@ pub fn possible_switch_to(target: &mut tcb_t) {
 #[inline]
 /// Schedule the given tcb when current tcb is not in the same domain or current action is not to resume the current thread.
 pub fn possible_switch_to(target: &mut tcb_t) {
-    if unsafe { ksCurDomain != target.domain } {
-        target.sched_enqueue();
-    } else if get_ks_scheduler_action() != SchedulerAction_ResumeCurrentThread {
-        rescheduleRequired();
-        target.sched_enqueue();
-    } else {
-        set_ks_scheduler_action(target.get_ptr());
+    #[cfg(not(feature = "KERNEL_MCS"))]
+    {
+        if unsafe { ksCurDomain != target.domain } {
+            target.sched_enqueue();
+        } else if get_ks_scheduler_action() != SchedulerAction_ResumeCurrentThread {
+            rescheduleRequired();
+            target.sched_enqueue();
+        } else {
+            set_ks_scheduler_action(target.get_ptr());
+        }
+    }
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        if target.tcbSchedContext != 0 && target.tcbState.get_tcbInReleaseQueue() == 0 {
+            if unsafe { ksCurDomain != target.domain } {
+                target.sched_enqueue();
+            } else if get_ks_scheduler_action() != SchedulerAction_ResumeCurrentThread {
+                rescheduleRequired();
+                target.sched_enqueue();
+            } else {
+                set_ks_scheduler_action(target.get_ptr());
+            }
+        }
     }
 }
 
@@ -540,6 +816,21 @@ pub fn timerTick() {
 pub fn activateThread() {
     let thread = get_currenct_thread();
     // debug!("current: {:#x}", thread.get_ptr());
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        // TODO: MCS
+        // #ifdef CONFIG_KERNEL_MCS
+        //     if (unlikely(NODE_STATE(ksCurThread)->tcbYieldTo))
+        //     {
+        //         schedContext_completeYieldTo(NODE_STATE(ksCurThread));
+        //         assert(thread_state_get_tsType(NODE_STATE(ksCurThread)->tcbState) == ThreadState_Running);
+        //     }
+        // #endif
+        if unlikely(thread.tcbYieldTo != 0) {
+            thread.schedContext_completeYieldTo();
+            assert!(thread.tcbState.get_tsType() == ThreadState::ThreadStateRunning as u64);
+        }
+    }
     match thread.get_state() {
         ThreadState::ThreadStateRunning => {
             return;
@@ -559,12 +850,16 @@ pub fn activateThread() {
         ),
     }
 }
+#[cfg(feature = "KERNEL_MCS")]
+pub fn configure_sched_context(tcb: &mut tcb_t, sc_pptr: &mut sched_context_t, timeslice: ticks_t) {
+    tcb.tcbSchedContext = sc_pptr.get_ptr();
+    sc_pptr.refill_new(MIN_REFILLS, timeslice, 0);
+    sc_pptr.scTcb = tcb.get_ptr();
+}
 
 #[cfg(not(feature = "ENABLE_SMP"))]
 /// Create the idle thread.
 pub fn create_idle_thread() {
-    use crate::deps::ksIdleThreadTCB;
-
     unsafe {
         let pptr = &mut ksIdleThreadTCB.data[0][0] as *mut u8 as *mut usize;
         // let pptr = ksIdleThreadTCB as usize as *mut usize;
@@ -574,6 +869,17 @@ pub fn create_idle_thread() {
         // Arch_configureIdleThread(tcb.tcbArch);
         tcb.tcbArch.config_idle_thread(idle_thread as usize);
         set_thread_state(tcb, ThreadState::ThreadStateIdleThreadState);
+        #[cfg(feature = "KERNEL_MCS")]
+        {
+            configure_sched_context(
+                convert_to_mut_type_ref::<tcb_t>(ksIdleThread),
+                convert_to_mut_type_ref::<sched_context_t>(
+                    &mut ksIdleThreadSC.data[0][0] as *mut u8 as usize,
+                ),
+                usToTicks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
+            );
+            ksIdleSC = &mut ksIdleThreadSC.data[0][0] as *mut u8 as usize;
+        }
     }
 }
 

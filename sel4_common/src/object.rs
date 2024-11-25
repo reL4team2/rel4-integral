@@ -12,7 +12,10 @@ pub const seL4_ObjectTypeCount: usize = ObjectType::PageTableObject as usize + 1
 // FIXED: Need to add 1 to cover all possible object types
 #[cfg(any(target_arch = "aarch64", test))]
 pub const seL4_ObjectTypeCount: usize = ObjectType::seL4_ARM_PageTableObject as usize + 1;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const seL4_NonArchObjectTypeCount: usize = ObjectType::CapTableObject as usize + 1;
+#[cfg(feature = "KERNEL_MCS")]
+pub const seL4_NonArchObjectTypeCount: usize = ObjectType::ReplyObject as usize + 1;
 
 impl ObjectType {
     /// Returns the size of the object based on its type.
@@ -34,6 +37,10 @@ impl ObjectType {
             ObjectType::EndpointObject => seL4_EndpointBits,
             ObjectType::NotificationObject => seL4_NotificationBits,
             ObjectType::CapTableObject => seL4_SlotBits + user_object_size,
+            #[cfg(feature = "KERNEL_MCS")]
+            ObjectType::SchedContextObject => user_object_size,
+            #[cfg(feature = "KERNEL_MCS")]
+            ObjectType::ReplyObject => seL4_ReplyBits,
             _ => panic!("unsupported cap type:{}", (*self) as usize),
         }
     }

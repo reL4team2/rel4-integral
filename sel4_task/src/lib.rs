@@ -10,13 +10,15 @@
 #![allow(non_upper_case_globals)]
 
 mod deps;
+mod ffi;
+#[cfg(feature = "KERNEL_MCS")]
+pub mod sched_context;
 mod scheduler;
 mod structures;
 pub mod tcb;
 mod tcb_queue;
 mod thread_state;
-mod ffi;
-
+pub use ffi::*;
 pub use scheduler::*;
 pub use structures::*;
 pub use tcb::*;

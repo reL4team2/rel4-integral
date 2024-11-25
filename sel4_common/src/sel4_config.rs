@@ -1,6 +1,7 @@
 //! This module contains the configuration settings for sel4_common.
 use crate::BIT;
 
+pub const UINT64_MAX: usize = 0xFFFFFFFFFFFFFFFF;
 pub const wordRadix: usize = 6;
 pub const wordBits: usize = BIT!(wordRadix);
 pub const seL4_EndpointBits: usize = 4;
@@ -82,6 +83,8 @@ pub const CONFIG_TIME_SLICE: usize = 5;
 pub const seL4_TCBBits: usize = 10;
 #[cfg(any(target_arch = "aarch64", test))]
 pub const seL4_TCBBits: usize = 11;
+#[cfg(feature = "KERNEL_MCS")]
+pub const seL4_MinSchedContextBits: usize = 7;
 pub const TCB_SIZE_BITS: usize = seL4_TCBBits - 1;
 pub const TCB_OFFSET: usize = BIT!(TCB_SIZE_BITS);
 pub const tcbCTable: usize = 0;
@@ -138,3 +141,8 @@ pub const CONFIG_KERNEL_STACK_BITS: usize = 12;
 
 pub const ID_AA64PFR0_EL1_FP: u32 = 16;
 pub const ID_AA64PFR0_EL1_ASIMD: u32 = 20;
+pub const CONFIG_KERNEL_WCET_SCALE: usize = 1;
+pub const CONFIG_BOOT_THREAD_TIME_SLICE: usize = 5;
+pub const minDom: usize = 0;
+pub const maxDom: usize = CONFIG_NUM_DOMAINS - 1;
+pub const numDomains: usize = CONFIG_NUM_DOMAINS;

@@ -7,6 +7,8 @@ use sel4_common::arch::ObjectType;
 use sel4_common::structures_gen::{
     cap, cap_cnode_cap, cap_endpoint_cap, cap_notification_cap, cap_thread_cap, cap_untyped_cap,
 };
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::structures_gen::{cap_reply_cap, cap_sched_context_cap};
 use sel4_common::{
     sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref, BIT, ROUND_DOWN,
 };
@@ -82,7 +84,10 @@ fn create_object(
         ObjectType::TCBObject => {
             let tcb = convert_to_mut_type_ref::<tcb_t>(region_base + TCB_OFFSET);
             tcb.init();
-            tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
+            #[cfg(feature = "KERNEL_MCS")]
+            {
+                tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
+            }
             tcb.domain = get_current_domain();
             // #[cfg(feature="DEBUG_BUILD")]
             // unsafe {
@@ -103,6 +108,13 @@ fn create_object(
             cap_untyped_cap::new(0, device_mem as u64, user_size as u64, region_base as u64)
                 .unsplay()
         }
+        #[cfg(feature = "KERNEL_MCS")]
+        ObjectType::SchedContextObject => {
+            cap_sched_context_cap::new(region_base as u64, user_size as u64).unsplay()
+        }
+        #[cfg(feature = "KERNEL_MCS")]
+        ObjectType::ReplyObject => cap_reply_cap::new(region_base as u64, 1 as u64).unsplay(),
+
         _ => arch_create_object(obj_type, region_base, user_size, device_mem),
     }
 }

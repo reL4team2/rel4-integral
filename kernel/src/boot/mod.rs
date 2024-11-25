@@ -10,6 +10,8 @@ use core::mem::size_of;
 use crate::{BIT, ROUND_UP};
 use log::debug;
 use sel4_common::arch::config::PADDR_TOP;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::seL4_PageBits;
 use spin::Mutex;
 
@@ -162,6 +164,22 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
 
     set_current_scheduler_action(scheduler_action as usize);
     set_current_thread(get_idle_thread());
+    // TODO: MCS
+    // #ifdef CONFIG_KERNEL_MCS
+    // 	NODE_STATE(ksCurSC) = NODE_STATE(ksCurThread->tcbSchedContext);
+    // 	NODE_STATE(ksConsumed) = 0;
+    // 	NODE_STATE(ksReprogram) = true;
+    // 	NODE_STATE(ksReleaseHead) = NULL;
+    // 	NODE_STATE(ksCurTime) = getCurrentTime();
+    // #endif
+    #[cfg(feature = "KERNEL_MCS")]
+    unsafe {
+        ksCurSC = get_currenct_thread().tcbSchedContext;
+        ksConsumed = 0;
+        ksReprogram = true;
+        ksReleaseHead = 0;
+        ksCurTime = timer.getCurrentTime();
+    }
 }
 
 #[cfg(feature = "ENABLE_SMP")]

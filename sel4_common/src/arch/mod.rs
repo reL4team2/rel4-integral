@@ -67,3 +67,11 @@ pub enum ArchReg {
     /// Fault Message Reg, (id, index)
     FaultMessage(usize, usize),
 }
+
+#[cfg(feature = "KERNEL_MCS")]
+use crate::platform::time_def::ticks_t;
+
+#[cfg(feature = "KERNEL_MCS")]
+pub fn getKernelWcetTicks() -> ticks_t {
+    usToTicks(getKernelWcetUs())
+}

@@ -1,8 +1,3 @@
-use log::debug;
-use sel4_common::{arch::config::KERNEL_ELF_BASE, sel4_config::PAGE_BITS, BIT};
-use sel4_task::create_idle_thread;
-use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
-
 use crate::{
     arch::{init_cpu, init_freemem},
     boot::{
@@ -13,6 +8,11 @@ use crate::{
     ffi::init_plat,
     structures::{p_region_t, seL4_SlotRegion, v_region_t},
 };
+use log::debug;
+use sel4_common::println;
+use sel4_common::{arch::config::KERNEL_ELF_BASE, sel4_config::PAGE_BITS, BIT};
+use sel4_task::create_idle_thread;
+use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 
 pub fn try_init_kernel(
     ui_p_reg_start: usize,
@@ -110,8 +110,8 @@ pub fn try_init_kernel(
             }
         }
 
-        debug!("Booting all finished, dropped to user space");
-        debug!("\n");
+        println!("Booting all finished, dropped to user space");
+        println!("\n");
     } else {
         return false;
     }

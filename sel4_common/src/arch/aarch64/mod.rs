@@ -4,11 +4,13 @@ pub mod config;
 mod message_info;
 mod object;
 mod registers;
+mod timer;
 mod vm_rights;
 pub use arch_tcb::ArchTCB;
 pub use message_info::*;
 pub use object::*;
 pub use registers::*;
+pub use timer::*;
 pub use vm_rights::*;
 
 pub const PSCI_0_2_FN_BASE: u32 = 0x84000000;

@@ -9,14 +9,18 @@ use crate::structures::{
 use crate::{BIT, ROUND_DOWN};
 use log::debug;
 use sel4_common::arch::{ArchReg, ArchTCB};
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::platform::{timer, Timer_func};
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::sel4_config::seL4_MinSchedContextBits;
 #[cfg(target_arch = "riscv64")]
 use sel4_common::sel4_config::CONFIG_PT_LEVELS;
 #[cfg(target_arch = "aarch64")]
 use sel4_common::sel4_config::PT_INDEX_BITS;
 use sel4_common::sel4_config::{
     asidLowBits, seL4_PageBits, seL4_PageTableBits, seL4_SlotBits, seL4_TCBBits, tcbBuffer,
-    tcbCTable, tcbVTable, wordBits, CONFIG_MAX_NUM_NODES, CONFIG_NUM_DOMAINS, CONFIG_TIME_SLICE,
-    IT_ASID, PAGE_BITS, TCB_OFFSET,
+    tcbCTable, tcbVTable, wordBits, CONFIG_MAX_NUM_NODES, CONFIG_NUM_DOMAINS, IT_ASID, PAGE_BITS,
+    TCB_OFFSET,
 };
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 #[cfg(target_arch = "aarch64")]
@@ -101,6 +105,8 @@ pub fn root_server_init(
     // #ifdef CONFIG_KERNEL_MCS
     //     init_sched_control(root_cnode_cap, CONFIG_MAX_NUM_NODES);
     // #endif
+    #[cfg(feature = "KERNEL_MCS")]
+    init_sched_control(&root_cnode_cap, CONFIG_MAX_NUM_NODES);
 
     let ipcbuf_cap = unsafe { create_ipcbuf_frame_cap(&root_cnode_cap, &it_pd_cap, ipcbuf_vptr) };
     if ipcbuf_cap.clone().unsplay().get_tag() == cap_tag::cap_null_cap {
@@ -119,6 +125,10 @@ pub fn root_server_init(
     if !asid_init(&root_cnode_cap, &it_pd_cap) {
         return None;
     }
+    #[cfg(feature = "KERNEL_MCS")]
+    unsafe {
+        ksCurTime = timer.getCurrentTime()
+    };
 
     let initial = unsafe {
         create_initial_thread(
@@ -147,11 +157,19 @@ unsafe fn create_initial_thread(
     ipcbuf_vptr: usize,
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
-    // TODO: MCS
+    #[cfg(feature = "KERNEL_MCS")]
+    use sel4_common::sel4_config::{seL4_MinSchedContextBits, CONFIG_TIME_SLICE};
+    #[cfg(feature = "KERNEL_MCS")]
+    use sel4_common::{
+        arch::usToTicks, platform::time_def::US_IN_MS, sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
+        structures_gen::cap_sched_context_cap,
+    };
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
-    tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
+    }
     tcb.tcbArch = ArchTCB::default();
-
     let cnode = convert_to_mut_type_ref::<cte_t>(root_cnode_cap.get_capCNodePtr() as usize);
     let ipc_buf_slot = cnode.get_offset_slot(seL4_CapInitThreadIPCBuffer);
     let dc_ret = ipc_buf_slot.derive_cap(&ipcbuf_cap.unsplay().clone());
@@ -181,13 +199,28 @@ unsafe fn create_initial_thread(
     tcb.tcbIPCBuffer = ipcbuf_vptr;
     tcb.tcbArch.set_register(ArchReg::Cap, bi_frame_vptr);
     tcb.tcbArch.set_register(ArchReg::NextIP, ui_v_entry);
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        configure_sched_context(
+            tcb,
+            convert_to_mut_type_ref(rootserver.sc),
+            usToTicks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
+        );
+    }
     tcb.tcbMCP = seL4_MaxPrio;
     tcb.tcbPriority = seL4_MaxPrio;
     set_thread_state(tcb, ThreadState::ThreadStateRunning);
     #[cfg(not(feature = "KERNEL_MCS"))]
     tcb.setup_reply_master();
     ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
-    ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
+    #[cfg(not(feature = "KERNEL_MCS"))]
+    {
+        ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
+    }
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        ksDomainTime = usToTicks(ksDomSchedule[ksDomScheduleIdx].length * US_IN_MS);
+    }
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
     #[cfg(feature = "ENABLE_SMP")]
@@ -200,6 +233,16 @@ unsafe fn create_initial_thread(
         cnode.get_offset_slot(seL4_CapInitThreadTCB) as *mut cte_t,
         capability,
     );
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        let capability =
+            cap_sched_context_cap::new(tcb.tcbSchedContext as u64, seL4_MinSchedContextBits as u64)
+                .unsplay();
+        write_slot(
+            cnode.get_offset_slot(seL4_CapInitThreadSC) as *mut cte_t,
+            capability,
+        );
+    }
     // forget(*tcb);
     tcb as *mut tcb_t
 }
@@ -213,9 +256,18 @@ unsafe fn create_initial_thread(
     ipcbuf_vptr: usize,
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
-    // TODO: MCS
+    #[cfg(feature = "KERNEL_MCS")]
+    use sel4_common::sel4_config::{seL4_MinSchedContextBits, CONFIG_TIME_SLICE};
+    #[cfg(feature = "KERNEL_MCS")]
+    use sel4_common::{
+        arch::usToTicks, platform::time_def::US_IN_MS, sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
+        structures_gen::cap_sched_context_cap,
+    };
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
-    tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
+    }
     tcb.tcbArch = ArchTCB::default();
 
     let cnode = convert_to_mut_type_ref::<cte_t>(root_cnode_cap.get_capCNodePtr() as usize);
@@ -247,12 +299,28 @@ unsafe fn create_initial_thread(
     tcb.tcbIPCBuffer = ipcbuf_vptr;
     tcb.tcbArch.set_register(ArchReg::Cap, bi_frame_vptr);
     tcb.tcbArch.set_register(ArchReg::NextIP, ui_v_entry);
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        configure_sched_context(
+            tcb,
+            convert_to_mut_type_ref(rootserver.sc),
+            usToTicks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
+        );
+    }
     tcb.tcbMCP = seL4_MaxPrio;
     tcb.tcbPriority = seL4_MaxPrio;
     set_thread_state(tcb, ThreadState::ThreadStateRunning);
     #[cfg(not(feature = "KERNEL_MCS"))]
     tcb.setup_reply_master();
     ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
+    #[cfg(not(feature = "KERNEL_MCS"))]
+    {
+        ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
+    }
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        ksDomainTime = usToTicks(ksDomSchedule[ksDomScheduleIdx].length * US_IN_MS);
+    }
     ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
@@ -266,6 +334,16 @@ unsafe fn create_initial_thread(
         cnode.get_offset_slot(seL4_CapInitThreadTCB) as *mut cte_t,
         capability,
     );
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        let capability =
+            cap_sched_context_cap::new(tcb.tcbSchedContext as u64, seL4_MinSchedContextBits as u64)
+                .unsplay();
+        write_slot(
+            cnode.get_offset_slot(seL4_CapInitThreadSC) as *mut cte_t,
+            capability,
+        );
+    }
     // forget(*tcb);
     tcb as *mut tcb_t
 }
@@ -323,8 +401,34 @@ fn create_it_asid_pool(root_cnode_cap: &cap_cnode_cap) -> cap_asid_pool_cap {
 }
 
 #[cfg(feature = "KERNEL_MCS")]
-//TODO: MCS
+//TODO: MCS: Done
 fn init_sched_control(root_cnode_cap: &cap_cnode_cap, num_nodes: usize) -> bool {
+    use sel4_common::{println, structures_gen::cap_sched_control_cap};
+
+    let slot_pos_before = unsafe { ndks_boot.slot_pos_cur };
+
+    /* create a sched control cap for each core */
+    for i in 0..num_nodes {
+        if !provide_cap(
+            root_cnode_cap,
+            cap_sched_control_cap::new(i as u64).unsplay(),
+        ) {
+            println!(
+                "can't init sched_control for node {}, provide_cap() failed\n",
+                i
+            );
+            return false;
+        }
+    }
+
+    /* update boot info with slot region for sched control caps */
+    unsafe {
+        (*ndks_boot.bi_frame).schedcontrol = seL4_SlotRegion {
+            start: slot_pos_before,
+            end: ndks_boot.slot_pos_cur,
+        }
+    };
+
     true
 }
 
@@ -441,6 +545,10 @@ fn calculate_rootserver_size(it_v_reg: v_region_t, extra_bi_size_bits: usize) ->
         0
     };
     size += BIT!(seL4_VSpaceBits);
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        size += BIT!(seL4_MinSchedContextBits);
+    }
     return size + arch_get_n_paging(it_v_reg) * BIT!(seL4_PageTableBits);
 }
 
@@ -504,6 +612,11 @@ unsafe fn create_rootserver_objects(start: usize, it_v_reg: v_region_t, extra_bi
     rootserver.paging.start = alloc_rootserver_obj(seL4_PageTableBits, n);
     rootserver.paging.end = rootserver.paging.start + n * BIT!(seL4_PageTableBits);
     rootserver.tcb = alloc_rootserver_obj(seL4_TCBBits, 1);
+
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        rootserver.sc = alloc_rootserver_obj(seL4_MinSchedContextBits, 1);
+    }
 
     assert_eq!(rootserver_mem.start, rootserver_mem.end);
 }

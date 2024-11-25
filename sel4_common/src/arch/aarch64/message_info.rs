@@ -11,6 +11,8 @@ pub enum MessageLabel {
     TCBSetPriority,
     TCBSetMCPriority,
     TCBSetSchedParams,
+    #[cfg(feature = "KERNEL_MCS")]
+    TCBSetTimeoutEndpoint,
     TCBSetIPCBuffer,
     TCBSetSpace,
     TCBSuspend,
@@ -28,12 +30,25 @@ pub enum MessageLabel {
     CNodeMove,
     CNodeMutate,
     CNodeRotate,
+    #[cfg(not(feature = "KERNEL_MCS"))]
     CNodeSaveCaller,
     IRQIssueIRQHandler,
     IRQAckIRQ,
     IRQSetIRQHandler,
     IRQClearIRQHandler,
     DomainSetSet,
+    #[cfg(feature = "KERNEL_MCS")]
+    SchedControlConfigureFlags,
+    #[cfg(feature = "KERNEL_MCS")]
+    SchedContextBind,
+    #[cfg(feature = "KERNEL_MCS")]
+    SchedContextUnbind,
+    #[cfg(feature = "KERNEL_MCS")]
+    SchedContextUnbindObject,
+    #[cfg(feature = "KERNEL_MCS")]
+    SchedContextConsumed,
+    #[cfg(feature = "KERNEL_MCS")]
+    SchedContextYieldTo,
     ARMVSpaceClean_Data,
     ARMVSpaceInvalidate_Data,
     ARMVSpaceCleanInvalidate_Data,
@@ -53,3 +68,7 @@ pub enum MessageLabel {
     ARMIRQIssueIRQHandlerTrigger,
     nArchInvocationLabels,
 }
+#[cfg(not(feature = "KERNEL_MCS"))]
+pub const CNODE_LAST_INVOCATION: usize = MessageLabel::CNodeSaveCaller as usize;
+#[cfg(feature = "KERNEL_MCS")]
+pub const CNODE_LAST_INVOCATION: usize = MessageLabel::CNodeRotate as usize;

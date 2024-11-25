@@ -56,7 +56,9 @@ pub const seL4_CapInitThreadIPCBuffer: usize = 10;
 pub const seL4_CapDomain: usize = 11;
 pub const seL4_CapSMMUSIDControl: usize = 12;
 pub const seL4_CapSMMUCBControl: usize = 13;
-pub const seL4_NumInitialCaps: usize = 14;
+pub const seL4_CapInitThreadSC: usize = 14;
+pub const seL4_CapSMC: usize = 15;
+pub const seL4_NumInitialCaps: usize = 16;
 
 pub const SIP_SSIP: usize = 1;
 pub const SIP_MSIP: usize = 3;
@@ -128,10 +130,6 @@ pub const SEL4_BOOTINFO_HEADER_PADDING: usize = 0;
 pub const CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS: usize = 230;
 
 pub const seL4_MaxPrio: usize = 255;
-
-pub const TIMER_CLOCK_HZ: usize = 10000000;
-pub const MS_IN_S: usize = 1000;
-pub const RESET_CYCLES: usize = (TIMER_CLOCK_HZ / MS_IN_S) * 2;
 
 pub const seL4_MinPrio: usize = 0;
 

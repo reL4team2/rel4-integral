@@ -1,15 +1,25 @@
-use crate::arch::resetTimer;
 use crate::config::{irqInvalid, maxIRQ};
 use crate::interrupt::*;
 use core::intrinsics::unlikely;
 use log::debug;
+use sel4_common::platform::{timer, Timer_func};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
 use sel4_task::{activateThread, schedule, timerTick};
 
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::ksReprogram;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::{checkBudget, updateTimestamp};
+
 #[no_mangle]
 pub fn handleInterruptEntry() -> exception_t {
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        updateTimestamp();
+        checkBudget();
+    }
     let irq = getActiveIRQ();
 
     if irq != irqInvalid {
@@ -52,8 +62,13 @@ pub fn handleInterrupt(irq: usize) {
             }
         }
         IRQState::IRQTimer => {
+            #[cfg(feature = "KERNEL_MCS")]
+            {
+                timer.ackDeadlineIRQ();
+                unsafe { ksReprogram = true };
+            }
             timerTick();
-            resetTimer();
+            timer.resetTimer();
         }
         #[cfg(feature = "ENABLE_SMP")]
         IRQState::IRQIPI => {

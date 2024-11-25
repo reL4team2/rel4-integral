@@ -1,4 +1,5 @@
 use log::debug;
+use sel4_common::arch::CNODE_LAST_INVOCATION;
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::shared_types_bf_gen::seL4_CapRights;
 use sel4_common::structures_gen::cap;
@@ -26,7 +27,7 @@ pub fn decode_cnode_invocation(
     capability: &cap_cnode_cap,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    if invLabel < MessageLabel::CNodeRevoke || invLabel > MessageLabel::CNodeSaveCaller {
+    if invLabel < MessageLabel::CNodeRevoke || invLabel as usize > CNODE_LAST_INVOCATION {
         debug!("CNodeCap: Illegal Operation attempted.");
         unsafe {
             current_syscall_error._type = seL4_IllegalOperation;

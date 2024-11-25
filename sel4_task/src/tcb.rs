@@ -1,3 +1,5 @@
+#[cfg(feature = "KERNEL_MCS")]
+use crate::{ksReleaseHead, sched_context::sched_context_t};
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     msgRegisterNum, n_exceptionMessage, n_syscallMessage, vm_rights_t, ArchReg, ArchTCB,
@@ -23,6 +25,7 @@ use sel4_vspace::{
 };
 use sel4_vspace::{pptr_t, set_vm_root};
 
+use crate::prio_t;
 use crate::tcb_queue::tcb_queue_t;
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
@@ -133,6 +136,19 @@ impl tcb_t {
             _ => false,
         }
     }
+    #[inline]
+    #[cfg(not(feature = "KERNEL_MCS"))]
+    pub fn is_schedulable(&self) -> bool {
+        self.is_runnable()
+    }
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn is_schedulable(&self) -> bool {
+        self.is_runnable()
+            && self.tcbSchedContext != 0
+            && convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext).scRefillMax > 0
+            && self.tcbState.get_tcbInReleaseQueue() == 0
+    }
 
     #[inline]
     /// Check if the TCB is current by comparing the tcb pointer
@@ -141,13 +157,14 @@ impl tcb_t {
     }
 
     #[inline]
-    pub fn set_mcp_priority(&mut self, mcp: usize) {
+    pub fn set_mc_priority(&mut self, mcp: prio_t) {
         self.tcbMCP = mcp;
     }
 
     #[inline]
+    #[cfg(not(feature = "KERNEL_MCS"))]
     /// Set the priority of the TCB, and reschedule if the thread is runnable and not current
-    pub fn set_priority(&mut self, priority: usize) {
+    pub fn set_priority(&mut self, priority: prio_t) {
         self.sched_dequeue();
         self.tcbPriority = priority;
         if self.is_runnable() {
@@ -155,6 +172,51 @@ impl tcb_t {
                 rescheduleRequired();
             } else {
                 possible_switch_to(self)
+            }
+        }
+    }
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn set_priority(&mut self, priority: prio_t) {
+        use sel4_common::structures_gen::{endpoint_t, notification_t};
+
+        use crate::{reorder_EP, reorder_NTFN};
+
+        match self.get_state() {
+            ThreadState::ThreadStateRunning | ThreadState::ThreadStateRestart => {
+                if self.tcbState.get_tcbQueued() != 0 || self.is_current() {
+                    self.sched_dequeue();
+                    self.tcbPriority = priority;
+                    self.sched_enqueue();
+                    rescheduleRequired();
+                } else {
+                    self.tcbPriority = priority;
+                }
+            }
+            ThreadState::ThreadStateBlockedOnReceive | ThreadState::ThreadStateBlockedOnSend => {
+                self.tcbPriority = priority;
+                unsafe {
+                    reorder_EP(
+                        convert_to_mut_type_ref::<endpoint_t>(
+                            self.tcbState.get_blockingObject() as usize
+                        ),
+                        self,
+                    )
+                };
+            }
+            ThreadState::ThreadStateBlockedOnNotification => {
+                self.tcbPriority = priority;
+                unsafe {
+                    reorder_NTFN(
+                        convert_to_mut_type_ref::<notification_t>(
+                            self.tcbState.get_blockingObject() as usize,
+                        ),
+                        self,
+                    )
+                };
+            }
+            _ => {
+                self.tcbPriority = priority;
             }
         }
     }
@@ -178,7 +240,7 @@ impl tcb_t {
     pub fn set_domain(&mut self, dom: usize) {
         self.sched_dequeue();
         self.domain = dom;
-        if self.is_runnable() {
+        if self.is_schedulable() {
             self.sched_enqueue();
         }
 
@@ -189,6 +251,14 @@ impl tcb_t {
 
     /// Enqueue the TCB to the scheduling queue
     pub fn sched_enqueue(&mut self) {
+        #[cfg(feature = "KERNEL_MCS")]
+        {
+            assert!(self.is_schedulable());
+            assert!(
+                convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
+                    .refill_sufficient(0)
+            );
+        }
         let self_ptr = self as *mut tcb_t;
         if self.tcbState.get_tcbQueued() == 0 {
             let dom = self.domain;
@@ -272,6 +342,17 @@ impl tcb_t {
     /// # Note
     /// This function is as same as `sched_enqueue`, but it is used for the EP queue
     pub fn sched_append(&mut self) {
+        #[cfg(feature = "KERNEL_MCS")]
+        {
+            assert!(self.is_schedulable());
+            assert!(
+                convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
+                    .refill_sufficient(0)
+            );
+            assert!(
+                convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext).refill_ready()
+            );
+        }
         let self_ptr = self as *mut tcb_t;
         if self.tcbState.get_tcbQueued() == 0 {
             let dom = self.domain;
@@ -852,6 +933,38 @@ impl tcb_t {
     }
     pub fn DebugAppend(&mut self) {}
     pub fn DebugRemove(&mut self) {}
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn Release_Remove(&mut self) {
+        unimplemented!("MCS");
+    }
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn Release_Enqueue(&mut self) {
+        unimplemented!("MCS")
+    }
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn schedContext_cancelYieldTo(&mut self) {
+        if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
+            convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).scYieldFrom = 0;
+            self.tcbYieldTo = 0;
+        }
+    }
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn schedContext_completeYieldTo(&mut self) {
+        if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
+            convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).setConsumed();
+            self.schedContext_cancelYieldTo();
+        }
+    }
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn validTimeoutHandler(&mut self) -> bool {
+        let cte = self.get_cspace(tcbTimeoutHandler);
+        cte.capability.get_tag() == cap_tag::cap_endpoint_cap
+    }
 }
 
 #[inline]
@@ -862,4 +975,49 @@ impl tcb_t {
 pub fn set_thread_state(tcb: &mut tcb_t, state: ThreadState) {
     tcb.tcbState.set_tsType(state as u64);
     schedule_tcb(tcb);
+}
+
+#[cfg(feature = "KERNEL_MCS")]
+pub fn tcb_Release_Dequeue() -> *mut tcb_t {
+    use crate::{ksReprogram, sched_context::sched_context_t};
+
+    unsafe {
+        assert!(ksReleaseHead != 0);
+        assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedPrev != 0);
+
+        // tcb_t *detached_head = NODE_STATE(ksReleaseHead);
+        // NODE_STATE(ksReleaseHead) = NODE_STATE(ksReleaseHead)->tcbSchedNext;
+
+        // if (NODE_STATE(ksReleaseHead))
+        // {
+        //     NODE_STATE(ksReleaseHead)->tcbSchedPrev = NULL;
+        // }
+
+        // if (detached_head->tcbSchedNext)
+        // {
+        //     detached_head->tcbSchedNext->tcbSchedPrev = NULL;
+        //     detached_head->tcbSchedNext = NULL;
+        // }
+
+        // thread_state_ptr_set_tcbInReleaseQueue(&detached_head->tcbState, false);
+        // NODE_STATE(ksReprogram) = true;
+
+        // return detached_head;
+
+        let detached_head = ksReleaseHead as *mut tcb_t;
+        ksReleaseHead = (*detached_head).tcbSchedNext;
+
+        if ksReleaseHead != 0 {
+            convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedPrev = 0;
+        }
+        if (*detached_head).tcbSchedNext != 0 {
+            convert_to_mut_type_ref::<tcb_t>((*detached_head).tcbSchedNext).tcbSchedPrev = 0;
+            (*detached_head).tcbSchedNext = 0;
+        }
+
+        (*detached_head).tcbState.set_tcbInReleaseQueue(0);
+        ksReprogram = true;
+
+        return detached_head;
+    }
 }

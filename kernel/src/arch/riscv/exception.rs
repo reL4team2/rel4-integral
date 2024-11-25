@@ -1,4 +1,4 @@
-use super::{read_stval, read_time};
+use super::read_stval;
 use crate::compatibility::lookupIPCBuffer;
 use crate::config::*;
 use crate::halt;
@@ -12,6 +12,7 @@ use crate::syscall::{
 };
 use log::debug;
 use sel4_common::arch::ArchReg::*;
+use sel4_common::platform::read_time;
 use sel4_common::print;
 use sel4_common::sel4_config::seL4_MsgMaxLength;
 use sel4_common::structures::exception_t;

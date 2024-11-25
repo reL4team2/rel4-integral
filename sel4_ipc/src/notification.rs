@@ -27,6 +27,8 @@ pub trait notification_func {
     fn get_ptr(&self) -> usize;
     fn send_signal(&mut self, badge: usize);
     fn receive_signal(&mut self, recv_thread: &mut tcb_t, is_blocking: bool);
+    #[cfg(feature = "KERNEL_MCS")]
+    fn reorder_NTFN(&mut self, thread: &mut tcb_t);
 }
 impl notification_func for notification {
     #[inline]
@@ -198,5 +200,13 @@ impl notification_func for notification {
                 self.set_state(NtfnState::Idle as u64);
             }
         }
+    }
+    #[cfg(feature = "KERNEL_MCS")]
+    #[no_mangle]
+    fn reorder_NTFN(&mut self, thread: &mut tcb_t) {
+        let mut queue = self.get_queue();
+        queue.ep_dequeue(thread);
+        queue.ep_append(thread);
+        self.set_queue(&queue);
     }
 }

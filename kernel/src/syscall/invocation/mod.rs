@@ -3,6 +3,8 @@ pub mod decode;
 mod invoke_cnode;
 pub mod invoke_irq;
 mod invoke_mmu_op;
+#[cfg(feature = "KERNEL_MCS")]
+mod invoke_sched;
 mod invoke_tcb;
 mod invoke_untyped;
 
@@ -137,6 +139,8 @@ pub fn handleInvocation(
         cptr,
         isBlocking,
         isCall,
+        canDonate,
+        firstPhase,
         buffer.unwrap(),
     );
     if status == exception_t::EXCEPTION_PREEMTED {

@@ -15,6 +15,8 @@ use aarch64_cpu::registers::Readable;
 use aarch64_cpu::registers::TTBR0_EL1;
 use log::debug;
 use sel4_common::arch::ArchReg::*;
+use sel4_common::platform::timer;
+use sel4_common::platform::Timer_func;
 use sel4_common::print;
 use sel4_common::sel4_config::seL4_MsgMaxLength;
 use sel4_common::structures::exception_t;
@@ -84,6 +86,8 @@ pub fn handleUnknownSyscall(w: isize) -> exception_t {
     }
     if w == SysGetClock {
         /*no implementation of aarch64 get clock*/
+        let current = timer.getCurrentTime();
+        thread.tcbArch.set_register(Cap, current);
         return exception_t::EXCEPTION_NONE;
     }
     unsafe {
