@@ -7,6 +7,6 @@
 	remote = git@github.com:rel4team/driver-collect.git
 	branch = mi_dev
 	commit = 3667ef6ab3d6c4831680310e4b8f0947258569ae
- 	parent = 038099532c29c681c9500b3091b3bdd3ac05db85
+ 	parent = 7d8766056233a5e2190bd2fc1e20c68bc3362188
 	method = merge
 	cmdver = 0.4.9
