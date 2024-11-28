@@ -15,6 +15,7 @@ jobs:
     strategy:
       matrix:
         arch: [riscv64, aarch64]
+        mcs: [OFF, ON]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +35,7 @@ jobs:
       - name: Make rel4_kernel
         run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} run
       - name: Build kernel
-        run: cd kernel && cmake cmake -DCROSS_COMPILER_PREFIX=${{ matrix.arch }}-linux-gnu- -C kernel-settings-${{ matrix.arch }}.cmake -G Ninja -S . -B build
+        run: cd kernel && cmake cmake -DCROSS_COMPILER_PREFIX=${{ matrix.arch }}-linux-gnu- -DMCS=${{matrix.mcs}} -C kernel-settings-${{ matrix.arch }}.cmake -G Ninja -S . -B build
       - name: Build Kernel
         run: cd kernel && ninja -C build
   sel4-test:
@@ -43,6 +44,7 @@ jobs:
     strategy:
       matrix:
         platform: [spike, qemu-arm-virt]
+        mcs: [off, on]
         include:
           - platform: qemu-arm-virt
             arch: aarch64
@@ -76,10 +78,11 @@ jobs:
         env:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
+          MCS: ${{ matrix.mcs }}
         run: |
           echo $ARCH
           echo $PLATFORM
-          cd rel4_kernel && ./build.py -p $PLATFORM
+          cd rel4_kernel && ./build.py -p $PLATFORM -m $MCS
       - name: simulate
         env:
           ARCH: ${{ matrix.arch  }}
