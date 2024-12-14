@@ -13,13 +13,14 @@ use sel4_common::{
     println,
     sel4_config::{CONFIG_KERNEL_WCET_SCALE, UINT64_MAX},
     shared_types_bf_gen::seL4_MessageInfo,
-    structures_gen::{notification, notification_t},
+    structures_gen::{cap_sched_context_cap, notification, notification_t},
     utils::convert_to_mut_type_ref,
+    BIT,
 };
 
 use crate::{
-    get_currenct_thread, ksCurSC, ksCurTime, ksReprogram, ksSchedulerAction, rescheduleRequired,
-    tcb_t,
+    get_currenct_thread, get_current_sc, ksCurSC, ksCurTime, ksReprogram, ksSchedulerAction,
+    rescheduleRequired, tcb_t,
 };
 
 pub type sched_context_t = sched_context;
@@ -40,7 +41,7 @@ pub struct sched_context {
     pub scRefillTail: usize,
     pub scSporadic: bool,
 }
-pub(crate) const MIN_REFILLS: usize = 2;
+pub const MIN_REFILLS: usize = 2;
 pub(crate) type refill_t = refill;
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -60,6 +61,10 @@ pub fn MAX_PERIOD_US() -> time_t {
 pub fn MAX_RELEASE_TIME() -> time_t {
     UINT64_MAX - 5 * usToTicks(MAX_PERIOD_US())
 }
+pub fn refill_absolute_max(sc_cap: &cap_sched_context_cap) -> usize {
+    return (BIT!(sc_cap.get_capSCSizeBits() as usize) - size_of::<sched_context_t>())
+        / size_of::<refill_t>();
+}
 
 impl sched_context {
     #[inline]
@@ -69,6 +74,19 @@ impl sched_context {
     #[inline]
     pub fn is_round_robin(&self) -> bool {
         self.scPeriod == 0
+    }
+    #[inline]
+    pub fn is_current(&self) -> bool {
+        self.get_ptr() == unsafe { ksCurSC }
+    }
+    #[inline]
+    pub fn sc_released(&mut self) -> bool {
+        if self.sc_active() {
+            assert!(self.refill_sufficient(0));
+            return self.refill_ready();
+        } else {
+            return false;
+        }
     }
     #[inline]
     pub fn sc_active(&self) -> bool {
@@ -208,6 +226,44 @@ impl sched_context {
         self.refill_capacity(usage) >= MIN_BUDGET()
     }
     #[inline]
+    pub fn refill_update(
+        &mut self,
+        new_period: ticks_t,
+        new_budget: ticks_t,
+        new_max_refills: usize,
+    ) {
+        /* refill must be initialised in order to be updated - otherwise refill_new should be used */
+        assert!(self.scRefillMax > 0);
+
+        unsafe {
+            (*self.refill_index(0)).rAmount = (*self.refill_head()).rAmount;
+            (*self.refill_index(0)).rTime = (*self.refill_head()).rTime;
+            self.scRefillHead = 0;
+            /* truncate refill list to size 1 */
+            self.scRefillTail = self.scRefillHead;
+            /* update max refills */
+            self.scRefillMax = new_max_refills;
+            /* update period */
+            self.scPeriod = new_period;
+
+            if self.refill_ready() {
+                (*self.refill_head()).rTime = ksCurTime;
+            }
+
+            if (*self.refill_head()).rAmount >= new_budget {
+                /* if the heads budget exceeds the new budget just trim it */
+                (*self.refill_head()).rAmount = new_budget;
+                self.maybe_add_empty_tail();
+            } else {
+                /* otherwise schedule the rest for the next period */
+                self.refill_add_tail(
+                    (*self.refill_head()).rTime + new_period,
+                    new_budget - (*self.refill_head()).rAmount,
+                );
+            }
+        }
+    }
+    #[inline]
     pub fn schedule_used(&mut self, new_rTime: ticks_t, new_rAmount: ticks_t) {
         // TODO: MCS
         unsafe {
@@ -243,7 +299,7 @@ impl sched_context {
         assert!(tcb.tcbSchedContext == 0);
         tcb.tcbSchedContext = self.get_ptr();
         self.scTcb = tcb.get_ptr();
-        if self.sc_sporadic() && self.sc_active() && self.get_ptr() != unsafe { ksCurSC } {
+        if self.sc_sporadic() && self.sc_active() && !self.is_current() {
             self.refill_unblock_check()
         }
         self.schedContext_resume();
@@ -283,7 +339,7 @@ impl sched_context {
         to.tcbSchedContext = self.get_ptr()
     }
     pub fn schedContext_bindNtfn(&mut self, ntfn: &mut notification_t) {
-        ntfn.set_ntfnSchedContext(self as *mut _ as u64);
+        ntfn.set_ntfnSchedContext(self.get_ptr() as u64);
         self.scNotification = ntfn as *mut _ as usize;
     }
     pub fn schedContext_unbindNtfn(&mut self) {
@@ -314,7 +370,7 @@ impl sched_context {
 pub fn refill_budget_check(_usage: ticks_t) {
     unsafe {
         let mut usage = _usage;
-        let sc = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+        let sc = get_current_sc();
         assert!(!sc.is_round_robin());
 
         while (*sc.refill_head()).rAmount <= usage && (*sc.refill_head()).rTime < MAX_RELEASE_TIME()

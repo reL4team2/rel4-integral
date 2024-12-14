@@ -98,7 +98,9 @@ pub fn invoke_tcb_write_registers(
 
     if resumeTarget != 0 {
         // cancel_ipc(dest);
-        dest.cancel_ipc();
+        if dest.is_stopped() {
+            dest.cancel_ipc();
+        }
         dest.restart();
     }
     if dest.is_current() {
@@ -149,7 +151,9 @@ pub fn invoke_tcb_suspend(thread: &mut tcb_t) -> exception_t {
 #[inline]
 pub fn invoke_tcb_resume(thread: &mut tcb_t) -> exception_t {
     // cancel_ipc(thread);
-    thread.cancel_ipc();
+    if thread.is_stopped() {
+        thread.cancel_ipc();
+    }
     thread.restart();
     exception_t::EXCEPTION_NONE
 }
@@ -165,7 +169,7 @@ pub fn invoke_tcb_set_priority(target: &mut tcb_t, prio: usize) -> exception_t {
     target.set_priority(prio);
     exception_t::EXCEPTION_NONE
 }
-
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub fn invoke_tcb_set_space(
     target: &mut tcb_t,
     slot: &mut cte_t,
@@ -200,6 +204,122 @@ pub fn invoke_tcb_set_space(
     }
     exception_t::EXCEPTION_NONE
 }
+#[cfg(feature = "KERNEL_MCS")]
+#[no_mangle]
+pub fn installTCBCap(
+    target: &mut tcb_t,
+    tCap: &cap,
+    slot: &mut cte_t,
+    index: usize,
+    newCap: &cap,
+    srcSlot: &mut cte_t,
+) -> exception_t {
+    let mut rootSlot = target.get_cspace_mut_ref(index);
+    let e = rootSlot.delete_all(true);
+    if e != exception_t::EXCEPTION_NONE {
+        return e;
+    }
+    if same_object_as(newCap, &srcSlot.capability) && same_object_as(tCap, &slot.capability) {
+        cte_insert(newCap, srcSlot, &mut rootSlot);
+    }
+    return e;
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn invoke_tcb_thread_control_caps(
+    target: &mut tcb_t,
+    slot: &mut cte_t,
+    fh_newCap: &cap,
+    fh_srcSlot: &mut cte_t,
+    th_newCap: &cap,
+    th_srcSlot: &mut cte_t,
+    croot_new_cap: &cap,
+    croot_src_slot: &mut cte_t,
+    vroot_new_cap: &cap,
+    vroot_src_slot: &mut cte_t,
+    updateFlags: usize,
+) -> exception_t {
+    use sel4_common::sel4_config::{tcbFaultHandler, tcbTimeoutHandler};
+
+    use crate::config::{
+        thread_control_caps_update_fault, thread_control_caps_update_space,
+        thread_control_caps_update_timeout,
+    };
+    let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
+    if updateFlags & thread_control_caps_update_fault != 0 {
+        let e = installTCBCap(
+            target,
+            &target_cap,
+            slot,
+            tcbFaultHandler,
+            fh_newCap,
+            fh_srcSlot,
+        );
+        if e != exception_t::EXCEPTION_NONE {
+            return e;
+        }
+    }
+    if updateFlags & thread_control_caps_update_timeout != 0 {
+        let e = installTCBCap(
+            target,
+            &target_cap,
+            slot,
+            tcbTimeoutHandler,
+            th_newCap,
+            th_srcSlot,
+        );
+        if e != exception_t::EXCEPTION_NONE {
+            return e;
+        }
+    }
+    if updateFlags & thread_control_caps_update_space != 0 {
+        let e = installTCBCap(
+            target,
+            &target_cap,
+            slot,
+            tcbCTable,
+            croot_new_cap,
+            croot_src_slot,
+        );
+        if e != exception_t::EXCEPTION_NONE {
+            return e;
+        }
+        let e = installTCBCap(
+            target,
+            &target_cap,
+            slot,
+            tcbVTable,
+            vroot_new_cap,
+            vroot_src_slot,
+        );
+        if e != exception_t::EXCEPTION_NONE {
+            return e;
+        }
+    }
+
+    // target.tcbFaultHandler = fault_ep;
+    // let root_slot = target.get_cspace_mut_ref(tcbCTable);
+    // let status = root_slot.delete_all(true);
+    // if status != exception_t::EXCEPTION_NONE {
+    //     return status;
+    // }
+    // if same_object_as(croot_new_cap, &croot_src_slot.capability)
+    //     && same_object_as(&target_cap, &slot.capability)
+    // {
+    //     cte_insert(croot_new_cap, croot_src_slot, root_slot);
+    // }
+
+    // let root_vslot = target.get_cspace_mut_ref(tcbVTable);
+    // let status = root_vslot.delete_all(true);
+    // if status != exception_t::EXCEPTION_NONE {
+    //     return status;
+    // }
+    // if same_object_as(vroot_new_cap, &vroot_src_slot.capability)
+    //     && same_object_as(&target_cap, &slot.capability)
+    // {
+    //     cte_insert(vroot_new_cap, vroot_src_slot, root_vslot);
+    // }
+    exception_t::EXCEPTION_NONE
+}
 
 pub fn invoke_tcb_set_ipc_buffer(
     target: &mut tcb_t,
@@ -215,11 +335,11 @@ pub fn invoke_tcb_set_ipc_buffer(
         return status;
     }
     target.tcbIPCBuffer = buffer_addr;
-    if let Some(buffer_src_slot) = buffer_src_slot {
+    if let Some(mut buffer_src_slot) = buffer_src_slot {
         if same_object_as(&buffer_cap, &buffer_src_slot.capability)
             && same_object_as(&target_cap, &slot.capability)
         {
-            cte_insert(&buffer_cap, buffer_src_slot, buffer_slot);
+            cte_insert(&buffer_cap, &mut buffer_src_slot, buffer_slot);
         }
     }
     if target.is_current() {

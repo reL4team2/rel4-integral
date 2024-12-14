@@ -1,7 +1,9 @@
 use crate::transfer::Transfer;
 use sel4_common::arch::ArchReg;
-use sel4_common::structures_gen::notification;
+use sel4_common::structures_gen::{notification, notification_t};
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::sched_context::sched_context_t;
 use sel4_task::{
     possible_switch_to, rescheduleRequired, set_thread_state, tcb_queue_t, tcb_t, ThreadState,
 };
@@ -29,6 +31,8 @@ pub trait notification_func {
     fn receive_signal(&mut self, recv_thread: &mut tcb_t, is_blocking: bool);
     #[cfg(feature = "KERNEL_MCS")]
     fn reorder_NTFN(&mut self, thread: &mut tcb_t);
+    #[cfg(feature = "KERNEL_MCS")]
+    fn maybeReturnSchedContext(&mut self, thread: &mut tcb_t);
 }
 impl notification_func for notification {
     #[inline]
@@ -139,7 +143,32 @@ impl notification_func for notification {
                         tcb.cancel_ipc();
                         set_thread_state(tcb, ThreadState::ThreadStateRunning);
                         tcb.tcbArch.set_register(ArchReg::Badge, badge);
+                        #[cfg(feature = "KERNEL_MCS")]
+                        {
+                            maybeDonateSchedContext(tcb, self);
+                            if tcb.is_schedulable() {
+                                possible_switch_to(tcb);
+                            }
+                        }
+                        #[cfg(not(feature = "KERNEL_MCS"))]
                         possible_switch_to(tcb);
+                        #[cfg(feature = "KERNEL_MCS")]
+                        if let Some(tcbsc) =
+                            convert_to_option_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext)
+                        {
+                            if tcbsc.sc_active() {
+                                if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(
+                                    self.get_ntfnSchedContext() as usize,
+                                ) {
+                                    if tcbsc.get_ptr() == sc.get_ptr()
+                                        && sc.sc_sporadic()
+                                        && !tcbsc.is_current()
+                                    {
+                                        tcbsc.refill_unblock_check();
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         self.active(badge);
                     }
@@ -157,7 +186,26 @@ impl notification_func for notification {
                     }
                     set_thread_state(dest, ThreadState::ThreadStateRunning);
                     dest.tcbArch.set_register(ArchReg::Badge, badge);
+                    #[cfg(feature = "KERNEL_MCS")]
+                    {
+                        maybeDonateSchedContext(dest, self);
+                        if dest.is_schedulable() {
+                            possible_switch_to(dest);
+                        }
+                    }
+                    #[cfg(not(feature = "KERNEL_MCS"))]
                     possible_switch_to(dest);
+                    #[cfg(feature = "KERNEL_MCS")]
+                    if let Some(sc) =
+                        convert_to_option_mut_type_ref::<sched_context_t>(dest.tcbSchedContext)
+                    {
+                        if sc.sc_sporadic() {
+                            assert!(!sc.is_current());
+                            if !sc.is_current() {
+                                sc.refill_unblock_check();
+                            }
+                        }
+                    }
                 } else {
                     panic!("queue is empty!")
                 }
@@ -208,5 +256,33 @@ impl notification_func for notification {
         queue.ep_dequeue(thread);
         queue.ep_append(thread);
         self.set_queue(&queue);
+    }
+    #[cfg(feature = "KERNEL_MCS")]
+    #[inline]
+    fn maybeReturnSchedContext(&mut self, thread: &mut tcb_t) {
+        if let Some(sc) =
+            convert_to_option_mut_type_ref::<sched_context_t>(self.get_ntfnSchedContext() as usize)
+        {
+            if sc.get_ptr() == thread.tcbSchedContext {
+                thread.tcbSchedContext = 0;
+                sc.scTcb = 0;
+                if thread.is_current() {
+                    rescheduleRequired();
+                }
+            }
+        }
+    }
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn maybeDonateSchedContext(tcb: &mut tcb_t, ntfnptr: &notification_t) {
+    if tcb.tcbSchedContext == 0 {
+        if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(
+            ntfnptr.get_ntfnSchedContext() as usize,
+        ) {
+            if sc.scTcb == 0 {
+                sc.schedContext_donate(tcb);
+                sc.schedContext_resume();
+            }
+        }
     }
 }

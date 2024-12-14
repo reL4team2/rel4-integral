@@ -2,7 +2,6 @@ use crate::arch::aarch64::consts::ARMDataAbort;
 use crate::arch::aarch64::consts::ARMPrefetchAbort;
 use crate::compatibility::lookupIPCBuffer;
 use crate::halt;
-use crate::kernel::boot::current_fault;
 use crate::object::lookupCapAndSlot;
 use crate::strnlen;
 use crate::syscall::handle_fault;
@@ -15,6 +14,7 @@ use aarch64_cpu::registers::Readable;
 use aarch64_cpu::registers::TTBR0_EL1;
 use log::debug;
 use sel4_common::arch::ArchReg::*;
+use sel4_common::ffi::current_fault;
 use sel4_common::platform::timer;
 use sel4_common::platform::Timer_func;
 use sel4_common::print;
@@ -116,6 +116,7 @@ pub fn handleVMFaultEvent(vm_faultType: usize) -> exception_t {
     if status != exception_t::EXCEPTION_NONE {
         handle_fault(get_currenct_thread());
     }
+    // sel4_common::println!("handle vm fault event");
     schedule();
     activateThread();
     exception_t::EXCEPTION_NONE

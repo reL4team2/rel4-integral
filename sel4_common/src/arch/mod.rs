@@ -66,6 +66,10 @@ pub enum ArchReg {
     GP(usize),
     /// Fault Message Reg, (id, index)
     FaultMessage(usize, usize),
+    #[cfg(feature = "KERNEL_MCS")]
+    Reply,
+    #[cfg(feature = "KERNEL_MCS")]
+    nbsRecvDest,
 }
 
 #[cfg(feature = "KERNEL_MCS")]

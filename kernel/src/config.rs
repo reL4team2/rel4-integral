@@ -89,10 +89,24 @@ pub const RISCVLoadPageFault: usize = 13;
 pub const RISCVStorePageFault: usize = 15;
 pub const RISCVSupervisorTimer: usize = 9223372036854775813;
 
+pub const thread_control_caps_update_ipc_buffer: usize = 0x1;
+pub const thread_control_caps_update_space: usize = 0x2;
+pub const thread_control_caps_update_fault: usize = 0x4;
+pub const thread_control_caps_update_timeout: usize = 0x8;
+
+pub const thread_control_sched_update_priority: usize = 0x1;
+pub const thread_control_sched_update_mcp: usize = 0x2;
+pub const thread_control_sched_update_sc: usize = 0x4;
+pub const thread_control_sched_update_fault: usize = 0x8;
+
 pub const thread_control_update_priority: usize = 0x1;
 pub const thread_control_update_ipc_buffer: usize = 0x2;
 pub const thread_control_update_space: usize = 0x4;
 pub const thread_control_update_mcp: usize = 0x8;
+
+pub const thread_control_update_sc: usize = 0x10;
+pub const thread_control_update_fault: usize = 0x20;
+pub const thread_control_update_timeout: usize = 0x40;
 
 pub const seL4_WordBits: usize = 64;
 

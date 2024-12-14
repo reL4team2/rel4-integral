@@ -18,10 +18,10 @@ use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::seL4_Fault_CapFault;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
-use crate::kernel::boot::current_fault;
 use crate::syscall::invocation::decode::decode_invocation;
 use crate::syscall::syscall_reply::{reply_error_from_kernel, reply_success_from_kernel};
 use crate::syscall::{handle_fault, lookup_extra_caps_with_buf};
+use sel4_common::ffi::current_fault;
 
 #[no_mangle]
 #[cfg(not(feature = "KERNEL_MCS"))]

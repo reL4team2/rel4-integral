@@ -27,6 +27,7 @@ pub fn decode_cnode_invocation(
     capability: &cap_cnode_cap,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
+    // sel4_common::println!("decode cnode invocation {}", invLabel as usize);
     if invLabel < MessageLabel::CNodeRevoke || invLabel as usize > CNODE_LAST_INVOCATION {
         debug!("CNodeCap: Illegal Operation attempted.");
         unsafe {

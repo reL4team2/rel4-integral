@@ -16,12 +16,6 @@ pub static mut current_lookup_fault: lookup_fault = lookup_fault(Bitfield { arr:
 
 #[no_mangle]
 // #[link_section = ".boot.bss"]
-pub static mut current_fault: seL4_Fault = seL4_Fault {
-    0: Bitfield { arr: [0; 2usize] },
-};
-
-#[no_mangle]
-// #[link_section = ".boot.bss"]
 pub static mut current_syscall_error: syscall_error_t = syscall_error_t {
     invalidArgumentNumber: 0,
     invalidCapNumber: 0,

@@ -19,6 +19,10 @@ use sel4_common::structures_gen::seL4_Fault_NullFault;
 use sel4_common::structures_gen::seL4_Fault_tag;
 use sel4_common::utils::*;
 use sel4_cspace::interface::*;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::reply::reply_t;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::reply_remove_tcb;
 use sel4_task::{possible_switch_to, set_thread_state, tcb_t, ThreadState};
 use sel4_vspace::pptr_t;
 
@@ -62,13 +66,19 @@ pub trait Transfer {
         badge: usize,
         grant: bool,
     );
-
+    #[cfg(feature = "KERNEL_MCS")]
+    fn do_reply(&mut self, reply: &mut reply_t, grant: bool);
+    #[cfg(not(feature = "KERNEL_MCS"))]
     fn do_reply(&mut self, receiver: &mut tcb_t, slot: &mut cte_t, grant: bool);
 }
 
 impl Transfer for tcb_t {
     fn cancel_ipc(&mut self) {
         let state = &self.tcbState;
+        #[cfg(feature = "KERNEL_MCS")]
+        {
+            seL4_Fault_NullFault::new();
+        }
         match self.get_state() {
             ThreadState::ThreadStateBlockedOnSend | ThreadState::ThreadStateBlockedOnReceive => {
                 let ep = convert_to_mut_type_ref::<endpoint>(state.get_blockingObject() as usize);
@@ -85,6 +95,7 @@ impl Transfer for tcb_t {
                 #[cfg(feature = "KERNEL_MCS")]
                 {
                     //TODO
+                    reply_remove_tcb(self);
                 }
                 #[cfg(not(feature = "KERNEL_MCS"))]
                 {
@@ -326,7 +337,61 @@ impl Transfer for tcb_t {
             self.do_fault_transfer(receiver, badge)
         }
     }
+    #[cfg(feature = "KERNEL_MCS")]
+    fn do_reply(&mut self, reply: &mut reply_t, grant: bool) {
+        use sel4_common::{ffi::current_fault, structures_gen::seL4_Fault_Timeout};
+        use sel4_task::{handleTimeout, sched_context::sched_context_t};
 
+        if reply.replyTCB == 0
+            || convert_to_mut_type_ref::<tcb_t>(reply.replyTCB)
+                .tcbState
+                .get_tsType()
+                != ThreadState::ThreadStateBlockedOnReply as u64
+        {
+            /* nothing to do */
+            return;
+        }
+
+        let receiver = convert_to_mut_type_ref::<tcb_t>(reply.replyTCB);
+        reply.remove(receiver);
+        assert!(receiver.tcbState.get_replyObject() == 0);
+        assert!(reply.replyTCB == 0);
+
+        let sc = convert_to_mut_type_ref::<sched_context_t>(receiver.tcbSchedContext);
+        if sc.sc_sporadic() && !sc.is_current() {
+            sc.refill_unblock_check();
+        }
+        assert_eq!(receiver.get_state(), ThreadState::ThreadStateBlockedOnReply);
+
+        let fault_type = receiver.tcbFault.get_tag();
+        if likely(fault_type == seL4_Fault_tag::seL4_Fault_NullFault) {
+            self.do_ipc_transfer(receiver, None, 0, grant);
+            set_thread_state(receiver, ThreadState::ThreadStateRunning);
+        } else {
+            if self.do_fault_reply_transfer(receiver) {
+                set_thread_state(receiver, ThreadState::ThreadStateRestart);
+            } else {
+                set_thread_state(receiver, ThreadState::ThreadStateInactive);
+            }
+        }
+        if receiver.tcbSchedContext != 0 && receiver.is_runnable() {
+            if sc.refill_ready() && sc.refill_sufficient(0) {
+                possible_switch_to(receiver);
+            } else {
+                if receiver.validTimeoutHandler()
+                    && fault_type != seL4_Fault_tag::seL4_Fault_Timeout as u64
+                {
+                    unsafe {
+                        current_fault = seL4_Fault_Timeout::new(sc.scBadge as u64).unsplay();
+                        handleTimeout(receiver)
+                    };
+                } else {
+                    sc.postpone();
+                }
+            }
+        }
+    }
+    #[cfg(not(feature = "KERNEL_MCS"))]
     fn do_reply(&mut self, receiver: &mut tcb_t, slot: &mut cte_t, grant: bool) {
         assert_eq!(receiver.get_state(), ThreadState::ThreadStateBlockedOnReply);
         let fault_type = receiver.tcbFault.get_tag();

@@ -146,3 +146,5 @@ pub const CONFIG_BOOT_THREAD_TIME_SLICE: usize = 5;
 pub const minDom: usize = 0;
 pub const maxDom: usize = CONFIG_NUM_DOMAINS - 1;
 pub const numDomains: usize = CONFIG_NUM_DOMAINS;
+
+pub const TIME_ARG_SIZE: usize = 1;

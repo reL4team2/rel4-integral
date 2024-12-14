@@ -94,6 +94,10 @@ impl ArchReg {
             ArchReg::Frame(i) => frameRegisters[*i],
             ArchReg::GP(i) => gpRegisters[*i],
             ArchReg::FaultMessage(id, index) => fault_messages[*id][*index],
+            #[cfg(feature = "KERNEL_MCS")]
+            ArchReg::Reply => replyRegister,
+            #[cfg(feature = "KERNEL_MCS")]
+            ArchReg::nbsRecvDest => nbsendRecvDest,
         }
     }
 }

@@ -67,6 +67,7 @@ impl cte_t {
                     ret.capability = capability.clone();
                 }
             }
+            #[cfg(not(feature = "KERNEL_MCS"))]
             cap_tag::cap_reply_cap => {
                 ret.capability = cap_null_cap::new().unsplay();
             }

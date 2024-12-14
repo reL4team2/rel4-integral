@@ -264,6 +264,7 @@ fn decode_frame_invocation(
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
+    // sel4_common::println!("decode frame invocation {}",label as usize);
     match label {
         MessageLabel::ARMPageMap => decode_frame_map(length, frame_slot, buffer),
         MessageLabel::ARMPageUnmap => {

@@ -1,4 +1,4 @@
-use crate::structures::lookupCapAndSlot_ret_t;
+use crate::structures::{lookupCapAndSlot_ret_t, lookupCap_ret_t};
 use crate::syscall::handle_fault;
 use sel4_common::arch::MessageLabel;
 use sel4_common::structures::exception_t;
@@ -58,6 +58,24 @@ pub extern "C" fn lookupCapAndSlot(thread: *mut tcb_t, cPtr: usize) -> lookupCap
         let ret = lookupCapAndSlot_ret_t {
             status: exception_t::EXCEPTION_NONE,
             slot: lu_ret.slot,
+            capability: (*lu_ret.slot).capability.clone(),
+        };
+        ret
+    }
+}
+#[no_mangle]
+pub fn lookup_cap(thread: *mut tcb_t, cPtr: usize) -> lookupCap_ret_t {
+    let lu_ret = unsafe { (*thread).lookup_slot(cPtr) };
+    if lu_ret.status != exception_t::EXCEPTION_NONE {
+        let ret = lookupCap_ret_t {
+            status: lu_ret.status,
+            capability: cap_null_cap::new().unsplay(),
+        };
+        return ret;
+    }
+    unsafe {
+        let ret = lookupCap_ret_t {
+            status: exception_t::EXCEPTION_NONE,
             capability: (*lu_ret.slot).capability.clone(),
         };
         ret

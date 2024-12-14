@@ -89,6 +89,8 @@ pub const SchedulerAction_ResumeCurrentThread: usize = 0;
 pub const SchedulerAction_ChooseNewThread: usize = 1;
 pub const ksDomScheduleLength: usize = 1;
 
+pub const seL4_SchedContext_NoFlag: usize = 0;
+pub const seL4_SchedContext_Sporadic: usize = 1;
 #[no_mangle]
 pub static mut ksDomainTime: usize = 0;
 
@@ -271,6 +273,21 @@ pub fn get_current_domain() -> usize {
 }
 
 #[inline]
+#[cfg(feature = "KERNEL_MCS")]
+pub fn get_current_sc() -> &'static mut sched_context_t {
+    unsafe {
+        #[cfg(feature = "ENABLE_SMP")]
+        {
+            //TODO: SMP
+        }
+        #[cfg(not(feature = "ENABLE_SMP"))]
+        {
+            convert_to_mut_type_ref_unsafe::<sched_context_t>(ksCurSC)
+        }
+    }
+}
+
+#[inline]
 /// Get the index of the ready queue for the given domain and priority level.
 pub fn ready_queues_index(dom: usize, prio: usize) -> usize {
     dom * CONFIG_NUM_PRIORITIES + prio
@@ -434,6 +451,18 @@ fn chooseThread() {
                 }
             };
             assert_ne!(thread, 0);
+            assert!(convert_to_mut_type_ref::<tcb_t>(thread).is_schedulable());
+            #[cfg(feature = "KERNEL_MCS")]
+            {
+                assert!(convert_to_mut_type_ref::<sched_context_t>(
+                    convert_to_mut_type_ref::<tcb_t>(thread).tcbSchedContext
+                )
+                .refill_sufficient(0));
+                assert!(convert_to_mut_type_ref::<sched_context_t>(
+                    convert_to_mut_type_ref::<tcb_t>(thread).tcbSchedContext
+                )
+                .refill_ready());
+            }
             convert_to_mut_type_ref::<tcb_t>(thread).switch_to_this();
         } else {
             #[cfg(target_arch = "aarch64")]
@@ -549,7 +578,7 @@ pub fn checkDomainTime() {
 #[cfg(feature = "KERNEL_MCS")]
 pub fn checkBudget() -> bool {
     unsafe {
-        let current_sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+        let current_sched_context = get_current_sc();
         assert!(current_sched_context.refill_ready());
         if likely(current_sched_context.refill_sufficient(ksConsumed)) {
             if unlikely(isCurDomainExpired()) {
@@ -560,6 +589,28 @@ pub fn checkBudget() -> bool {
         chargeBudget(ksConsumed, true);
     }
     false
+}
+#[cfg(feature = "KERNEL_MCS")]
+pub fn checkBudgetRestart() -> bool {
+    assert!(get_currenct_thread().is_runnable());
+    let result = checkBudget();
+    if !result && get_currenct_thread().is_runnable() {
+        set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+    }
+    result
+}
+#[inline]
+pub fn mcs_preemption_point() {
+    #[cfg(feature = "KERNEL_MCS")]
+    unsafe {
+        if get_currenct_thread().is_schedulable() {
+            checkBudget();
+        } else if get_current_sc().scRefillMax != 0 {
+            chargeBudget(ksConsumed, false);
+        } else {
+            ksConsumed = 0;
+        }
+    }
 }
 #[cfg(feature = "KERNEL_MCS")]
 pub fn setNextInterrupt() {
@@ -598,7 +649,7 @@ pub fn chargeBudget(consumed: ticks_t, canTimeoutFault: bool) {
 
     unsafe {
         if likely(ksCurSC != ksIdleSC) {
-            let current_sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+            let current_sched_context = get_current_sc();
             if current_sched_context.is_round_robin() {
                 assert!(current_sched_context.refill_size() == MIN_REFILLS);
                 (*current_sched_context.refill_head()).rAmount +=
@@ -624,13 +675,13 @@ pub fn chargeBudget(consumed: ticks_t, canTimeoutFault: bool) {
 #[cfg(feature = "KERNEL_MCS")]
 pub fn commitTime() {
     unsafe {
-        let current_sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+        let current_sched_context = get_current_sc();
         if likely(current_sched_context.scRefillMax != 0 && ksCurSC != ksIdleSC) {
             if likely(ksConsumed > 0) {
                 assert!(current_sched_context.refill_sufficient(ksConsumed));
                 assert!(current_sched_context.refill_ready());
 
-                if (current_sched_context.is_round_robin()) {
+                if current_sched_context.is_round_robin() {
                     assert!(current_sched_context.refill_size() == MIN_REFILLS);
                     (*current_sched_context.refill_head()).rAmount -= ksConsumed;
                     (*current_sched_context.refill_tail()).rAmount += ksConsumed;
@@ -838,6 +889,7 @@ pub fn activateThread() {
         ThreadState::ThreadStateRestart => {
             let pc = thread.tcbArch.get_register(ArchReg::FaultIP);
             // setNextPC(thread, pc);
+            // sel4_common::println!("restart pc is {:x}",pc);
             thread.tcbArch.set_register(ArchReg::NextIP, pc);
             // setThreadState(thread, ThreadStateRunning);
             set_thread_state(thread, ThreadState::ThreadStateRunning);

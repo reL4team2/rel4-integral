@@ -1,6 +1,6 @@
 use core::intrinsics::unlikely;
 
-use crate::kernel::boot::{current_extra_caps, current_fault};
+use crate::kernel::boot::current_extra_caps;
 use crate::{
     config::seL4_MinPrio,
     kernel::boot::{current_lookup_fault, current_syscall_error},
@@ -8,6 +8,7 @@ use crate::{
 };
 use log::debug;
 use sel4_common::arch::{maskVMRights, msgRegisterNum, ArchReg};
+use sel4_common::ffi::current_fault;
 use sel4_common::sel4_config::seL4_MinUntypedBits;
 use sel4_common::shared_types_bf_gen::seL4_CapRights;
 use sel4_common::structures_gen::{

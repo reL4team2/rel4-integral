@@ -44,7 +44,6 @@ jobs:
     strategy:
       matrix:
         platform: [spike, qemu-arm-virt]
-        mcs: [off, on]
         include:
           - platform: qemu-arm-virt
             arch: aarch64
@@ -78,11 +77,63 @@ jobs:
         env:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
-          MCS: ${{ matrix.mcs }}
         run: |
           echo $ARCH
           echo $PLATFORM
-          cd rel4_kernel && ./build.py -p $PLATFORM -m $MCS
+          cd rel4_kernel && ./build.py -p $PLATFORM -m off
+      - name: simulate
+        env:
+          ARCH: ${{ matrix.arch  }}
+          PLATFORM: ${{ matrix.platform }}
+        run: cd rel4_kernel/build && ./simulate > 1.log
+        timeout-minutes: 2
+        continue-on-error: true
+      - run: cat rel4_kernel/build/1.log
+      - name: Check Result
+        run: rel4_kernel/.github/workflows/parse.py rel4_kernel/build/1.log
+  sel4-test-mcs:
+    # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [spike, qemu-arm-virt]
+        include:
+          - platform: qemu-arm-virt
+            arch: aarch64
+          - platform: spike
+            arch: riscv64
+    container:
+      image: yfblock/rel4-dev:1.2
+      options: --user=root
+    defaults:
+      run:
+        working-directory: ./sel4-test
+    steps:
+      - run: mkdir sel4-test
+        working-directory: .
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly-2024-02-01
+          components: rust-src rustfmt
+          rustflags:
+          target: riscv64imac-unknown-none-elf aarch64-unknown-none-softfloat
+      - name: Install qemu
+        run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
+      - name: Clone Menifest && Sync repositories
+        run: | 
+          repo init -u https://github.com/rel4team/sel4test-manifest.git -b ci-test 
+          sed -i "19c\ \t<project name=\"mi-dev-integral-rel4.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"mi_dev\" dest-branch=\"mi_dev\"/>"  .repo/manifests/default.xml
+          repo sync
+      - run: cd kernel && git checkout mi_dev
+      # - run: cd rel4_kernel && git checkout mi_dev
+      - name: Build
+        env:
+          ARCH: ${{ matrix.arch  }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          echo $ARCH
+          echo $PLATFORM
+          cd rel4_kernel && ./build.py -p $PLATFORM -m on
       - name: simulate
         env:
           ARCH: ${{ matrix.arch  }}

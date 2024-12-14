@@ -10,6 +10,8 @@ use sel4_common::arch::ArchReg;
 use sel4_common::arch::ArchReg::*;
 #[cfg(not(feature = "KERNEL_MCS"))]
 use sel4_common::sel4_config::tcbCaller;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::sched_context::sched_context_t;
 
 pub const SysCall: isize = -1;
 pub const SYSCALL_MAX: isize = SysCall;
@@ -60,6 +62,8 @@ pub const SysDebugNameThread: isize = SysDebugSnapshot - 1;
 pub const SysGetClock: isize = -30;
 #[cfg(feature = "KERNEL_MCS")]
 pub const SysGetClock: isize = -33;
+#[cfg(feature = "KERNEL_MCS")]
+use crate::structures::lookupCap_ret_t;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{
     cap, cap_Splayed, cap_tag, endpoint, lookup_fault_missing_capability, notification,
@@ -71,12 +75,15 @@ use sel4_task::{
     activateThread, get_currenct_thread, rescheduleRequired, schedule, set_thread_state, tcb_t,
     ThreadState,
 };
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::{chargeBudget, get_current_sc, ksConsumed, ksCurSC, mcs_preemption_point};
 pub use utils::*;
 
 use crate::arch::restore_user_context;
 use crate::interrupt::handler::handleInterrupt;
-use crate::kernel::boot::{current_fault, current_lookup_fault};
+use crate::kernel::boot::current_lookup_fault;
 use crate::{config::irqInvalid, interrupt::getActiveIRQ};
+use sel4_common::ffi::current_fault;
 
 use self::invocation::handleInvocation;
 
@@ -146,86 +153,110 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
 #[no_mangle]
 #[cfg(feature = "KERNEL_MCS")]
 pub fn handleSyscall(_syscall: usize) -> exception_t {
+    use core::intrinsics::likely;
+
+    use sel4_task::{checkBudgetRestart, updateTimestamp};
+
     let syscall: isize = _syscall as isize;
     // if hart_id() == 0 {
     //     debug!("handle syscall: {}", syscall);
     // }
-    // TODO: MCS
-    // updateTimestamp();
-    // if (likely(checkBudgetRestart())) {
-    match syscall {
-        SysSend => {
-            let ret = handleInvocation(
-                false,
-                true,
-                false,
-                false,
-                get_currenct_thread().tcbArch.get_register(Cap),
-            );
-            if unlikely(ret != exception_t::EXCEPTION_NONE) {
-                let irq = getActiveIRQ();
-                if irq != irqInvalid {
-                    handleInterrupt(irq);
+    // sel4_common::println!("handle syscall {}", syscall);
+    updateTimestamp();
+    if likely(checkBudgetRestart()) {
+        match syscall {
+            SysSend => {
+                let ret = handleInvocation(
+                    false,
+                    true,
+                    false,
+                    false,
+                    get_currenct_thread().tcbArch.get_register(Cap),
+                );
+                if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                    let irq = getActiveIRQ();
+                    if irq != irqInvalid {
+                        handleInterrupt(irq);
+                    }
                 }
             }
-        }
-        SysNBSend => {
-            let ret = handleInvocation(
-                false,
-                false,
-                false,
-                false,
-                get_currenct_thread().tcbArch.get_register(Cap),
-            );
-            if unlikely(ret != exception_t::EXCEPTION_NONE) {
-                let irq = getActiveIRQ();
-                if irq != irqInvalid {
-                    handleInterrupt(irq);
+            SysNBSend => {
+                let ret = handleInvocation(
+                    false,
+                    false,
+                    false,
+                    false,
+                    get_currenct_thread().tcbArch.get_register(Cap),
+                );
+                if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                    let irq = getActiveIRQ();
+                    if irq != irqInvalid {
+                        handleInterrupt(irq);
+                    }
                 }
             }
-        }
-        SysCall => {
-            let ret = handleInvocation(
-                true,
-                true,
-                true,
-                false,
-                get_currenct_thread().tcbArch.get_register(Cap),
-            );
-            if unlikely(ret != exception_t::EXCEPTION_NONE) {
-                let irq = getActiveIRQ();
-                if irq != irqInvalid {
-                    handleInterrupt(irq);
+            SysCall => {
+                let ret = handleInvocation(
+                    true,
+                    true,
+                    true,
+                    false,
+                    get_currenct_thread().tcbArch.get_register(Cap),
+                );
+                if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                    let irq = getActiveIRQ();
+                    if irq != irqInvalid {
+                        handleInterrupt(irq);
+                    }
                 }
             }
+            SysRecv => {
+                handle_recv(true, true);
+            }
+            SysWait => {
+                handle_recv(true, false);
+            }
+            SysNBWait => {
+                handle_recv(false, false);
+            }
+            SysReplyRecv => {
+                let reply = get_currenct_thread().tcbArch.get_register(Reply);
+                let ret = handleInvocation(false, false, true, true, reply);
+                assert!(ret == exception_t::EXCEPTION_NONE);
+                handle_recv(true, true);
+            }
+            SysNBSendRecv => {
+                // TODO: MCS
+                let dest = get_currenct_thread().tcbArch.get_register(nbsRecvDest);
+                let ret = handleInvocation(false, false, true, true, dest);
+                if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                    mcs_preemption_point();
+                    let irq = getActiveIRQ();
+                    if irq != irqInvalid {
+                        handleInterrupt(irq);
+                    }
+                } else {
+                    handle_recv(true, true);
+                }
+            }
+            SysNBSendWait => {
+                let reply = get_currenct_thread().tcbArch.get_register(Reply);
+                let ret = handleInvocation(false, false, true, true, reply);
+                if unlikely(ret != exception_t::EXCEPTION_NONE) {
+                    mcs_preemption_point();
+                    let irq = getActiveIRQ();
+                    if irq != irqInvalid {
+                        handleInterrupt(irq);
+                    }
+                } else {
+                    handle_recv(true, false);
+                }
+            }
+            SysNBRecv => handle_recv(false, true),
+            SysYield => handle_yield(),
+            _ => panic!("Invalid syscall"),
         }
-        SysRecv => {
-            // TODO: MCS
-            handle_recv(true, true);
-        }
-		SysWait => {
-			handle_recv(true,false);
-		}
-		SysNBWait => {
-			handle_recv(false,false);
-		}
-		SysReplyRecv => {
-			// TODO: MCS
-		}
-		SysNBSendRecv => {
-			// TODO: MCS
-		}
-		SysNBSendWait => {
-			// TODO: MCS
-		}
-        SysNBRecv => {
-            // TODO: MCS
-            handle_recv(true, true)
-        }
-        SysYield => handle_yield(),
-        _ => panic!("Invalid syscall"),
     }
-    // }
     schedule();
     activateThread();
     exception_t::EXCEPTION_NONE
@@ -313,6 +344,7 @@ pub fn handle_fault(thread: &mut tcb_t) {
 }
 #[inline]
 #[cfg(feature = "KERNEL_MCS")]
+#[no_mangle]
 pub fn handleTimeout(tptr: &mut tcb_t) {
     use sel4_common::sel4_config::tcbTimeoutHandler;
 
@@ -325,11 +357,11 @@ pub fn handleTimeout(tptr: &mut tcb_t) {
 #[no_mangle]
 pub fn endTimeslice(can_timeout_fault: bool) {
     use sel4_common::structures_gen::seL4_Fault_Timeout;
-    use sel4_task::{ksCurSC, sched_context::sched_context_t};
+    use sel4_task::get_current_sc;
 
     unsafe {
         let thread = get_currenct_thread();
-        let sched_context = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
+        let sched_context = get_current_sc();
         if can_timeout_fault && !sched_context.is_round_robin() && thread.validTimeoutHandler() {
             current_fault = seL4_Fault_Timeout::new(sched_context.scBadge as u64).unsplay();
             handleTimeout(thread);
@@ -344,9 +376,32 @@ pub fn endTimeslice(can_timeout_fault: bool) {
         }
     }
 }
-// #[cfg(feature="KERNEL_MCS")]
-// #[inline]
-// pub fn lookupReply() -> lookupCap_ret_t
+#[cfg(feature = "KERNEL_MCS")]
+#[inline]
+pub fn lookupReply() -> lookupCap_ret_t {
+    use log::debug;
+
+    use crate::object::lookup_cap;
+
+    let reply_ptr = get_currenct_thread().tcbArch.get_register(ArchReg::Reply);
+    let mut lu_ret = lookup_cap(get_currenct_thread(), reply_ptr);
+
+    if unlikely(lu_ret.status != exception_t::EXCEPTION_NONE) {
+        debug!("Reply cap lookup failed");
+        unsafe { current_fault = seL4_Fault_CapFault::new(reply_ptr as u64, 1).unsplay() };
+        handle_fault(get_currenct_thread());
+        return lu_ret;
+    }
+
+    if unlikely(lu_ret.capability.get_tag() != cap_tag::cap_reply_cap) {
+        debug!("Cap in reply slot is not a reply");
+        unsafe { current_fault = seL4_Fault_CapFault::new(reply_ptr as u64, 1).unsplay() };
+        handle_fault(get_currenct_thread());
+        lu_ret.status = exception_t::EXCEPTION_FAULT;
+        return lu_ret;
+    }
+    lu_ret
+}
 // TODO: MCS
 #[cfg(not(feature = "KERNEL_MCS"))]
 fn handle_reply() {
@@ -363,6 +418,8 @@ fn handle_reply() {
 }
 #[cfg(feature = "KERNEL_MCS")]
 fn handle_recv(block: bool, canReply: bool) {
+    use sel4_common::structures_gen::cap_null_cap;
+
     let current_thread = get_currenct_thread();
     let ep_cptr = current_thread.tcbArch.get_register(ArchReg::Cap);
     let lu_ret = current_thread.lookup_slot(ep_cptr);
@@ -383,6 +440,20 @@ fn handle_recv(block: bool, canReply: bool) {
                 return handle_fault(current_thread);
             }
             // TODO: MCS
+            let mut reply_cap = cap_null_cap::new().unsplay();
+            if canReply {
+                let lu_ret = lookupReply();
+                if lu_ret.status != exception_t::EXCEPTION_NONE {
+                    return;
+                } else {
+                    reply_cap = lu_ret.capability;
+                }
+            }
+            convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
+                current_thread,
+                block,
+                cap::cap_reply_cap(&reply_cap),
+            );
         }
 
         cap_Splayed::notification_cap(data) => {
@@ -467,7 +538,11 @@ fn handle_recv(block: bool) {
 fn handle_yield() {
     #[cfg(feature = "KERNEL_MCS")]
     {
-        // TODO: MCS
+        unsafe {
+            let consumed = get_current_sc().scConsumed + ksConsumed;
+            chargeBudget((*get_current_sc().refill_head()).rAmount, false);
+            get_current_sc().scConsumed = consumed;
+        }
     }
     #[cfg(not(feature = "KERNEL_MCS"))]
     {

@@ -1,3 +1,5 @@
+use core::usize;
+
 use crate::config::CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION;
 // use crate::ffi::tcbDebugRemove;
 use crate::interrupt::{deletingIRQHandler, isIRQPending, setIRQState, IRQState};
@@ -6,12 +8,16 @@ use crate::syscall::safe_unbind_notification;
 use sel4_common::sel4_config::{tcbCNodeEntries, tcbCTable, tcbVTable};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, endpoint, notification};
-use sel4_common::utils::convert_to_mut_type_ref;
+use sel4_common::utils::{
+    convert_to_mut_type_ref, convert_to_option_mut_type_ref, convert_to_option_type_ref,
+};
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::compatibility::{ZombieType_ZombieTCB, Zombie_new};
 use sel4_cspace::interface::finaliseCap_ret;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
-use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
+use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t, ThreadState};
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::{reply::reply_t, sched_context::sched_context_t};
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;
 #[cfg(target_arch = "aarch64")]
@@ -190,6 +196,12 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
                 let ntfn = convert_to_mut_type_ref::<notification>(
                     cap::cap_notification_cap(capability).get_capNtfnPtr() as usize,
                 );
+                #[cfg(feature = "KERNEL_MCS")]
+                if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(
+                    ntfn.get_ntfnSchedContext() as usize,
+                ) {
+                    sc.schedContext_unbindNtfn();
+                }
                 ntfn.safe_unbind_tcb();
                 ntfn.cacncel_all_signal();
             }
@@ -197,7 +209,32 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
             fc_ret.cleanupInfo = cap_null_cap::new().unsplay();
             return fc_ret;
         }
-        cap_tag::cap_reply_cap | cap_tag::cap_null_cap | cap_tag::cap_domain_cap => {
+        cap_tag::cap_reply_cap => {
+            #[cfg(feature = "KERNEL_MCS")]
+            if _final {
+                if let Some(reply) = convert_to_option_mut_type_ref::<reply_t>(
+                    cap::cap_reply_cap(capability).get_capReplyPtr() as usize,
+                ) {
+                    if reply.replyTCB != 0 {
+                        match convert_to_mut_type_ref::<tcb_t>(reply.replyTCB).get_state() {
+                            ThreadState::ThreadStateBlockedOnReply => {
+                                reply.remove(convert_to_mut_type_ref::<tcb_t>(reply.replyTCB));
+                            }
+                            ThreadState::ThreadStateBlockedOnReceive => {
+                                convert_to_mut_type_ref::<tcb_t>(reply.replyTCB).cancel_ipc();
+                            }
+                            _ => {
+                                panic!("invalid tcb state");
+                            }
+                        }
+                    }
+                }
+            }
+            fc_ret.remainder = cap_null_cap::new().unsplay();
+            fc_ret.cleanupInfo = cap_null_cap::new().unsplay();
+            return fc_ret;
+        }
+        cap_tag::cap_null_cap | cap_tag::cap_domain_cap => {
             fc_ret.remainder = cap_null_cap::new().unsplay();
             fc_ret.cleanupInfo = cap_null_cap::new().unsplay();
             return fc_ret;
@@ -236,6 +273,16 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
                 };
                 let cte_ptr = tcb.get_cspace_mut_ref(tcbCTable);
                 safe_unbind_notification(tcb);
+                #[cfg(feature = "KERNEL_MCS")]
+                if let Some(sc) =
+                    convert_to_option_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext)
+                {
+                    sc.schedContext_unbindTCB(tcb);
+                    if sc.scYieldFrom != 0 {
+                        convert_to_mut_type_ref::<tcb_t>(sc.scYieldFrom)
+                            .schedContext_completeYieldTo();
+                    }
+                }
                 tcb.cancel_ipc();
                 tcb.suspend();
                 // #[cfg(feature="DEBUG_BUILD")]

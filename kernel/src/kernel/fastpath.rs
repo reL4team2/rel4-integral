@@ -4,9 +4,13 @@ use crate::{
     syscall::{slowpath, SysCall, SysReplyRecv},
 };
 use core::intrinsics::{likely, unlikely};
+#[cfg(feature = "KERNEL_MCS")]
+use sched_context::sched_context_t;
 use sel4_common::arch::msgRegister;
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::structures_gen::call_stack;
 use sel4_common::structures_gen::{
     cap, cap_cnode_cap, cap_null_cap, cap_page_table_cap, cap_reply_cap, cap_tag, endpoint,
     mdb_node, notification, seL4_Fault_tag, thread_state,
@@ -17,6 +21,8 @@ use sel4_common::{
 };
 use sel4_cspace::interface::*;
 use sel4_ipc::*;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::reply::reply_t;
 use sel4_task::*;
 use sel4_vspace::*;
 
@@ -239,16 +245,18 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     if unlikely((ep_cap.get_capCanGrant() == 0) && (ep_cap.get_capCanGrantReply() == 0)) {
         slowpath(SysCall as usize);
     }
-    // #ifdef CONFIG_KERNEL_MCS
-    //     if (unlikely(dest->tcbSchedContext != NULL)) {
-    //         slowpath(SysCall);
-    //     }
-
-    //     reply_t *reply = thread_state_get_replyObject_np(dest->tcbState);
-    //     if (unlikely(reply == NULL)) {
-    //         slowpath(SysCall);
-    //     }
-    // #endif
+    #[cfg(feature = "KERNEL_MCS")]
+    {
+        if unlikely(dest.tcbSchedContext != 0) {
+            slowpath(SysCall as usize);
+        }
+        assert!(dest.tcbState.get_tcbQueued() == 0);
+        assert!(dest.tcbState.get_tcbInReleaseQueue() == 0);
+        let reply = dest.tcbState.get_replyObject();
+        if unlikely(reply == 0) {
+            slowpath(SysCall as usize);
+        }
+    }
     #[cfg(feature = "ENABLE_SMP")]
     if unlikely(get_currenct_thread().tcbAffinity != dest.tcbAffinity) {
         slowpath(SysCall as usize);
@@ -268,25 +276,31 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
 
     #[cfg(feature = "KERNEL_MCS")]
     {
-        // TODO: MCS
-        // #ifdef CONFIG_KERNEL_MCS
-        //     thread_state_ptr_set_replyObject_np(&dest->tcbState, 0);
-        //     thread_state_ptr_set_replyObject_np(&NODE_STATE(ksCurThread)->tcbState, REPLY_REF(reply));
-        //     reply->replyTCB = NODE_STATE(ksCurThread);
+        let reply = dest.tcbState.get_replyObject();
+        assert!(dest.tcbState.get_tcbQueued() == 0);
+        assert!(dest.tcbState.get_tcbInReleaseQueue() == 0);
+        dest.tcbState.set_replyObject(0);
 
-        //     sched_context_t *sc = NODE_STATE(ksCurThread)->tcbSchedContext;
-        //     sc->scTcb = dest;
-        //     dest->tcbSchedContext = sc;
-        //     NODE_STATE(ksCurThread)->tcbSchedContext = NULL;
+        assert!(current.tcbState.get_tcbQueued() == 0);
+        assert!(current.tcbState.get_tcbInReleaseQueue() == 0);
+        current.tcbState.set_replyObject(reply);
 
-        //     reply_t *old_caller = sc->scReply;
-        //     reply->replyPrev = call_stack_new(REPLY_REF(sc->scReply), false);
-        //     if (unlikely(old_caller)) {
-        //         old_caller->replyNext = call_stack_new(REPLY_REF(reply), false);
-        //     }
-        //     reply->replyNext = call_stack_new(SC_REF(sc), true);
-        //     sc->scReply = reply;
-        // #endif
+        convert_to_mut_type_ref::<reply_t>(reply as usize).replyTCB = unsafe { ksCurThread };
+
+        let sc = convert_to_mut_type_ref::<sched_context_t>(current.tcbSchedContext);
+        sc.scTcb = dest.get_ptr();
+        dest.tcbSchedContext = sc.get_ptr();
+        current.tcbSchedContext = 0;
+
+        let old_caller = convert_to_mut_type_ref::<reply_t>(sc.scReply);
+        convert_to_mut_type_ref::<reply_t>(reply as usize).replyPrev =
+            call_stack::new(sc.scReply as u64, 0);
+        if unlikely(old_caller.get_ptr() != 0) {
+            old_caller.replyNext = call_stack::new(reply, 0);
+        }
+        convert_to_mut_type_ref::<reply_t>(reply as usize).replyNext =
+            call_stack::new(sc.get_ptr() as u64, 1);
+        sc.scReply = reply as usize;
     }
     #[cfg(not(feature = "KERNEL_MCS"))]
     {
@@ -432,9 +446,6 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
 pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     // debug!("enter fastpath_reply_recv");
 
-    use sel4_common::reply::reply_t;
-    use sel4_ipc::endpoint_func;
-    use sel4_task::sched_context::sched_context_t;
     let current = get_currenct_thread();
     let mut info = seL4_MessageInfo::from_word(msgInfo);
     let length = info.get_length() as usize;
@@ -479,20 +490,6 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     if unlikely(ep.get_ep_state() == EPState::Send) {
         slowpath(SysReplyRecv as usize);
     }
-    // #ifdef CONFIG_KERNEL_MCS
-    //     /* Get the reply address */
-    //     reply_t *reply_ptr = REPLY_PTR(cap_reply_cap_get_capReplyPtr(reply_cap));
-    //     /* check that its valid and at the head of the call chain
-    //        and that the current thread's SC is going to be donated. */
-    //     if (unlikely(reply_ptr->replyTCB == NULL ||
-    //                  call_stack_get_isHead(reply_ptr->replyNext) == 0 ||
-    //                  SC_PTR(call_stack_get_callStackPtr(reply_ptr->replyNext)) != NODE_STATE(ksCurThread)->tcbSchedContext)) {
-    //         slowpath(SysReplyRecv);
-    //     }
-
-    //     /* Determine who the caller is. */
-    //     caller = reply_ptr->replyTCB;
-    // #endif
     /* Get the reply address */
     let reply_ptr = convert_to_mut_type_ref::<reply_t>(reply_cap.get_capReplyPtr() as usize);
     /* check that its valid and at the head of the call chain
@@ -526,18 +523,13 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     if unlikely(caller.tcbSchedContext != 0) {
         slowpath(SysReplyRecv as usize);
     }
+    assert!(current.tcbState.get_replyObject() == 0);
 
     thread_state_ptr_mset_blockingObject_tsType(
         &mut current.tcbState,
         ep.get_ptr(),
         ThreadState::ThreadStateBlockedOnReceive as usize,
     );
-    // #ifdef CONFIG_KERNEL_MCS
-    //     /* unlink reply object from caller */
-    //     thread_state_ptr_set_replyObject_np(&caller->tcbState, 0);
-    //     /* set the reply object */
-    //     thread_state_ptr_set_replyObject_np(&NODE_STATE(ksCurThread)->tcbState, REPLY_REF(reply_ptr));
-    //     reply_ptr->replyTCB = NODE_STATE(ksCurThread);
     caller.tcbState.set_replyObject(0);
     current
         .tcbState

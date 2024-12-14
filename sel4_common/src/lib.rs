@@ -15,8 +15,6 @@ pub mod logging;
 pub mod message_info;
 pub mod object;
 pub mod platform;
-#[cfg(feature = "KERNEL_MCS")]
-pub mod reply;
 pub mod sel4_bitfield_types;
 pub mod sel4_config;
 pub mod shared_types_bf_gen;
