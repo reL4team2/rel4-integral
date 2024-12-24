@@ -404,9 +404,20 @@ fn nextDomain() {
         if ksDomScheduleIdx >= ksDomScheduleLength {
             ksDomScheduleIdx = 0;
         }
+        #[cfg(feature = "KERNEL_MCS")]
+        {
+            ksReprogram = true;
+        }
         ksWorkUnitsCompleted = 0;
         ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
-        ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
+        #[cfg(feature = "KERNEL_MCS")]
+        {
+            ksDomainTime = usToTicks(ksDomSchedule[ksDomScheduleIdx].length * US_IN_MS);
+        }
+        #[cfg(not(feature = "KERNEL_MCS"))]
+        {
+            ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
+        }
         //FIXME ksWorkUnits not used;
         // ksWorkUnits
     }
@@ -693,28 +704,27 @@ pub fn commitTime() {
             }
             current_sched_context.scConsumed += ksConsumed;
         }
+        ksConsumed = 0;
     }
 }
 #[cfg(feature = "KERNEL_MCS")]
 pub fn switch_sched_context() {
+    use sel4_common::utils::convert_to_option_mut_type_ref;
+
     let thread = get_currenct_thread();
     unsafe {
         if unlikely(ksCurSC != thread.tcbSchedContext) {
             ksReprogram = true;
-            if convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
-                .sc_constant_bandwidth()
+            if let Some(sc) =
+                convert_to_option_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
             {
-                convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
-                    .refill_unblock_check();
-            }
+                if sc.sc_constant_bandwidth() {
+                    sc.refill_unblock_check();
+                }
 
-            assert!(
-                convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext).refill_ready()
-            );
-            assert!(
-                convert_to_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
-                    .refill_sufficient(0)
-            );
+                assert!(sc.refill_ready());
+                assert!(sc.refill_sufficient(0));
+            }
         }
 
         if ksReprogram {
@@ -923,6 +933,7 @@ pub fn create_idle_thread() {
         set_thread_state(tcb, ThreadState::ThreadStateIdleThreadState);
         #[cfg(feature = "KERNEL_MCS")]
         {
+			tcb.tcbYieldTo = 0;
             configure_sched_context(
                 convert_to_mut_type_ref::<tcb_t>(ksIdleThread),
                 convert_to_mut_type_ref::<sched_context_t>(

@@ -12,6 +12,7 @@ use sel4_common::structures_gen::{cap_reply_cap, cap_sched_context_cap};
 use sel4_common::{
     sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref, BIT, ROUND_DOWN,
 };
+use sel4_cspace::deps::preemptionPoint;
 use sel4_cspace::interface::{cte_t, insert_new_cap};
 use sel4_task::{get_current_domain, tcb_t};
 use sel4_vspace::pptr_t;
@@ -142,9 +143,13 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
                 GET_OFFSET_FREE_PTR(region_base, offset as usize) as *mut u8,
                 chunk,
             );
+            prev_cap.set_capFreeIndex((offset as u64) >> seL4_MinUntypedBits);
+            let status = unsafe { preemptionPoint() };
+            if status != exception_t::EXCEPTION_NONE {
+                return status;
+            }
             offset -= BIT!(chunk) as isize;
         }
-        prev_cap.set_capFreeIndex(OFFSET_TO_FREE_IDNEX(offset as usize) as u64);
     }
     exception_t::EXCEPTION_NONE
 }

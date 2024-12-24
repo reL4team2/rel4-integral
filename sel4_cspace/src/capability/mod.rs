@@ -109,23 +109,47 @@ impl cap_func for cap {
             cap_tag::cap_reply_cap => seL4_ReplyBits,
             #[cfg(not(feature = "KERNEL_MCS"))]
             cap_tag::cap_reply_cap => 0,
+            #[cfg(feature = "KERNEL_MCS")]
+            cap_tag::cap_sched_context_cap => {
+                cap::cap_sched_context_cap(self).get_capSCSizeBits() as usize
+            }
             _ => 0,
         }
     }
 
     fn get_cap_is_physical(&self) -> bool {
-        matches!(
-            self.get_tag(),
-            cap_tag::cap_untyped_cap
-                | cap_tag::cap_endpoint_cap
-                | cap_tag::cap_notification_cap
-                | cap_tag::cap_cnode_cap
-                | cap_tag::cap_frame_cap
-                | cap_tag::cap_asid_pool_cap
-                | cap_tag::cap_page_table_cap
-                | cap_tag::cap_zombie_cap
-                | cap_tag::cap_thread_cap
-        )
+        #[cfg(not(feature = "KERNEL_MCS"))]
+        {
+            matches!(
+                self.get_tag(),
+                cap_tag::cap_untyped_cap
+                    | cap_tag::cap_endpoint_cap
+                    | cap_tag::cap_notification_cap
+                    | cap_tag::cap_cnode_cap
+                    | cap_tag::cap_frame_cap
+                    | cap_tag::cap_asid_pool_cap
+                    | cap_tag::cap_page_table_cap
+                    | cap_tag::cap_zombie_cap
+                    | cap_tag::cap_thread_cap
+            )
+        }
+        #[cfg(feature = "KERNEL_MCS")]
+        {
+            matches!(
+                self.get_tag(),
+                cap_tag::cap_untyped_cap
+                    | cap_tag::cap_endpoint_cap
+                    | cap_tag::cap_notification_cap
+                    | cap_tag::cap_cnode_cap
+                    | cap_tag::cap_frame_cap
+                    | cap_tag::cap_asid_pool_cap
+                    | cap_tag::cap_page_table_cap
+                    | cap_tag::cap_zombie_cap
+                    | cap_tag::cap_thread_cap
+                    | cap_tag::cap_sched_context_cap
+                    | cap_tag::cap_reply_cap
+            )
+        }
     }
 
     fn isArchCap(&self) -> bool {
@@ -183,6 +207,31 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
             if cap2.get_tag() == cap_tag::cap_irq_handler_cap {
                 return cap::cap_irq_handler_cap(cap1).get_capIRQ()
                     == cap::cap_irq_handler_cap(cap2).get_capIRQ();
+            }
+            false
+        }
+        #[cfg(feature = "KERNEL_MCS")]
+        cap_tag::cap_sched_context_cap => {
+            if cap2.get_tag() == cap_tag::cap_sched_context_cap {
+                return (cap::cap_sched_context_cap(cap1).get_capSCPtr()
+                    == cap::cap_sched_context_cap(cap2).get_capSCPtr())
+                    && (cap::cap_sched_context_cap(cap1).get_capSCSizeBits()
+                        == cap::cap_sched_context_cap(cap2).get_capSCSizeBits());
+            }
+            false
+        }
+        #[cfg(feature = "KERNEL_MCS")]
+        cap_tag::cap_sched_control_cap => {
+            if cap2.get_tag() == cap_tag::cap_sched_control_cap {
+                return true;
+            }
+            false
+        }
+        #[cfg(feature = "KERNEL_MCS")]
+        cap_tag::cap_reply_cap => {
+            if cap2.get_tag() == cap_tag::cap_reply_cap {
+                return cap::cap_reply_cap(cap1).get_capReplyPtr()
+                    == cap::cap_reply_cap(cap2).get_capReplyPtr();
             }
             false
         }

@@ -31,6 +31,7 @@ use crate::{
         get_syscall_arg,
         invocation::invoke_sched::{
             invokeSchedContext_Bind, invokeSchedContext_Consumed, invokeSchedContext_Unbind,
+            invokeSchedContext_UnbindObject, invokeSchedContext_YieldTo,
             invokeSchedControl_ConfigureFlags,
         },
     },
@@ -41,7 +42,7 @@ pub fn decode_sched_context_invocation(
     capability: &cap_sched_context_cap,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    // println!("go into decode sched context invocation");
+    // sel4_common::println!("go into decode sched context invocation");
     let sc = convert_to_mut_type_ref::<sched_context_t>(capability.get_capSCPtr() as usize);
     match inv_label {
         MessageLabel::SchedContextConsumed => {
@@ -61,7 +62,7 @@ pub fn decode_sched_context_invocation(
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
             invokeSchedContext_Unbind(sc)
         }
-        MessageLabel::SchedContextYieldTo => decodeSchedContext_YieldTo(sc, buffer),
+        MessageLabel::SchedContextYieldTo => decodeSchedContext_YieldTo(sc),
         _ => {
             debug!("SchedContext invocation: Illegal operation attempted.");
             unsafe {
@@ -107,11 +108,10 @@ pub fn decode_sched_control_invocation(
                 &convert_to_mut_type_ref::<cte_t>(unsafe { current_extra_caps.excaprefs[0] })
                     .capability;
             if unlikely(targetCap.get_tag() != cap_tag::cap_sched_context_cap) {
-                debug!("SchedControl_ConfigureFlags: budget out of range.");
+                debug!("SchedControl_ConfigureFlags: target cap not a scheduling context cap");
                 unsafe {
-                    current_syscall_error._type = seL4_RangeError;
-                    current_syscall_error.rangeErrorMin = MIN_BUDGET_US();
-                    current_syscall_error.rangeErrorMax = MAX_PERIOD_US();
+                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error.invalidCapNumber = 1;
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
             }
@@ -186,11 +186,51 @@ pub fn decode_sched_control_invocation(
 }
 pub fn decodeSchedContext_UnbindObject(sc: &mut sched_context) -> exception_t {
     // TODO: MCS
-    unimplemented!("MCS unbind object");
-    if global_ops!(current_extra_caps.excaprefs[0] == 0) {
-        debug!("")
+    if get_extra_cap_by_index(0).is_none() {
+        debug!("SchedContext_Unbind: Truncated message.");
+        unsafe {
+            current_syscall_error._type = seL4_TruncatedMessage;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    exception_t::EXCEPTION_NONE
+    let capability = &get_extra_cap_by_index(0).unwrap().capability;
+    match capability.clone().splay() {
+        cap_Splayed::thread_cap(data) => {
+            if sc.scTcb != data.get_capTCBPtr() as usize {
+                debug!("SchedContext UnbindObject: object not bound");
+                unsafe {
+                    current_syscall_error._type = seL4_IllegalOperation;
+                }
+                return exception_t::EXCEPTION_SYSCALL_ERROR;
+            }
+            if sc.scTcb == unsafe { ksCurThread } {
+                debug!("SchedContext UnbindObject: cannot unbind sc of current thread");
+                unsafe {
+                    current_syscall_error._type = seL4_IllegalOperation;
+                }
+                return exception_t::EXCEPTION_SYSCALL_ERROR;
+            }
+        }
+        cap_Splayed::notification_cap(data) => {
+            if sc.scNotification != data.get_capNtfnPtr() as usize {
+                debug!("SchedContext UnbindObject: object not bound");
+                unsafe {
+                    current_syscall_error._type = seL4_IllegalOperation;
+                }
+                return exception_t::EXCEPTION_SYSCALL_ERROR;
+            }
+        }
+        _ => {
+            debug!("SchedContext_Unbind: invalid cap");
+            unsafe {
+                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error.invalidCapNumber = 1;
+            }
+            return exception_t::EXCEPTION_SYSCALL_ERROR;
+        }
+    }
+    set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+    return invokeSchedContext_UnbindObject(sc, capability.clone());
 }
 pub fn decodeSchedContext_Bind(sc: &mut sched_context) -> exception_t {
     if get_extra_cap_by_index(0).is_none() {
@@ -263,7 +303,45 @@ pub fn decodeSchedContext_Bind(sc: &mut sched_context) -> exception_t {
         }
     }
 }
-pub fn decodeSchedContext_YieldTo(sc: &mut sched_context, buffer: &seL4_IPCBuffer) -> exception_t {
-    unimplemented!("MCS yield to");
-    // TODO: MCS
+pub fn decodeSchedContext_YieldTo(sc: &mut sched_context) -> exception_t {
+    let thread = get_currenct_thread();
+
+    if sc.scTcb == 0 {
+        debug!("SchedContext_YieldTo: cannot yield to an inactive sched context");
+        unsafe {
+            current_syscall_error._type = seL4_IllegalOperation;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+    if sc.scTcb == thread.get_ptr() {
+        debug!("SchedContext_YieldTo: cannot seL4_SchedContext_YieldTo on self");
+        unsafe {
+            current_syscall_error._type = seL4_IllegalOperation;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+    if convert_to_mut_type_ref::<tcb_t>(sc.scTcb).tcbPriority > thread.tcbMCP {
+        debug!(
+            "SchedContext_YieldTo: insufficient mcp {} to yield to a thread with prio {}",
+            thread.tcbMCP,
+            convert_to_mut_type_ref::<tcb_t>(sc.scTcb).tcbPriority
+        );
+        unsafe {
+            current_syscall_error._type = seL4_IllegalOperation;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+    assert!(thread.tcbYieldTo == 0);
+    if thread.tcbYieldTo != 0 {
+        debug!(
+            "SchedContext_YieldTo: cannot seL4_SchedContext_YieldTo to more than on SC at a time"
+        );
+        unsafe {
+            current_syscall_error._type = seL4_IllegalOperation;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+
+    set_thread_state(thread, ThreadState::ThreadStateRestart);
+    return invokeSchedContext_YieldTo(sc);
 }

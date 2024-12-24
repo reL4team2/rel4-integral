@@ -30,6 +30,12 @@ impl cap_arch_func for cap {
             // cap_tag::CapPageGlobalDirectoryCap => self.get_pgd_base_ptr(),
             cap_tag::cap_asid_control_cap => 0,
             cap_tag::cap_asid_pool_cap => cap::cap_asid_pool_cap(self).get_capASIDPool() as usize,
+            #[cfg(feature = "KERNEL_MCS")]
+            cap_tag::cap_reply_cap => cap::cap_reply_cap(self).get_capReplyPtr() as usize,
+            #[cfg(feature = "KERNEL_MCS")]
+            cap_tag::cap_sched_context_cap => {
+                cap::cap_sched_context_cap(self).get_capSCPtr() as usize
+            }
             _ => 0,
         }
     }

@@ -14,7 +14,7 @@ use sel4_common::{
     sel4_config::{CONFIG_KERNEL_WCET_SCALE, UINT64_MAX},
     shared_types_bf_gen::seL4_MessageInfo,
     structures_gen::{cap_sched_context_cap, notification, notification_t},
-    utils::convert_to_mut_type_ref,
+    utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
     BIT,
 };
 
@@ -94,7 +94,7 @@ impl sched_context {
     }
     #[inline]
     pub fn sc_sporadic(&self) -> bool {
-        self.get_ptr() != 0 && self.sc_active() && self.scSporadic
+        self.sc_active() && self.scSporadic
     }
     #[inline]
     pub fn postpone(&self) {
@@ -288,7 +288,7 @@ impl sched_context {
                     convert_to_mut_type_ref::<tcb_t>(self.scTcb)
                         .tcbState
                         .get_tcbQueued()
-                        != 0
+                        == 0
                 );
                 self.postpone();
             }
@@ -327,9 +327,9 @@ impl sched_context {
         assert!(self.get_ptr() != 0);
         assert!(to.get_ptr() != 0);
         assert!(to.tcbSchedContext == 0);
-        if self.scTcb != 0 {
-            let from: &mut tcb_t = convert_to_mut_type_ref::<tcb_t>(self.scTcb);
+        if let Some(from) = convert_to_option_mut_type_ref::<tcb_t>(self.scTcb) {
             from.sched_dequeue();
+            from.Release_Remove();
             from.tcbSchedContext = 0;
             if from.is_current() || from.get_ptr() == unsafe { ksSchedulerAction } {
                 rescheduleRequired();

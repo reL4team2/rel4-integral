@@ -64,12 +64,31 @@ pub const SSTATUS_SPP: usize = 0x00000100;
 
 pub const n_syscallMessage: usize = 10;
 pub const n_exceptionMessage: usize = 2;
-pub const MAX_MSG_SIZE: usize = n_syscallMessage;
 #[cfg(feature = "KERNEL_MCS")]
 pub const n_timeoutMessage: usize = 32;
+#[cfg(not(feature = "KERNEL_MCS"))]
+pub const MAX_MSG_SIZE: usize = n_syscallMessage;
+#[cfg(feature = "KERNEL_MCS")]
+pub const MAX_MSG_SIZE: usize = n_timeoutMessage;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const fault_messages: [[usize; MAX_MSG_SIZE]; 2] = [
     [33, 1, 0, 9, 10, 11, 12, 13, 14, 15],
     [33, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+];
+#[cfg(feature = "KERNEL_MCS")]
+pub const fault_messages: [[usize; MAX_MSG_SIZE]; 3] = [
+    [
+        33, 1, 0, 9, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        33, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,
+    ],
+    [
+        33, 0, 1, 2, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 9, 10, 11, 12, 13, 14, 15, 16,
+        4, 5, 6, 27, 28, 29, 30, 3,
+    ],
 ];
 
 pub const frameRegNum: usize = 16;

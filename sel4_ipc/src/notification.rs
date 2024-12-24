@@ -3,7 +3,7 @@ use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::{notification, notification_t};
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
 #[cfg(feature = "KERNEL_MCS")]
-use sel4_task::sched_context::sched_context_t;
+use sel4_task::{ksCurSC, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, rescheduleRequired, set_thread_state, tcb_queue_t, tcb_t, ThreadState,
 };
@@ -91,7 +91,24 @@ impl notification_func for notification {
             self.set_ntfnQueue_tail(0);
             while let Some(thread) = op_thread {
                 set_thread_state(thread, ThreadState::ThreadStateRestart);
-                thread.sched_enqueue();
+                #[cfg(feature = "KERNEL_MCS")]
+                {
+                    if let Some(sc) =
+                        convert_to_option_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
+                    {
+                        if sc.sc_sporadic() {
+                            unsafe {
+                                assert!(thread.tcbSchedContext != ksCurSC);
+                                sc.refill_unblock_check();
+                            }
+                        }
+                    }
+                    possible_switch_to(thread);
+                }
+                #[cfg(not(feature = "KERNEL_MCS"))]
+                {
+                    thread.sched_enqueue();
+                }
                 op_thread = convert_to_option_mut_type_ref::<tcb_t>(thread.tcbEPNext);
             }
             rescheduleRequired();
@@ -236,6 +253,8 @@ impl notification_func for notification {
                     queue.ep_append(recv_thread);
                     self.set_state(NtfnState::Waiting as u64);
                     self.set_queue(&queue);
+                    #[cfg(feature = "KERNEL_MCS")]
+                    self.maybeReturnSchedContext(recv_thread);
                 } else {
                     recv_thread.tcbArch.set_register(ArchReg::Badge, 0);
                 }
@@ -246,6 +265,18 @@ impl notification_func for notification {
                     .tcbArch
                     .set_register(ArchReg::Badge, self.get_ntfnMsgIdentifier() as usize);
                 self.set_state(NtfnState::Idle as u64);
+                #[cfg(feature = "KERNEL_MCS")]
+                {
+                    self.maybeReturnSchedContext(recv_thread);
+                    if recv_thread.tcbSchedContext != unsafe { ksCurSC }
+                        && recv_thread.tcbSchedContext != 0
+                        && convert_to_mut_type_ref::<sched_context_t>(recv_thread.tcbSchedContext)
+                            .sc_sporadic()
+                    {
+                        convert_to_mut_type_ref::<sched_context_t>(recv_thread.tcbSchedContext)
+                            .refill_unblock_check();
+                    }
+                }
             }
         }
     }

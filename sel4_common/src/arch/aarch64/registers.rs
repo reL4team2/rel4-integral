@@ -68,10 +68,29 @@ pub const n_syscallMessage: usize = 12;
 pub const n_timeoutMessage: usize = 34;
 pub const msgRegisterNum: usize = 4;
 pub const msgRegister: [usize; msgRegisterNum] = [2, 3, 4, 5];
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const MAX_MSG_SIZE: usize = n_syscallMessage;
+#[cfg(feature = "KERNEL_MCS")]
+pub const MAX_MSG_SIZE: usize = n_timeoutMessage;
+#[cfg(not(feature = "KERNEL_MCS"))]
 pub const fault_messages: [[usize; MAX_MSG_SIZE]; 2] = [
     [0, 1, 2, 3, 4, 5, 6, 7, 34, 31, 32, 33],
     [34, 31, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+];
+#[cfg(feature = "KERNEL_MCS")]
+pub const fault_messages: [[usize; MAX_MSG_SIZE]; 3] = [
+    [
+        0, 1, 2, 3, 4, 5, 6, 7, 34, 31, 32, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+    ],
+    [
+        34, 31, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+    ],
+    [
+        34, 31, 33, 0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18, 29, 30, 9, 10, 11, 12, 13, 14, 15, 19,
+        20, 21, 22, 23, 24, 25, 26, 27, 28,
+    ],
 ];
 pub const frameRegNum: usize = 17;
 pub const gpRegNum: usize = 19;

@@ -4,6 +4,7 @@ pub const seL4_VMFault_Addr: usize = 1;
 pub const seL4_VMFault_PrefetchFault: usize = 2;
 pub const seL4_VMFault_FSR: usize = 3;
 pub const seL4_VMFault_Length: usize = 4;
+pub const seL4_Timeout_Data: usize = 0;
 
 pub const seL4_CapFault_IP: usize = 0;
 pub const seL4_CapFault_Addr: usize = 1;

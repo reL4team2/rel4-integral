@@ -47,6 +47,7 @@ pub fn decode_invocation(
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
+	// sel4_common::println!("decode invocation {}", capability.get_tag());
     match capability.clone().splay() {
         cap_Splayed::null_cap(_) | cap_Splayed::zombie_cap(_) => {
             debug!(

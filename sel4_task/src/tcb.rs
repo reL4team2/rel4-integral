@@ -1,6 +1,6 @@
 #[cfg(feature = "KERNEL_MCS")]
 use crate::ksCurSC;
-use crate::prio_t;
+use crate::{ksReadyQueues, prio_t};
 use crate::tcb_queue::tcb_queue_t;
 #[cfg(feature = "KERNEL_MCS")]
 use crate::{ksReleaseHead, sched_context::sched_context_t};
@@ -17,7 +17,9 @@ use sel4_common::structures_gen::{
     cap, cap_reply_cap, cap_tag, lookup_fault, lookup_fault_Splayed, mdb_node, seL4_Fault,
     seL4_Fault_CapFault, seL4_Fault_tag, thread_state,
 };
-use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
+use sel4_common::utils::{
+    convert_to_mut_type_ref, convert_to_option_mut_type_ref, pageBitsForSize,
+};
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::BIT;
 use sel4_common::MASK;
@@ -277,14 +279,15 @@ impl tcb_t {
             let idx = ready_queues_index(dom, prio);
             let queue = self.get_sched_queue(idx);
             if queue.tail == 0 {
-                queue.head = self_ptr as usize;
+                queue.tail = self_ptr as usize;
                 addToBitmap(self.get_cpu(), dom, prio);
             } else {
-                convert_to_mut_type_ref::<tcb_t>(queue.tail).tcbSchedNext = self_ptr as usize;
+                convert_to_mut_type_ref::<tcb_t>(queue.head).tcbSchedPrev = self_ptr as usize;
             }
-            self.tcbSchedPrev = queue.tail;
-            self.tcbSchedNext = 0;
-            queue.tail = self_ptr as usize;
+            self.tcbSchedPrev = 0;
+            self.tcbSchedNext = queue.head;
+            queue.head = self_ptr as usize;
+			unsafe { ksReadyQueues[idx] = *queue; }
             self.tcbState.set_tcbQueued(1);
         }
 
@@ -344,7 +347,7 @@ impl tcb_t {
             } else {
                 queue.tail = self.tcbSchedPrev;
             }
-            // unsafe { ksReadyQueues[idx] = queue; }
+            unsafe { ksReadyQueues[idx] = *queue; }
             self.tcbState.set_tcbQueued(0);
         }
     }
@@ -382,7 +385,7 @@ impl tcb_t {
             self.tcbSchedPrev = queue.tail;
             self.tcbSchedNext = 0;
             queue.tail = self_ptr as usize;
-            // unsafe { ksReadyQueues[idx] = queue; }
+            unsafe { ksReadyQueues[idx] = *queue; }
 
             self.tcbState.set_tcbQueued(1);
         }
@@ -508,6 +511,10 @@ impl tcb_t {
         // setThreadState(self as *mut Self, ThreadStateInactive);
         set_thread_state(self, ThreadState::ThreadStateInactive);
         self.sched_dequeue();
+        #[cfg(feature = "KERNEL_MCS")]
+        self.Release_Remove();
+        #[cfg(feature = "KERNEL_MCS")]
+        self.schedContext_cancelYieldTo();
     }
 
     #[inline]
@@ -542,14 +549,14 @@ impl tcb_t {
             {
                 // MCS
                 set_thread_state(self, ThreadState::ThreadStateRestart);
-                if convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext).sc_sporadic()
-                    && self.tcbSchedContext != unsafe { ksCurSC }
+                if let Some(sc) =
+                    convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
                 {
-                    convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
-                        .refill_unblock_check();
+                    if sc.sc_sporadic() && self.tcbSchedContext != unsafe { ksCurSC } {
+                        sc.refill_unblock_check();
+                    }
+                    sc.schedContext_resume();
                 }
-                convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
-                    .schedContext_resume();
                 if self.is_schedulable() {
                     possible_switch_to(self);
                 }
@@ -1063,7 +1070,7 @@ pub fn tcb_Release_Dequeue() -> *mut tcb_t {
 
     unsafe {
         assert!(ksReleaseHead != 0);
-        assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedPrev != 0);
+        assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedPrev == 0);
 
         let detached_head = ksReleaseHead as *mut tcb_t;
         ksReleaseHead = (*detached_head).tcbSchedNext;
@@ -1084,8 +1091,6 @@ pub fn tcb_Release_Dequeue() -> *mut tcb_t {
 }
 #[cfg(feature = "KERNEL_MCS")]
 pub fn reply_remove_tcb(tcb: &mut tcb_t) {
-    // TODO: MCS
-
     use sel4_common::structures_gen::call_stack;
 
     use crate::reply::reply_t;

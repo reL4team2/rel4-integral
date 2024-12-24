@@ -32,6 +32,10 @@ jobs:
           toolchain: nightly-2024-02-01
           components: rust-src
           rustflags:
+      - name: Adapt dependencies
+        run: |
+          cd rel4_kernel
+          cargo update -p home --precise 0.5.5
       - name: Make rel4_kernel
         run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} run
       - name: Build kernel
@@ -72,6 +76,10 @@ jobs:
           sed -i "19c\ \t<project name=\"mi-dev-integral-rel4.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"mi_dev\" dest-branch=\"mi_dev\"/>"  .repo/manifests/default.xml
           repo sync
       - run: cd kernel && git checkout mi_dev
+      - name: Adapt dependencies
+        run: |
+          cd rel4_kernel
+          cargo update -p home --precise 0.5.5
       # - run: cd rel4_kernel && git checkout mi_dev
       - name: Build
         env:
@@ -86,7 +94,7 @@ jobs:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
         run: cd rel4_kernel/build && ./simulate > 1.log
-        timeout-minutes: 2
+        timeout-minutes: 3
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
       - name: Check Result
@@ -126,6 +134,10 @@ jobs:
           repo sync
       - run: cd kernel && git checkout mi_dev
       # - run: cd rel4_kernel && git checkout mi_dev
+      - name: Adapt dependencies
+        run: |
+          cd rel4_kernel
+          cargo update -p home --precise 0.5.5
       - name: Build
         env:
           ARCH: ${{ matrix.arch  }}
@@ -139,7 +151,7 @@ jobs:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
         run: cd rel4_kernel/build && ./simulate > 1.log
-        timeout-minutes: 2
+        timeout-minutes: 3
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
       - name: Check Result

@@ -84,6 +84,15 @@ pub fn decode_untyed_invocation(
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
+    #[cfg(feature = "KERNEL_MCS")]
+    if new_type == ObjectType::SchedContextObject && user_obj_size < seL4_MinSchedContextBits {
+        debug!("Untyped retype: Requested a scheduling context too small.");
+        unsafe {
+            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error.invalidArgumentNumber = 1;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
     let cap_null_new = &cap_null_cap::new().unsplay();
     let mut node_cap = cap::cap_cnode_cap(cap_null_new);
     let status = get_target_cnode(node_index, node_depth, &mut node_cap);

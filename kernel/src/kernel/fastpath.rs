@@ -205,6 +205,7 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
 #[inline]
 #[no_mangle]
 pub fn fastpath_call(cptr: usize, msgInfo: usize) {
+    // sel4_common::println!("fastpath call");
     let current = get_currenct_thread();
     let mut info = seL4_MessageInfo::from_word(msgInfo);
     let length = info.get_length() as usize;
@@ -292,14 +293,13 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         dest.tcbSchedContext = sc.get_ptr();
         current.tcbSchedContext = 0;
 
-        let old_caller = convert_to_mut_type_ref::<reply_t>(sc.scReply);
         convert_to_mut_type_ref::<reply_t>(reply as usize).replyPrev =
-            call_stack::new(sc.scReply as u64, 0);
-        if unlikely(old_caller.get_ptr() != 0) {
-            old_caller.replyNext = call_stack::new(reply, 0);
+            call_stack::new(0, sc.scReply as u64);
+        if unlikely(sc.scReply != 0) {
+            convert_to_mut_type_ref::<reply_t>(sc.scReply).replyNext = call_stack::new(0, reply);
         }
         convert_to_mut_type_ref::<reply_t>(reply as usize).replyNext =
-            call_stack::new(sc.get_ptr() as u64, 1);
+            call_stack::new(1, sc.get_ptr() as u64);
         sc.scReply = reply as usize;
     }
     #[cfg(not(feature = "KERNEL_MCS"))]
@@ -549,7 +549,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
         let mut queue = ep.get_queue();
         queue.ep_append(current);
         ep.set_epQueue_head(queue.head as u64);
-        endpoint_ptr_mset_epQueue_tail_state(ep as *mut endpoint, queue.head, EPState_Recv);
+        endpoint_ptr_mset_epQueue_tail_state(ep as *mut endpoint, queue.tail, EPState_Recv);
     } else {
         current.tcbEPPrev = 0;
         current.tcbEPNext = 0;

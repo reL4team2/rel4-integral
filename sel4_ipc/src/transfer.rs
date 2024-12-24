@@ -19,11 +19,11 @@ use sel4_common::structures_gen::seL4_Fault_NullFault;
 use sel4_common::structures_gen::seL4_Fault_tag;
 use sel4_common::utils::*;
 use sel4_cspace::interface::*;
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_task::reply::reply_t;
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_task::reply_remove_tcb;
 use sel4_task::{possible_switch_to, set_thread_state, tcb_t, ThreadState};
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_task::{reply::reply_t, reply_remove_tcb, sched_context::sched_context_t};
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::arch::n_timeoutMessage;
 use sel4_vspace::pptr_t;
 
 /// The trait for IPC transfer, please see doc.md for more details
@@ -94,7 +94,6 @@ impl Transfer for tcb_t {
             ThreadState::ThreadStateBlockedOnReply => {
                 #[cfg(feature = "KERNEL_MCS")]
                 {
-                    //TODO
                     reply_remove_tcb(self);
                 }
                 #[cfg(not(feature = "KERNEL_MCS"))]
@@ -252,6 +251,21 @@ impl Transfer for tcb_t {
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_FSR() as usize,
                 )
             }
+            #[cfg(feature = "KERNEL_MCS")]
+            seL4_Fault_tag::seL4_Fault_Timeout => {
+                let len = receiver.set_mr(
+                    seL4_Timeout_Data,
+                    seL4_Fault::seL4_Fault_Timeout(&self.tcbFault).get_badge() as usize,
+                );
+                if let Some(sc) =
+                    convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
+                {
+                    let consumed = sc.schedContext_updateConsumed();
+                    receiver.set_mr(len, consumed)
+                } else {
+                    len
+                }
+            }
             _ => {
                 panic!("invalid fault")
             }
@@ -306,6 +320,15 @@ impl Transfer for tcb_t {
                 );
                 return label as usize == 0;
             }
+            #[cfg(feature = "KERNEL_MCS")]
+            seL4_Fault_tag::seL4_Fault_Timeout => {
+                self.copy_fault_mrs_for_reply(
+                    receiver,
+                    MessageID_TimeoutReply,
+                    core::cmp::min(length, n_timeoutMessage),
+                );
+                return label as usize == 0;
+            }
             _ => true,
         }
     }
@@ -318,6 +341,17 @@ impl Transfer for tcb_t {
                 self.tcbArch
                     .set_register(ArchReg::Badge, ntfn.get_ntfnMsgIdentifier() as usize);
                 ntfn.set_state(NtfnState::Idle as u64);
+				#[cfg(feature="KERNEL_MCS")]
+				{
+					maybeDonateSchedContext(self, ntfn);
+					if let Some(tcbsc)=convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext){
+						if tcbsc.sc_sporadic(){
+							if self.tcbSchedContext == ntfn.get_ntfnSchedContext() as usize && !tcbsc.is_current(){
+								tcbsc.refill_unblock_check();
+							}
+						}
+					}
+				}
                 return true;
             }
         }
@@ -340,7 +374,7 @@ impl Transfer for tcb_t {
     #[cfg(feature = "KERNEL_MCS")]
     fn do_reply(&mut self, reply: &mut reply_t, grant: bool) {
         use sel4_common::{ffi::current_fault, structures_gen::seL4_Fault_Timeout};
-        use sel4_task::{handleTimeout, sched_context::sched_context_t};
+        use sel4_task::handleTimeout;
 
         if reply.replyTCB == 0
             || convert_to_mut_type_ref::<tcb_t>(reply.replyTCB)
@@ -357,24 +391,29 @@ impl Transfer for tcb_t {
         assert!(receiver.tcbState.get_replyObject() == 0);
         assert!(reply.replyTCB == 0);
 
-        let sc = convert_to_mut_type_ref::<sched_context_t>(receiver.tcbSchedContext);
-        if sc.sc_sporadic() && !sc.is_current() {
-            sc.refill_unblock_check();
+        if let Some(sc) =
+            convert_to_option_mut_type_ref::<sched_context_t>(receiver.tcbSchedContext)
+        {
+            if sc.sc_sporadic() && !sc.is_current() {
+                sc.refill_unblock_check();
+            }
         }
-        assert_eq!(receiver.get_state(), ThreadState::ThreadStateBlockedOnReply);
 
         let fault_type = receiver.tcbFault.get_tag();
         if likely(fault_type == seL4_Fault_tag::seL4_Fault_NullFault) {
             self.do_ipc_transfer(receiver, None, 0, grant);
             set_thread_state(receiver, ThreadState::ThreadStateRunning);
         } else {
-            if self.do_fault_reply_transfer(receiver) {
+			let restart = self.do_fault_reply_transfer(receiver);
+            receiver.tcbFault = seL4_Fault_NullFault::new().unsplay();
+            if restart {
                 set_thread_state(receiver, ThreadState::ThreadStateRestart);
             } else {
                 set_thread_state(receiver, ThreadState::ThreadStateInactive);
             }
         }
         if receiver.tcbSchedContext != 0 && receiver.is_runnable() {
+            let sc = convert_to_mut_type_ref::<sched_context_t>(receiver.tcbSchedContext);
             if sc.refill_ready() && sc.refill_sufficient(0) {
                 possible_switch_to(receiver);
             } else {

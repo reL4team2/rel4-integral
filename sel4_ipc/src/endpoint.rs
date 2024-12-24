@@ -1,12 +1,14 @@
 use crate::transfer::Transfer;
 use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::endpoint;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::structures_gen::seL4_Fault_tag::seL4_Fault_NullFault;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
 #[cfg(feature = "KERNEL_MCS")]
-use sel4_task::reply::reply_t;
+use sel4_task::{ksCurSC, reply::reply_t, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, rescheduleRequired, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
-    ThreadState,
+    thread_state_func, ThreadState,
 };
 use sel4_vspace::pptr_t;
 
@@ -123,8 +125,39 @@ impl endpoint_func for endpoint {
                 self.set_epQueue_head(0);
                 self.set_epQueue_tail(0);
                 while let Some(thread) = op_thread {
-                    set_thread_state(thread, ThreadState::ThreadStateRestart);
-                    thread.sched_enqueue();
+                    #[cfg(feature = "KERNEL_MCS")]
+                    {
+                        let reply_ptr = thread.tcbState.get_replyObject() as usize;
+                        if reply_ptr != 0 {
+                            convert_to_mut_type_ref::<reply_t>(reply_ptr).unlink(thread);
+                        }
+                        if thread.tcbFault.get_tag() == seL4_Fault_NullFault as u64 {
+                            set_thread_state(thread, ThreadState::ThreadStateRestart);
+                            if thread.tcbSchedContext != 0
+                                && convert_to_mut_type_ref::<sched_context_t>(
+                                    thread.tcbSchedContext,
+                                )
+                                .sc_sporadic()
+                            {
+                                assert!(thread.tcbSchedContext != unsafe { ksCurSC });
+                                if thread.tcbSchedContext != unsafe { ksCurSC } {
+                                    convert_to_mut_type_ref::<sched_context_t>(
+                                        thread.tcbSchedContext,
+                                    )
+                                    .refill_unblock_check();
+                                }
+                            }
+                            possible_switch_to(thread);
+                        } else {
+                            set_thread_state(thread, ThreadState::ThreadStateInactive);
+                        }
+                    }
+                    #[cfg(not(feature = "KERNEL_MCS"))]
+                    {
+                        set_thread_state(thread, ThreadState::ThreadStateRestart);
+                        thread.sched_enqueue();
+                    }
+
                     op_thread = convert_to_option_mut_type_ref::<tcb_t>(thread.tcbEPNext);
                 }
                 rescheduleRequired();
@@ -147,10 +180,40 @@ impl endpoint_func for endpoint {
                 while thread_ptr != 0 {
                     let thread = convert_to_mut_type_ref::<tcb_t>(thread_ptr);
                     thread_ptr = thread.tcbEPNext;
+                    #[cfg(feature = "KERNEL_MCS")]
+                    {
+                        assert!(thread.tcbState.get_replyObject() == 0);
+                    }
                     if thread.tcbState.get_blockingIPCBadge() as usize == badge {
-                        set_thread_state(thread, ThreadState::ThreadStateRestart);
-                        thread.sched_enqueue();
-                        queue.ep_dequeue(thread);
+                        #[cfg(not(feature = "KERNEL_MCS"))]
+                        {
+                            set_thread_state(thread, ThreadState::ThreadStateRestart);
+                            thread.sched_enqueue();
+                            queue.ep_dequeue(thread);
+                        }
+                        #[cfg(feature = "KERNEL_MCS")]
+                        {
+                            if thread.tcbFault.get_tag() == seL4_Fault_NullFault {
+                                set_thread_state(thread, ThreadState::ThreadStateRestart);
+                                if convert_to_mut_type_ref::<sched_context_t>(
+                                    thread.tcbSchedContext,
+                                )
+                                .sc_sporadic()
+                                {
+                                    assert!(thread.tcbSchedContext != unsafe { ksCurSC });
+                                    if thread.tcbSchedContext != unsafe { ksCurSC } {
+                                        convert_to_mut_type_ref::<sched_context_t>(
+                                            thread.tcbSchedContext,
+                                        )
+                                        .refill_unblock_check();
+                                    }
+                                }
+                                possible_switch_to(thread);
+                            } else {
+                                set_thread_state(thread, ThreadState::ThreadStateInactive);
+                            }
+                            queue.ep_dequeue(thread);
+                        }
                     }
                 }
                 self.set_queue(&queue);
@@ -283,21 +346,17 @@ impl endpoint_func for endpoint {
                 }
                 src_thread.do_ipc_transfer(dest_thread, Some(self), badge, can_grant);
 
-                if let Some(reply) = convert_to_option_mut_type_ref::<reply_t>(
-                    dest_thread.tcbState.get_replyObject() as usize,
-                ) {
-                    reply.unlink(dest_thread);
+                let replyptr = dest_thread.tcbState.get_replyObject() as usize;
+                if replyptr != 0 {
+                    convert_to_mut_type_ref::<reply_t>(replyptr).unlink(dest_thread);
                 }
-                if do_call || src_thread.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault
-                {
-                    if let Some(reply) = convert_to_option_mut_type_ref::<reply_t>(
-                        dest_thread.tcbState.get_replyObject() as usize,
-                    ) {
-                        if can_grant || can_grant_reply {
-                            reply.push(src_thread, dest_thread, canDonate);
-                        } else {
-                            set_thread_state(dest_thread, ThreadState::ThreadStateInactive);
-                        }
+                if do_call || src_thread.tcbFault.get_tag() != seL4_Fault_NullFault {
+                    if replyptr != 0 && (can_grant || can_grant_reply) {
+                        convert_to_mut_type_ref::<reply_t>(replyptr).push(
+                            src_thread,
+                            dest_thread,
+                            canDonate,
+                        );
                     } else {
                         set_thread_state(dest_thread, ThreadState::ThreadStateInactive);
                     }
@@ -317,12 +376,12 @@ impl endpoint_func for endpoint {
                             .refill_ready()
                 );
                 set_thread_state(dest_thread, ThreadState::ThreadStateRunning);
-                if convert_to_mut_type_ref::<sched_context_t>(dest_thread.tcbSchedContext)
-                    .sc_sporadic()
-                    && dest_thread.tcbSchedContext != unsafe { ksCurSC }
+                if let Some(sc) =
+                    convert_to_option_mut_type_ref::<sched_context_t>(dest_thread.tcbSchedContext)
                 {
-                    convert_to_mut_type_ref::<sched_context_t>(dest_thread.tcbSchedContext)
-                        .refill_unblock_check();
+                    if sc.sc_sporadic() && dest_thread.tcbSchedContext != unsafe { ksCurSC } {
+                        sc.refill_unblock_check();
+                    }
                 }
                 possible_switch_to(dest_thread);
             }
@@ -393,10 +452,8 @@ impl endpoint_func for endpoint {
         use core::intrinsics::unlikely;
         use log::debug;
         use sel4_common::structures_gen::{cap_tag::cap_reply_cap, notification_t, seL4_Fault_tag};
-        use sel4_task::{ksCurSC, sched_context::sched_context_t};
 
         use crate::notification_func;
-
         let mut replyptr: usize = 0;
         if reply_cap.clone().unsplay().get_tag() == cap_reply_cap {
             replyptr = reply_cap.get_capReplyPtr() as usize;
@@ -416,13 +473,14 @@ impl endpoint_func for endpoint {
         match self.get_ep_state() {
             EPState::Idle | EPState::Recv => {
                 if is_blocking {
+					thread.tcbState.set_tsType(ThreadState::ThreadStateBlockedOnReceive as u64);
                     thread.tcbState.set_blockingObject(self.get_ptr() as u64);
                     // MCS
                     thread.tcbState.set_replyObject(replyptr as u64);
                     if replyptr != 0 {
                         convert_to_mut_type_ref::<reply_t>(replyptr).replyTCB = thread.get_ptr();
                     }
-                    set_thread_state(thread, ThreadState::ThreadStateBlockedOnReceive);
+                    schedule_tcb(&thread);
                     let mut queue = self.get_queue();
                     queue.ep_append(thread);
                     self.set_state(EPState::Recv as u64);
@@ -447,18 +505,20 @@ impl endpoint_func for endpoint {
                 sender.do_ipc_transfer(thread, Some(self), badge, can_grant);
                 let do_call = sender.tcbState.get_blockingIPCIsCall() != 0;
                 // MCS
-                if convert_to_mut_type_ref::<sched_context_t>(sender.tcbSchedContext).sc_sporadic()
+                if let Some(sc) =
+                    convert_to_option_mut_type_ref::<sched_context_t>(sender.tcbSchedContext)
                 {
-                    unsafe {
-                        assert!(sender.tcbSchedContext != ksCurSC);
-                        if sender.tcbSchedContext != ksCurSC {
-                            convert_to_mut_type_ref::<sched_context_t>(sender.tcbSchedContext)
-                                .refill_unblock_check();
+                    if sc.sc_sporadic() {
+                        unsafe {
+                            assert!(sender.tcbSchedContext != ksCurSC);
+                            if sender.tcbSchedContext != ksCurSC {
+                                sc.refill_unblock_check();
+                            }
                         }
                     }
                 }
                 if do_call || sender.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault {
-                    if can_grant || can_grant_reply && replyptr != 0 {
+                    if (can_grant || can_grant_reply) && replyptr != 0 {
                         let canDonate = sender.tcbSchedContext != 0
                             && sender.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_Timeout;
                         convert_to_mut_type_ref::<reply_t>(replyptr)

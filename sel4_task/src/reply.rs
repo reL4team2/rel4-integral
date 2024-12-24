@@ -27,8 +27,6 @@ impl reply {
         set_thread_state(tcb, ThreadState::ThreadStateInactive);
     }
     pub fn push(&mut self, tcb_caller: &mut tcb_t, tcb_callee: &mut tcb_t, canDonate: bool) {
-        let sc_donated = convert_to_mut_type_ref::<sched_context_t>(tcb_caller.tcbSchedContext);
-
         assert!(tcb_caller.get_ptr() != 0);
         assert!(self.get_ptr() != 0);
         assert!(self.replyTCB == 0);
@@ -49,21 +47,25 @@ impl reply {
         tcb_caller.tcbState.set_replyObject(self.get_ptr() as u64);
         set_thread_state(tcb_caller, ThreadState::ThreadStateBlockedOnReply);
 
-        if sc_donated.get_ptr() != 0 && tcb_callee.tcbSchedContext == 0 && canDonate {
-            let old_caller = convert_to_mut_type_ref::<reply_t>(sc_donated.scReply);
+        if tcb_caller.tcbSchedContext != 0 && tcb_callee.tcbSchedContext == 0 && canDonate {
+            let sc_donated = convert_to_mut_type_ref::<sched_context_t>(tcb_caller.tcbSchedContext);
 
             /* check stack integrity */
             assert!(
-                old_caller.get_ptr() == 0
-                    || old_caller.replyNext.get_callStackPtr() == sc_donated.get_ptr() as u64
+                sc_donated.scReply == 0
+                    || convert_to_mut_type_ref::<reply_t>(sc_donated.scReply)
+                        .replyNext
+                        .get_callStackPtr()
+                        == tcb_caller.tcbSchedContext as u64
             );
 
             /* push on to stack */
-            self.replyPrev = call_stack::new(old_caller.get_ptr() as u64, 0);
-            if old_caller.get_ptr() != 0 {
-                old_caller.replyNext = call_stack::new(self.get_ptr() as u64, 0);
+            self.replyPrev = call_stack::new(0, sc_donated.scReply as u64);
+            if sc_donated.scReply != 0 {
+                convert_to_mut_type_ref::<reply_t>(sc_donated.scReply).replyNext =
+                    call_stack::new(0, self.get_ptr() as u64);
             }
-            self.replyNext = call_stack::new(sc_donated.get_ptr() as u64, 1);
+            self.replyNext = call_stack::new(1, sc_donated.get_ptr() as u64);
             sc_donated.scReply = self.get_ptr();
 
             /* now do the actual donation */
