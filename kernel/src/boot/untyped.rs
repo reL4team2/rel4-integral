@@ -13,9 +13,12 @@ use sel4_common::{
 };
 use sel4_vspace::*;
 
-pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: region_t) -> bool {
+pub fn create_untypeds(
+    root_cnode_cap: &cap_cnode_cap,
+    boot_mem_reuse_reg: region_t,
+    first_untyped_slot: seL4_SlotPos,
+) -> bool {
     unsafe {
-        let first_untyped_slot = ndks_boot.slot_pos_cur;
         let mut start = 0;
         for i in 0..ndks_boot.resv_count {
             let reg = paddr_to_pptr_reg(&p_region_t {
@@ -80,7 +83,7 @@ pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: regio
     }
 }
 
-fn create_untypeds_for_region(
+pub fn create_untypeds_for_region(
     root_cnode_cap: &cap_cnode_cap,
     device_memory: bool,
     mut reg: region_t,

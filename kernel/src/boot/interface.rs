@@ -25,6 +25,8 @@ pub fn rust_try_init_kernel(
     v_entry: usize,
     dtb_phys_addr: usize,
     dtb_size: usize,
+    extra_device_addr_start: usize,
+    extra_deviec_size: usize,
 ) -> bool {
     try_init_kernel(
         ui_p_reg_start,
@@ -34,6 +36,8 @@ pub fn rust_try_init_kernel(
         dtb_phys_addr,
         dtb_size,
         ki_boot_end as usize,
+        extra_device_addr_start,
+        extra_deviec_size,
     )
 }
 

@@ -29,7 +29,7 @@ use sel4_task::*;
 use sel4_vspace::*;
 
 pub use root_server::root_server_init;
-pub use untyped::create_untypeds;
+pub use untyped::{create_untypeds, create_untypeds_for_region};
 
 #[cfg(feature = "ENABLE_SMP")]
 pub use utils::{provide_cap, write_slot};

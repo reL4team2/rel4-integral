@@ -54,7 +54,11 @@ pub fn init_cpu() -> bool {
     true
 }
 
-pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
+pub fn init_freemem(
+    ui_p_reg: p_region_t,
+    dtb_p_reg: p_region_t,
+    extra_device_p_reg: p_region_t,
+) -> bool {
     unsafe {
         res_reg[0].start = paddr_to_pptr(kpptr_to_paddr(KERNEL_ELF_BASE));
         res_reg[0].end = paddr_to_pptr(kpptr_to_paddr(ffi_addr!(ki_end)));
@@ -69,8 +73,13 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
         }
         unsafe {
             res_reg[index] = paddr_to_pptr_reg(&dtb_p_reg);
-            index += 1;
         }
+        index += 1;
+    }
+
+    if extra_device_p_reg.start != 0 {
+        unsafe { res_reg[index] = paddr_to_pptr_reg(&extra_device_p_reg) }
+        index += 1;
     }
 
     // here use the MODE_RESERVED:ARRAY_SIZE(mode_reserved_region) to judge

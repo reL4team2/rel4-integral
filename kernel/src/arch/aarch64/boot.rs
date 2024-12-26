@@ -10,8 +10,8 @@ use crate::arch::aarch64::platform::{cleanInvalidateL1Caches, init_cpu, invalida
 use crate::{
     arch::init_freemem,
     boot::{
-        bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
-        ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
+        bi_finalise, calculate_extra_bi_size_bits, create_untypeds, create_untypeds_for_region,
+        init_core_state, init_dtb, ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
     config::{BI_FRAME_SIZE_BITS, USER_TOP},
     structures::{p_region_t, seL4_SlotRegion, v_region_t},
@@ -27,6 +27,8 @@ pub fn try_init_kernel(
     dtb_phys_addr: usize,
     dtb_size: usize,
     ki_boot_end: usize,
+    extra_device_addr_start: usize,
+    extra_deviec_size: usize,
 ) -> bool {
     // Init logging for log crate
     sel4_common::logging::init();
@@ -39,6 +41,12 @@ pub fn try_init_kernel(
         start: ui_p_reg_start,
         end: ui_p_reg_end,
     };
+
+    let extra_device_p_reg = p_region_t {
+        start: extra_device_addr_start,
+        end: extra_device_addr_start + extra_deviec_size,
+    };
+
     let ui_reg = paddr_to_pptr_reg(&ui_p_reg);
 
     let mut extra_bi_size = 0;
@@ -85,7 +93,11 @@ pub fn try_init_kernel(
     }
 
     // FIXED: init_freemem should be p_region_t, but is region_t before.
-    if !init_freemem(ui_p_reg.clone(), dtb_p_reg.unwrap().clone()) {
+    if !init_freemem(
+        ui_p_reg.clone(),
+        dtb_p_reg.unwrap().clone(),
+        extra_device_p_reg.clone(),
+    ) {
         debug!("ERROR: free memory management initialization failed\n");
         return false;
     }
@@ -103,7 +115,18 @@ pub fn try_init_kernel(
         create_idle_thread();
         cleanInvalidateL1Caches();
         init_core_state(initial_thread);
-        if !create_untypeds(&root_cnode_cap, boot_mem_reuse_reg) {
+
+        let first_untyped_slot = unsafe { ndks_boot.slot_pos_cur };
+        if extra_device_addr_start != 0 {
+            create_untypeds_for_region(
+                &root_cnode_cap,
+                true,
+                paddr_to_pptr_reg(&extra_device_p_reg),
+                first_untyped_slot,
+            );
+        }
+
+        if !create_untypeds(&root_cnode_cap, boot_mem_reuse_reg, first_untyped_slot) {
             debug!("ERROR: could not create untypteds for kernel image boot memory");
         }
         unsafe {
