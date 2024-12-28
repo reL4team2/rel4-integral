@@ -23,6 +23,11 @@ jobs:
           echo "PARENT_COMMIT_ID=${PARENT_COMMIT_ID}" >> $GITHUB_ENV
           git config user.name "$(git log -n 1 --pretty=format:%an)"
           git config user.email "$(git log -n 1 --pretty=format:%ae)"
+      - name: Pull Latest Changes
+        run: |
+          source /opt/git-subrepo/.rc
+          cd rel4-integral
+          git subrepo pull --all
       - name: Push To Discrete Repo
         run: |
           source /opt/git-subrepo/.rc
