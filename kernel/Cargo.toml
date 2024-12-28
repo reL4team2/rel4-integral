@@ -17,12 +17,12 @@ aarch64-cpu = "9.4.0"
 log = "0.4"
 tock-registers = "0.8"
 spin = { version = "0.9", features = ["use_ticket_mutex"] }
-sel4_common = { git = "https://github.com/rel4team/sel4_common.git", branch = "mi_dev" }
-sel4_cspace = { git = "https://github.com/rel4team/sel4_cspace.git", branch = "mi_dev" }
-sel4_vspace = { git = "https://github.com/rel4team/sel4_vspace.git", branch = "mi_dev" }
-sel4_task = { git = "https://github.com/rel4team/sel4_task.git", branch = "mi_dev" }
-sel4_ipc = { git = "https://github.com/rel4team/sel4_ipc.git", branch = "mi_dev" }
-driver-collect = { git = "https://github.com/rel4team/driver-collect.git", branch = "mi_dev" }
+sel4_common = { git = "https://github.com/reL4team2/sel4_common.git", branch = "master" }
+sel4_cspace = { git = "https://github.com/reL4team2/sel4_cspace.git", branch = "master" }
+sel4_vspace = { git = "https://github.com/reL4team2/sel4_vspace.git", branch = "master" }
+sel4_task = { git = "https://github.com/reL4team2/sel4_task.git", branch = "master" }
+sel4_ipc = { git = "https://github.com/reL4team2/sel4_ipc.git", branch = "master" }
+driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", branch = "master" }
 
 [features]
 ENABLE_SMP = ["sel4_common/ENABLE_SMP", "sel4_task/ENABLE_SMP", "sel4_vspace/ENABLE_SMP"]

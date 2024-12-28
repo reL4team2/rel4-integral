@@ -1,7 +1,7 @@
 name: push-to-discrete-repo
 on:
   push:
-    branches: [mi_dev]
+    branches: [master]
 jobs:
   push:
     if: ${{ ! contains(github.event.head_commit.message, 'git subrepo')}}
@@ -15,8 +15,8 @@ jobs:
         run: |
           git clone https://github.com/ingydotnet/git-subrepo /opt/git-subrepo 
           echo 'source /opt/git-subrepo/.rc' >> ~/.bashrc
-          git clone git@github.com:rel4team/mi-dev-integral-rel4.git
-          cd mi-dev-integral-rel4
+          git clone git@github.com:reL4team2/rel4-integral.git
+          cd rel4-integral
           PARENT_COMMIT_ID=$(git log -1 --pretty=%H | head -n 1)
           INTEGRAL_COMMIT_MESSAGE=$(git log -1 --pretty=%B | head -n 1)
           echo "INTEGRAL_COMMIT_MESSAGE=${INTEGRAL_COMMIT_MESSAGE}" >> $GITHUB_ENV
@@ -26,12 +26,12 @@ jobs:
       - name: Push To Discrete Repo
         run: |
           source /opt/git-subrepo/.rc
-          cd mi-dev-integral-rel4
+          cd rel4-integral
           git subrepo push --all
       - name: Update Current Repo
         run: |
           source /opt/git-subrepo/.rc
-          cd mi-dev-integral-rel4
+          cd rel4-integral
           git reset ${PARENT_COMMIT_ID}
           ./update.sh
           git add .
