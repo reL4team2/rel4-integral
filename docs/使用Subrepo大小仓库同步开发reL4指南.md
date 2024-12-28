@@ -1,19 +1,19 @@
 # 使用Subrepo大小仓库同步开发reL4指南
 大小仓库的开发须知请看：
 [.github/profile/rel4多仓开发提案.md at main · kern-crates/.github](https://github.com/kern-crates/.github/blob/main/profile/rel4%E5%A4%9A%E4%BB%93%E5%BC%80%E5%8F%91%E6%8F%90%E6%A1%88.md)
-当前大仓库位于:[https://github.com/rel4team/mi-dev-integral-rel4](https://github.com/rel4team/mi-dev-integral-rel4) 包含了众多的小仓库信息
+当前大仓库位于:[https://github.com/reL4team2/rel4-integral](https://github.com/reL4team2/rel4-integral) 包含了众多的小仓库信息
 包含的小仓库有：
 ```
-urls=("git@github.com:rel4team/sel4_common.git"
-    "git@github.com:rel4team/sel4_task.git"
-    "git@github.com:rel4team/sel4_ipc.git "
-    "git@github.com:rel4team/sel4_vspace.git"
-    "git@github.com:rel4team/sel4_cspace.git"
-    "git@github.com:rel4team/rel4_kernel.git"
-    "git@github.com:rel4team/driver-collect.git"
-    "git@github.com:rel4team/serial-impl-pl011.git"
-    "git@github.com:rel4team/serial-impl-sbi.git"
-    "git@github.com:rel4team/serial-frame.git"
+urls=("git@github.com:reL4team2/sel4_common.git"
+    "git@github.com:reL4team2/sel4_task.git"
+    "git@github.com:reL4team2/sel4_ipc.git "
+    "git@github.com:reL4team2/sel4_vspace.git"
+    "git@github.com:reL4team2/sel4_cspace.git"
+    "git@github.com:reL4team2/rel4_kernel.git"
+    "git@github.com:reL4team2/driver-collect.git"
+    "git@github.com:reL4team2/serial-impl-pl011.git"
+    "git@github.com:reL4team2/serial-impl-sbi.git"
+    "git@github.com:reL4team2/serial-frame.git"
 )
 ```
 大仓库中的全部更新，会通过CI自动将相关的commit信息更新到小仓库当中，反过来，小仓库中的任何更新也会在大仓库中进行同步。

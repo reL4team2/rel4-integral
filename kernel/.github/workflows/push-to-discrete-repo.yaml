@@ -1,7 +1,7 @@
 name: push-to-integral-repo
 on:
   push:
-    branches: [mi_dev]
+    branches: [master]
 jobs:
   push:
     runs-on: ubuntu-latest
@@ -14,8 +14,8 @@ jobs:
         run: |
           git clone https://github.com/ingydotnet/git-subrepo /opt/git-subrepo 
           echo 'source /opt/git-subrepo/.rc' >> ~/.bashrc
-          git clone git@github.com:rel4team/mi-dev-integral-rel4.git
-          cd mi-dev-integral-rel4
+          git clone git@github.com:reL4team2/rel4-integral.git
+          cd rel4-integral
           git config user.name "$(git log -n 1 --pretty=format:%an)"
           git config user.email "$(git log -n 1 --pretty=format:%ae)"
           INTEGRAL_COMMIT_MESSAGE=$(git log -1 --pretty=%B | head -n 1)
@@ -32,7 +32,7 @@ jobs:
           else
             echo "prepare sync"
             source /opt/git-subrepo/.rc
-            cd mi-dev-integral-rel4
+            cd rel4-integral
             git subrepo pull --all
             git push   
           fi

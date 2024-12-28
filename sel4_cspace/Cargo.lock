@@ -47,7 +47,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "driver-collect"
 version = "0.1.0"
-source = "git+https://github.com/rel4team/driver-collect.git?branch=mi_dev#3667ef6ab3d6c4831680310e4b8f0947258569ae"
+source = "git+https://github.com/reL4team2/driver-collect.git?branch=master#3667ef6ab3d6c4831680310e4b8f0947258569ae"
 dependencies = [
  "cfg-if",
  "serial-frame",
@@ -152,7 +152,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 [[package]]
 name = "sel4_common"
 version = "0.1.0"
-source = "git+https://github.com/rel4team/sel4_common.git?branch=mi_dev#21a53113fe31eccd58429565f82b2000803b576b"
+source = "git+https://github.com/reL4team2/sel4_common.git?branch=master#21a53113fe31eccd58429565f82b2000803b576b"
 dependencies = [
  "driver-collect",
  "log",
@@ -187,12 +187,12 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 [[package]]
 name = "serial-frame"
 version = "0.1.0"
-source = "git+https://github.com/rel4team/serial-frame.git?branch=mi_dev#84501a7640813af351464cbb915ba1f63a9f68fe"
+source = "git+https://github.com/reL4team2/serial-frame.git?branch=master#84501a7640813af351464cbb915ba1f63a9f68fe"
 
 [[package]]
 name = "serial-impl-pl011"
 version = "0.1.0"
-source = "git+https://github.com/rel4team/serial-impl-pl011.git?branch=mi_dev#83e073e19e74420a877b7b099e02c7667e6d6244"
+source = "git+https://github.com/reL4team2/serial-impl-pl011.git?branch=master#83e073e19e74420a877b7b099e02c7667e6d6244"
 dependencies = [
  "serial-frame",
  "tock-registers",
@@ -201,7 +201,7 @@ dependencies = [
 [[package]]
 name = "serial-impl-sbi"
 version = "0.1.0"
-source = "git+https://github.com/rel4team/serial-impl-sbi.git?branch=mi_dev#4face963815d4a453f47589ced43cdf9068fde7b"
+source = "git+https://github.com/reL4team2/serial-impl-sbi.git?branch=master#4face963815d4a453f47589ced43cdf9068fde7b"
 dependencies = [
  "serial-frame",
 ]

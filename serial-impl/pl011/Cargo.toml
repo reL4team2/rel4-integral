@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 tock-registers = "0.9"
-serial-frame = { git = "https://github.com/rel4team/serial-frame.git", branch = "mi_dev" }
+serial-frame = { git = "https://github.com/reL4team2/serial-frame.git", branch = "master" }
