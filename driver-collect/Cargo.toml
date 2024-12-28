@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serial-frame = { git = "https://github.com/rel4team/serial-frame.git", branch = "mi_dev" }
-serial-impl-pl011 = { git = "https://github.com/rel4team/serial-impl-pl011.git", branch = "mi_dev" }
-serial-impl-sbi = { git = "https://github.com/rel4team/serial-impl-sbi.git", branch = "mi_dev" }
+serial-frame = { git = "https://github.com/reL4team2/serial-frame.git", branch = "master" }
+serial-impl-pl011 = { git = "https://github.com/reL4team2/serial-impl-pl011.git", branch = "master" }
+serial-impl-sbi = { git = "https://github.com/reL4team2/serial-impl-sbi.git", branch = "master" }
 cfg-if = "1.0.0"

@@ -22,9 +22,9 @@ jobs:
           path: rel4_kernel
       - uses: actions/checkout@v4
         with:
-          ref: "mi_dev"
+          ref: "master"
           path: kernel
-          repository: rel4team/seL4_c_impl
+          repository: reL4team2/seL4_c_impl
       - name: Install generaic tools
         run: apt update && apt install -y wget gcc-${{ matrix.arch }}-linux-gnu
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -72,15 +72,15 @@ jobs:
         run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
       - name: Clone Menifest && Sync repositories
         run: | 
-          repo init -u https://github.com/rel4team/sel4test-manifest.git -b ci-test 
-          sed -i "19c\ \t<project name=\"mi-dev-integral-rel4.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"mi_dev\" dest-branch=\"mi_dev\"/>"  .repo/manifests/default.xml
+          repo init -u https://github.com/reL4team2/sel4test-manifest.git -b master 
+          sed -i "19c\ \t<project name=\"rel4-integral.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"master\" dest-branch=\"master\"/>"  .repo/manifests/default.xml
           repo sync
-      - run: cd kernel && git checkout mi_dev
+      - run: cd kernel && git checkout master
       - name: Adapt dependencies
         run: |
           cd rel4_kernel
           cargo update -p home --precise 0.5.5
-      # - run: cd rel4_kernel && git checkout mi_dev
+      # - run: cd rel4_kernel && git checkout master
       - name: Build
         env:
           ARCH: ${{ matrix.arch  }}
@@ -129,11 +129,11 @@ jobs:
         run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
       - name: Clone Menifest && Sync repositories
         run: | 
-          repo init -u https://github.com/rel4team/sel4test-manifest.git -b ci-test 
-          sed -i "19c\ \t<project name=\"mi-dev-integral-rel4.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"mi_dev\" dest-branch=\"mi_dev\"/>"  .repo/manifests/default.xml
+          repo init -u https://github.com/reL4team2/sel4test-manifest.git -b master 
+          sed -i "19c\ \t<project name=\"rel4-integral.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"master\" dest-branch=\"master\"/>"  .repo/manifests/default.xml
           repo sync
-      - run: cd kernel && git checkout mi_dev
-      # - run: cd rel4_kernel && git checkout mi_dev
+      - run: cd kernel && git checkout master
+      # - run: cd rel4_kernel && git checkout master
       - name: Adapt dependencies
         run: |
           cd rel4_kernel

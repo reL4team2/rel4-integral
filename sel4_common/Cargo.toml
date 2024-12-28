@@ -8,10 +8,10 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 log = "0.4.21"
 aarch64-cpu = "9.4.0"
 spin = { version = "0.9", features = ["use_ticket_mutex"] }
-driver-collect = { git = "https://github.com/rel4team/driver-collect.git", branch = "mi_dev"}
+driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", branch = "master"}
 
 [build-dependencies]
-rust_sel4_pbf_parser= { git = "https://github.com/rel4team/rust_sel4_pbf_parser/", branch = "mi_dev" }
+rust_sel4_pbf_parser= { git = "https://github.com/reL4team2/rust_sel4_pbf_parser/", branch = "master" }
 
 [features]
 ENABLE_SMP = []

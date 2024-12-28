@@ -4,8 +4,8 @@
 ; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
 ;
 [subrepo]
-	remote = git@github.com:rel4team/serial-impl-sbi.git
-	branch = mi_dev
+	remote = git@github.com:reL4team2/serial-impl-sbi.git
+	branch = master
 	commit = 4face963815d4a453f47589ced43cdf9068fde7b
  	parent = 52c99d4ebb0508773d85990be36fcdb62d3d61a0
 	method = merge

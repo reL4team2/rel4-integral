@@ -15,21 +15,21 @@ members = [
 [profile.release]
 lto = true
 
-[patch.'https://github.com/rel4team/driver-collect.git']
+[patch.'https://github.com/reL4team2/driver-collect.git']
 driver-collect = { path = "driver-collect" }
-[patch.'https://github.com/rel4team/serial-frame.git']
+[patch.'https://github.com/reL4team2/serial-frame.git']
 serial-frame = { path = "serial-frame" }
-[patch.'https://github.com/rel4team/serial-impl-pl011.git']
+[patch.'https://github.com/reL4team2/serial-impl-pl011.git']
 serial-impl-pl011 = { path = "serial-impl/pl011" }
-[patch.'https://github.com/rel4team/serial-impl-sbi.git']
+[patch.'https://github.com/reL4team2/serial-impl-sbi.git']
 serial-impl-sbi = { path = "serial-impl/sbi" }
-[patch.'https://github.com/rel4team/sel4_common.git']
+[patch.'https://github.com/reL4team2/sel4_common.git']
 sel4_common = { path = "sel4_common" }
-[patch.'https://github.com/rel4team/sel4_cspace.git']
+[patch.'https://github.com/reL4team2/sel4_cspace.git']
 sel4_cspace = { path = "sel4_cspace" }
-[patch.'https://github.com/rel4team/sel4_ipc.git']
+[patch.'https://github.com/reL4team2/sel4_ipc.git']
 sel4_ipc = { path = "sel4_ipc" }
-[patch.'https://github.com/rel4team/sel4_task.git']
+[patch.'https://github.com/reL4team2/sel4_task.git']
 sel4_task = { path = "sel4_task" }
-[patch.'https://github.com/rel4team/sel4_vspace.git']
+[patch.'https://github.com/reL4team2/sel4_vspace.git']
 sel4_vspace = { path = "sel4_vspace" }
