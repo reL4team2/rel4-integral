@@ -72,7 +72,7 @@ jobs:
         run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
       - name: Clone Menifest && Sync repositories
         run: | 
-          repo init -u https://github.com/reL4team2/sel4test-manifest.git -b master
+          repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test
           sed -i "19c\ \t<project name=\"rel4-integral.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"master\" dest-branch=\"master\"/>"  .repo/manifests/default.xml
           repo sync
       - run: cd kernel && git checkout master
