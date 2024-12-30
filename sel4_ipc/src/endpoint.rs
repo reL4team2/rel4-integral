@@ -8,7 +8,7 @@ use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref
 use sel4_task::{ksCurSC, reply::reply_t, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, rescheduleRequired, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
-    thread_state_func, ThreadState,
+    ThreadState,
 };
 use sel4_vspace::pptr_t;
 
@@ -305,9 +305,6 @@ impl endpoint_func for endpoint {
         can_grant_reply: bool,
         canDonate: bool,
     ) {
-        use sel4_common::structures_gen::seL4_Fault_tag;
-        use sel4_task::{ksCurSC, reply::reply_t, sched_context::sched_context_t};
-
         match self.get_ep_state() {
             EPState::Idle | EPState::Send => {
                 if blocking {
@@ -473,7 +470,9 @@ impl endpoint_func for endpoint {
         match self.get_ep_state() {
             EPState::Idle | EPState::Recv => {
                 if is_blocking {
-					thread.tcbState.set_tsType(ThreadState::ThreadStateBlockedOnReceive as u64);
+                    thread
+                        .tcbState
+                        .set_tsType(ThreadState::ThreadStateBlockedOnReceive as u64);
                     thread.tcbState.set_blockingObject(self.get_ptr() as u64);
                     // MCS
                     thread.tcbState.set_replyObject(replyptr as u64);

@@ -14,7 +14,7 @@ pub struct tcb_queue_t {
 
 impl tcb_queue_t {
     /// Append a tcb to the queue
-	#[cfg(not(feature="KERNEL_MCS"))]
+    #[cfg(not(feature = "KERNEL_MCS"))]
     pub fn ep_append(&mut self, tcb: &mut tcb_t) {
         if self.head == 0 {
             self.head = tcb.get_ptr();
@@ -26,35 +26,34 @@ impl tcb_queue_t {
         tcb.tcbEPNext = 0;
         self.tail = tcb.get_ptr();
     }
-	#[cfg(feature="KERNEL_MCS")]
+    #[cfg(feature = "KERNEL_MCS")]
     pub fn ep_append(&mut self, tcb: &mut tcb_t) {
         use core::intrinsics::{likely, unlikely};
 
-		let mut before_ptr:usize = self.tail;
-		let mut after_ptr:usize = 0;
+        let mut before_ptr: usize = self.tail;
+        let mut after_ptr: usize = 0;
 
+        while unlikely(
+            before_ptr != 0
+                && tcb.tcbPriority > convert_to_mut_type_ref::<tcb_t>(before_ptr).tcbPriority,
+        ) {
+            after_ptr = before_ptr;
+            before_ptr = convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbEPPrev;
+        }
+        if unlikely(before_ptr == 0) {
+            self.head = tcb.get_ptr();
+        } else {
+            convert_to_mut_type_ref::<tcb_t>(before_ptr).tcbEPNext = tcb.get_ptr()
+        }
 
-		while unlikely(before_ptr != 0 && tcb.tcbPriority > convert_to_mut_type_ref::<tcb_t>(before_ptr).tcbPriority){
-			after_ptr= before_ptr;
-			before_ptr = convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbEPPrev;
-		}
-        if unlikely( before_ptr == 0 ){
-			self.head = tcb.get_ptr();
-		}
-		else{
-			convert_to_mut_type_ref::<tcb_t>(before_ptr).tcbEPNext = tcb.get_ptr()
-		}
-		
-		
-		if likely(after_ptr == 0){
-			self.tail = tcb.get_ptr();
-		}
-		else {
-			convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbEPPrev = tcb.get_ptr();
-		}
+        if likely(after_ptr == 0) {
+            self.tail = tcb.get_ptr();
+        } else {
+            convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbEPPrev = tcb.get_ptr();
+        }
 
-		tcb.tcbEPNext = after_ptr;
-		tcb.tcbEPPrev = before_ptr;
+        tcb.tcbEPNext = after_ptr;
+        tcb.tcbEPPrev = before_ptr;
     }
 
     /// Dequeue a tcb from the queue

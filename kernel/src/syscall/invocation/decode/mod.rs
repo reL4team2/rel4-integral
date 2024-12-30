@@ -20,7 +20,9 @@ use sel4_common::{
 };
 use sel4_cspace::interface::cte_t;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
-use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
+#[cfg(not(feature = "KERNEL_MCS"))]
+use sel4_task::tcb_t;
+use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use crate::kernel::boot::current_syscall_error;
 use crate::syscall::invocation::decode::decode_irq_invocation::decode_irq_handler_invocation;
@@ -47,7 +49,7 @@ pub fn decode_invocation(
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-	// sel4_common::println!("decode invocation {}", capability.get_tag());
+    // sel4_common::println!("decode invocation {}", capability.get_tag());
     match capability.clone().splay() {
         cap_Splayed::null_cap(_) | cap_Splayed::zombie_cap(_) => {
             debug!(
@@ -277,7 +279,7 @@ pub fn decode_invocation(
                 }
                 return exception_t::EXCEPTION_NONE;
             }
-            decode_sched_context_invocation(label, &data, buffer)
+            decode_sched_context_invocation(label, &data)
         }
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }

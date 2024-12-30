@@ -1,7 +1,9 @@
 pub(crate) const CONFIGURE_TIMER_FREQUENCY: usize = 62500000;
 #[cfg(feature = "KERNEL_MCS")]
+#[allow(dead_code)]
 pub(crate) const CONFIGURE_CLK_MAGIC: usize = 4611686019;
 #[cfg(feature = "KERNEL_MCS")]
+#[allow(dead_code)]
 pub(crate) const CONFIGURE_CLK_SHIFT: usize = 58;
 #[cfg(feature = "KERNEL_MCS")]
 pub(crate) const CONFIGURE_KERNEL_WCET: usize = 10;

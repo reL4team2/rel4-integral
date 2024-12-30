@@ -1,6 +1,6 @@
 use crate::transfer::Transfer;
 use sel4_common::arch::ArchReg;
-use sel4_common::structures_gen::{notification, notification_t};
+use sel4_common::structures_gen::notification;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_task::{ksCurSC, sched_context::sched_context_t};
@@ -305,7 +305,7 @@ impl notification_func for notification {
     }
 }
 #[cfg(feature = "KERNEL_MCS")]
-pub fn maybeDonateSchedContext(tcb: &mut tcb_t, ntfnptr: &notification_t) {
+pub fn maybeDonateSchedContext(tcb: &mut tcb_t, ntfnptr: &notification) {
     if tcb.tcbSchedContext == 0 {
         if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(
             ntfnptr.get_ntfnSchedContext() as usize,

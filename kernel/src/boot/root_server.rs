@@ -158,7 +158,7 @@ unsafe fn create_initial_thread(
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
     #[cfg(feature = "KERNEL_MCS")]
-    use sel4_common::sel4_config::{seL4_MinSchedContextBits, CONFIG_TIME_SLICE};
+    use sel4_common::sel4_config::CONFIG_TIME_SLICE;
     #[cfg(feature = "KERNEL_MCS")]
     use sel4_common::{
         arch::usToTicks, platform::time_def::US_IN_MS, sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
@@ -257,7 +257,7 @@ unsafe fn create_initial_thread(
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
     #[cfg(feature = "KERNEL_MCS")]
-    use sel4_common::sel4_config::{seL4_MinSchedContextBits, CONFIG_TIME_SLICE};
+    use sel4_common::sel4_config::CONFIG_TIME_SLICE;
     #[cfg(feature = "KERNEL_MCS")]
     use sel4_common::{
         arch::usToTicks, platform::time_def::US_IN_MS, sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
@@ -403,7 +403,7 @@ fn create_it_asid_pool(root_cnode_cap: &cap_cnode_cap) -> cap_asid_pool_cap {
 #[cfg(feature = "KERNEL_MCS")]
 //TODO: MCS: Done
 fn init_sched_control(root_cnode_cap: &cap_cnode_cap, num_nodes: usize) -> bool {
-    use sel4_common::{println, structures_gen::cap_sched_control_cap};
+    use sel4_common::structures_gen::cap_sched_control_cap;
 
     let slot_pos_before = unsafe { ndks_boot.slot_pos_cur };
 
@@ -413,7 +413,7 @@ fn init_sched_control(root_cnode_cap: &cap_cnode_cap, num_nodes: usize) -> bool 
             root_cnode_cap,
             cap_sched_control_cap::new(i as u64).unsplay(),
         ) {
-            println!(
+            log::debug!(
                 "can't init sched_control for node {}, provide_cap() failed\n",
                 i
             );

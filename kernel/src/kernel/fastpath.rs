@@ -11,9 +11,11 @@ use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::structures_gen::call_stack;
+#[cfg(not(feature = "KERNEL_MCS"))]
+use sel4_common::structures_gen::cap_reply_cap;
 use sel4_common::structures_gen::{
-    cap, cap_cnode_cap, cap_null_cap, cap_page_table_cap, cap_reply_cap, cap_tag, endpoint,
-    mdb_node, notification, seL4_Fault_tag, thread_state,
+    cap, cap_cnode_cap, cap_null_cap, cap_page_table_cap, cap_tag, endpoint, mdb_node,
+    notification, seL4_Fault_tag, thread_state,
 };
 use sel4_common::{
     sel4_config::*,

@@ -10,8 +10,6 @@ use sel4_common::arch::ArchReg;
 use sel4_common::arch::ArchReg::*;
 #[cfg(not(feature = "KERNEL_MCS"))]
 use sel4_common::sel4_config::tcbCaller;
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_task::sched_context::sched_context_t;
 
 pub const SysCall: isize = -1;
 pub const SYSCALL_MAX: isize = SysCall;
@@ -67,16 +65,21 @@ use crate::structures::lookupCap_ret_t;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{
     cap, cap_Splayed, cap_tag, endpoint, lookup_fault_missing_capability, notification,
-    seL4_Fault_CapFault, seL4_Fault_tag,
+    seL4_Fault_CapFault,
 };
-use sel4_common::utils::{convert_to_mut_type_ref, ptr_to_mut};
-use sel4_ipc::{endpoint_func, notification_func, Transfer};
+use sel4_common::utils::convert_to_mut_type_ref;
+#[cfg(not(feature = "KERNEL_MCS"))]
+use sel4_common::utils::ptr_to_mut;
+#[cfg(not(feature = "KERNEL_MCS"))]
+use sel4_ipc::Transfer;
+use sel4_ipc::{endpoint_func, notification_func};
+#[cfg(not(feature = "KERNEL_MCS"))]
+use sel4_task::rescheduleRequired;
 use sel4_task::{
-    activateThread, get_currenct_thread, rescheduleRequired, schedule, set_thread_state, tcb_t,
-    ThreadState,
+    activateThread, get_currenct_thread, schedule, set_thread_state, tcb_t, ThreadState,
 };
 #[cfg(feature = "KERNEL_MCS")]
-use sel4_task::{chargeBudget, get_current_sc, ksConsumed, ksCurSC, mcs_preemption_point};
+use sel4_task::{chargeBudget, get_current_sc, ksConsumed, mcs_preemption_point};
 pub use utils::*;
 
 use crate::arch::restore_user_context;
@@ -294,6 +297,8 @@ fn send_fault_ipc(thread: &mut tcb_t, handlerCap: &cap, can_donate: bool) -> boo
 }
 #[cfg(not(feature = "KERNEL_MCS"))]
 fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
+    use sel4_common::structures_gen::seL4_Fault_tag;
+
     let origin_lookup_fault = unsafe { current_lookup_fault.clone() };
     let lu_ret = thread.lookup_slot(thread.tcbFaultHandler);
     if lu_ret.status != exception_t::EXCEPTION_NONE {

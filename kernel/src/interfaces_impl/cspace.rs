@@ -10,18 +10,18 @@ use sel4_common::structures::exception_t;
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::structures_gen::call_stack;
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, endpoint, notification};
-use sel4_common::utils::{
-    convert_to_mut_type_ref, convert_to_option_mut_type_ref, convert_to_option_type_ref,
-};
+use sel4_common::utils::convert_to_mut_type_ref;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::utils::convert_to_option_mut_type_ref;
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::compatibility::{ZombieType_ZombieTCB, Zombie_new};
 use sel4_cspace::interface::finaliseCap_ret;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
-use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t, ThreadState};
+use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_task::{
     isCurDomainExpired, ksConsumed, ksCurSC, reply::reply_t, sched_context::sched_context_t,
-    updateTimestamp,
+    updateTimestamp, ThreadState,
 };
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;

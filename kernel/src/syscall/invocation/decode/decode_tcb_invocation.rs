@@ -20,6 +20,7 @@ use sel4_cspace::capability::cap_func;
 use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
 
+#[cfg(feature = "KERNEL_MCS")]
 use crate::config::{
     thread_control_caps_update_fault, thread_control_caps_update_ipc_buffer,
     thread_control_caps_update_space,
@@ -366,13 +367,13 @@ fn decode_tcb_configure(
         target_thread,
         target_thread_slot,
         &cap_null_cap::new().unsplay(),
-        unsafe { &mut *(0 as *mut cte_t) },
+        None,
         &cap_null_cap::new().unsplay(),
-        unsafe { &mut *(0 as *mut cte_t) },
+        None,
         croot_cap,
-        croot_slot,
+        Some(croot_slot),
         vroot_cap,
-        vroot_slot,
+        Some(vroot_slot),
         thread_control_caps_update_space | thread_control_caps_update_ipc_buffer,
     );
     if status != exception_t::EXCEPTION_NONE {
@@ -514,11 +515,15 @@ fn decode_set_sched_params(
 fn decode_set_sched_params(
     capability: &cap_thread_cap,
     length: usize,
-    slot: &mut cte_t,
+    _slot: &mut cte_t,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
     // TODO: MCS
-    if length < 2 || get_extra_cap_by_index(0).is_some() {
+    if length < 2
+        || get_extra_cap_by_index(0).is_none()
+        || get_extra_cap_by_index(1).is_none()
+        || get_extra_cap_by_index(2).is_none()
+    {
         debug!("TCB SetSchedParams: Truncated message.");
         unsafe {
             current_syscall_error._type = seL4_TruncatedMessage;
@@ -799,13 +804,13 @@ fn decode_set_space(
         target_thread,
         slot,
         &fh_cap,
-        fh_slot,
+        Some(fh_slot),
         &cap_null_cap::new().unsplay(),
-        unsafe { &mut *(0 as *mut cte_t) },
+        None,
         &croot_cap,
-        croot_slot,
+        Some(croot_slot),
         &vroot_cap,
-        vroot_slot,
+        Some(vroot_slot),
         thread_control_caps_update_space | thread_control_caps_update_fault,
     )
 }
@@ -893,13 +898,13 @@ pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t
         convert_to_mut_type_ref::<tcb_t>(capability.get_capTCBPtr() as usize),
         slot,
         &cap_null_cap::new().unsplay(),
-        unsafe { &mut *(0 as *mut cte_t) },
+        None,
         thCap,
-        &mut thSlot,
+        Some(&mut thSlot),
         &cap_null_cap::new().unsplay(),
-        unsafe { &mut *(0 as *mut cte_t) },
+        None,
         &cap_null_cap::new().unsplay(),
-        unsafe { &mut *(0 as *mut cte_t) },
+        None,
         thread_control_caps_update_timeout,
     )
 }

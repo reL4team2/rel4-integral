@@ -1,12 +1,10 @@
 use log::debug;
 #[cfg(not(feature = "KERNEL_MCS"))]
-use sel4_common::sel4_config::tcbCaller;
+use sel4_common::sel4_config::{seL4_DeleteFirst, tcbCaller};
 use sel4_common::structures_gen::{cap, cap_tag, endpoint};
 use sel4_common::{
-    sel4_config::{seL4_DeleteFirst, seL4_IllegalOperation},
-    shared_types_bf_gen::seL4_CapRights,
-    structures::exception_t,
-    utils::convert_to_mut_type_ref,
+    sel4_config::seL4_IllegalOperation, shared_types_bf_gen::seL4_CapRights,
+    structures::exception_t, utils::convert_to_mut_type_ref,
 };
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::interface::{cte_insert, cte_move, cte_swap, cte_t};

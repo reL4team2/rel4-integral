@@ -229,13 +229,13 @@ pub fn invoke_tcb_thread_control_caps(
     target: &mut tcb_t,
     slot: &mut cte_t,
     fh_newCap: &cap,
-    fh_srcSlot: &mut cte_t,
+    fh_srcSlot: Option<&mut cte_t>,
     th_newCap: &cap,
-    th_srcSlot: &mut cte_t,
+    th_srcSlot: Option<&mut cte_t>,
     croot_new_cap: &cap,
-    croot_src_slot: &mut cte_t,
+    croot_src_slot: Option<&mut cte_t>,
     vroot_new_cap: &cap,
-    vroot_src_slot: &mut cte_t,
+    vroot_src_slot: Option<&mut cte_t>,
     updateFlags: usize,
 ) -> exception_t {
     use sel4_common::sel4_config::{tcbFaultHandler, tcbTimeoutHandler};
@@ -246,53 +246,61 @@ pub fn invoke_tcb_thread_control_caps(
     };
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
     if updateFlags & thread_control_caps_update_fault != 0 {
-        let e = installTCBCap(
-            target,
-            &target_cap,
-            slot,
-            tcbFaultHandler,
-            fh_newCap,
-            fh_srcSlot,
-        );
-        if e != exception_t::EXCEPTION_NONE {
-            return e;
+        if let Some(fh_slot) = fh_srcSlot {
+            let e = installTCBCap(
+                target,
+                &target_cap,
+                slot,
+                tcbFaultHandler,
+                fh_newCap,
+                fh_slot,
+            );
+            if e != exception_t::EXCEPTION_NONE {
+                return e;
+            }
         }
     }
     if updateFlags & thread_control_caps_update_timeout != 0 {
-        let e = installTCBCap(
-            target,
-            &target_cap,
-            slot,
-            tcbTimeoutHandler,
-            th_newCap,
-            th_srcSlot,
-        );
-        if e != exception_t::EXCEPTION_NONE {
-            return e;
+        if let Some(th_slot) = th_srcSlot {
+            let e = installTCBCap(
+                target,
+                &target_cap,
+                slot,
+                tcbTimeoutHandler,
+                th_newCap,
+                th_slot,
+            );
+            if e != exception_t::EXCEPTION_NONE {
+                return e;
+            }
         }
     }
     if updateFlags & thread_control_caps_update_space != 0 {
-        let e = installTCBCap(
-            target,
-            &target_cap,
-            slot,
-            tcbCTable,
-            croot_new_cap,
-            croot_src_slot,
-        );
-        if e != exception_t::EXCEPTION_NONE {
-            return e;
+        if let Some(croot_slot) = croot_src_slot {
+            let e = installTCBCap(
+                target,
+                &target_cap,
+                slot,
+                tcbCTable,
+                croot_new_cap,
+                croot_slot,
+            );
+            if e != exception_t::EXCEPTION_NONE {
+                return e;
+            }
         }
-        let e = installTCBCap(
-            target,
-            &target_cap,
-            slot,
-            tcbVTable,
-            vroot_new_cap,
-            vroot_src_slot,
-        );
-        if e != exception_t::EXCEPTION_NONE {
-            return e;
+        if let Some(vroot_slot) = vroot_src_slot {
+            let e = installTCBCap(
+                target,
+                &target_cap,
+                slot,
+                tcbVTable,
+                vroot_new_cap,
+                vroot_slot,
+            );
+            if e != exception_t::EXCEPTION_NONE {
+                return e;
+            }
         }
     }
 

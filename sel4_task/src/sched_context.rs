@@ -10,7 +10,6 @@ use sel4_common::{
     },
     message_info::seL4_MessageInfo_func,
     platform::time_def::{ticks_t, time_t},
-    println,
     sel4_config::{CONFIG_KERNEL_WCET_SCALE, UINT64_MAX},
     shared_types_bf_gen::seL4_MessageInfo,
     structures_gen::{cap_sched_context_cap, notification, notification_t},

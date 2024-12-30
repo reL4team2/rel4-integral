@@ -1,11 +1,11 @@
 use sel4_common::{
     platform::time_def::ticks_t,
-    structures::{exception_t, seL4_IPCBuffer},
+    structures::exception_t,
     structures_gen::{call_stack, cap, cap_Splayed, cap_tag, notification_t},
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
 };
 use sel4_task::{
-    checkBudget, commitTime, get_currenct_thread, ksCurSC, ksCurThread, possible_switch_to,
+    checkBudget, commitTime, get_currenct_thread, ksCurThread, possible_switch_to,
     reply::reply_t,
     rescheduleRequired,
     sched_context::{sched_context, MIN_REFILLS},
@@ -52,9 +52,9 @@ pub fn invokeSchedContext_Unbind(sc: &mut sched_context) -> exception_t {
     }
     exception_t::EXCEPTION_NONE
 }
-pub fn invokeSchedContext_Consumed(sc: &mut sched_context, buffer: &seL4_IPCBuffer) -> exception_t {
+pub fn invokeSchedContext_Consumed(sc: &mut sched_context) -> exception_t {
     // TODO: MCS
-    unimplemented!("invoke shced context consumed");
+    sc.setConsumed();
     exception_t::EXCEPTION_NONE
 }
 pub fn invokeSchedContext_YieldTo(sc: &mut sched_context) -> exception_t {
@@ -86,7 +86,7 @@ pub fn invokeSchedContext_YieldTo(sc: &mut sched_context) -> exception_t {
 }
 pub fn invokeSchedControl_ConfigureFlags(
     target: &mut sched_context,
-    core: usize,
+    _core: usize,
     budget: ticks_t,
     period: ticks_t,
     max_refills: usize,

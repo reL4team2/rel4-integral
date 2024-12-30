@@ -933,7 +933,7 @@ pub fn create_idle_thread() {
         set_thread_state(tcb, ThreadState::ThreadStateIdleThreadState);
         #[cfg(feature = "KERNEL_MCS")]
         {
-			tcb.tcbYieldTo = 0;
+            tcb.tcbYieldTo = 0;
             configure_sched_context(
                 convert_to_mut_type_ref::<tcb_t>(ksIdleThread),
                 convert_to_mut_type_ref::<sched_context_t>(

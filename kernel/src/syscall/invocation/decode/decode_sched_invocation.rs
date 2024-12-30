@@ -4,7 +4,6 @@ use log::debug;
 use sel4_common::{
     arch::{usToTicks, MessageLabel},
     platform::time_def::time_t,
-    println,
     sel4_config::{
         seL4_IllegalOperation, seL4_InvalidCapability, seL4_RangeError, seL4_TruncatedMessage,
         TIME_ARG_SIZE,
@@ -40,14 +39,13 @@ use crate::{
 pub fn decode_sched_context_invocation(
     inv_label: MessageLabel,
     capability: &cap_sched_context_cap,
-    buffer: &seL4_IPCBuffer,
 ) -> exception_t {
     // sel4_common::println!("go into decode sched context invocation");
     let sc = convert_to_mut_type_ref::<sched_context_t>(capability.get_capSCPtr() as usize);
     match inv_label {
         MessageLabel::SchedContextConsumed => {
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            invokeSchedContext_Consumed(sc, buffer)
+            invokeSchedContext_Consumed(sc)
         }
         MessageLabel::SchedContextBind => decodeSchedContext_Bind(sc),
         MessageLabel::SchedContextUnbindObject => decodeSchedContext_UnbindObject(sc),

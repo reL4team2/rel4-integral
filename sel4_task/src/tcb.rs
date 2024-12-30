@@ -1,7 +1,7 @@
 #[cfg(feature = "KERNEL_MCS")]
 use crate::ksCurSC;
-use crate::{ksReadyQueues, prio_t};
 use crate::tcb_queue::tcb_queue_t;
+use crate::{ksReadyQueues, prio_t};
 #[cfg(feature = "KERNEL_MCS")]
 use crate::{ksReleaseHead, sched_context::sched_context_t};
 use core::intrinsics::{likely, unlikely};
@@ -14,18 +14,22 @@ use sel4_common::sel4_config::*;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{
-    cap, cap_reply_cap, cap_tag, lookup_fault, lookup_fault_Splayed, mdb_node, seL4_Fault,
-    seL4_Fault_CapFault, seL4_Fault_tag, thread_state,
+    cap, cap_tag, lookup_fault, lookup_fault_Splayed, seL4_Fault, seL4_Fault_CapFault,
+    seL4_Fault_tag, thread_state,
 };
-use sel4_common::utils::{
-    convert_to_mut_type_ref, convert_to_option_mut_type_ref, pageBitsForSize,
-};
+#[cfg(not(feature = "KERNEL_MCS"))]
+use sel4_common::structures_gen::{cap_reply_cap, mdb_node};
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::utils::convert_to_option_mut_type_ref;
+use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::BIT;
 use sel4_common::MASK;
 #[cfg(target_arch = "aarch64")]
 use sel4_cspace::capability::cap_arch_func;
-use sel4_cspace::interface::{cte_insert, cte_t, resolve_address_bits};
+#[cfg(not(feature = "KERNEL_MCS"))]
+use sel4_cspace::interface::cte_insert;
+use sel4_cspace::interface::{cte_t, resolve_address_bits};
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{
     find_vspace_for_asid, get_arm_global_user_vspace_base, kpptr_to_paddr,
@@ -287,7 +291,9 @@ impl tcb_t {
             self.tcbSchedPrev = 0;
             self.tcbSchedNext = queue.head;
             queue.head = self_ptr as usize;
-			unsafe { ksReadyQueues[idx] = *queue; }
+            unsafe {
+                ksReadyQueues[idx] = *queue;
+            }
             self.tcbState.set_tcbQueued(1);
         }
 
@@ -306,7 +312,6 @@ impl tcb_t {
             }
             #[cfg(not(feature = "ENABLE_SMP"))]
             {
-                use super::ksReadyQueues;
                 &mut ksReadyQueues[index]
             }
         }
@@ -347,7 +352,9 @@ impl tcb_t {
             } else {
                 queue.tail = self.tcbSchedPrev;
             }
-            unsafe { ksReadyQueues[idx] = *queue; }
+            unsafe {
+                ksReadyQueues[idx] = *queue;
+            }
             self.tcbState.set_tcbQueued(0);
         }
     }
@@ -385,7 +392,9 @@ impl tcb_t {
             self.tcbSchedPrev = queue.tail;
             self.tcbSchedNext = 0;
             queue.tail = self_ptr as usize;
-            unsafe { ksReadyQueues[idx] = *queue; }
+            unsafe {
+                ksReadyQueues[idx] = *queue;
+            }
 
             self.tcbState.set_tcbQueued(1);
         }
@@ -1066,7 +1075,7 @@ pub fn set_thread_state(tcb: &mut tcb_t, state: ThreadState) {
 
 #[cfg(feature = "KERNEL_MCS")]
 pub fn tcb_Release_Dequeue() -> *mut tcb_t {
-    use crate::{ksReprogram, sched_context::sched_context_t};
+    use crate::ksReprogram;
 
     unsafe {
         assert!(ksReleaseHead != 0);

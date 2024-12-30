@@ -2,9 +2,9 @@ use core::intrinsics::likely;
 
 use super::endpoint::*;
 use super::notification::*;
-use sel4_common::structures_gen::endpoint;
-use sel4_common::structures_gen::notification;
 
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::arch::n_timeoutMessage;
 use sel4_common::arch::ArchReg;
 use sel4_common::arch::{n_exceptionMessage, n_syscallMessage};
 use sel4_common::fault::*;
@@ -12,18 +12,14 @@ use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::sel4_config::*;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
 use sel4_common::structures::*;
-use sel4_common::structures_gen::cap;
-use sel4_common::structures_gen::cap_tag;
-use sel4_common::structures_gen::seL4_Fault;
-use sel4_common::structures_gen::seL4_Fault_NullFault;
-use sel4_common::structures_gen::seL4_Fault_tag;
+use sel4_common::structures_gen::{
+    cap, cap_tag, endpoint, notification, seL4_Fault, seL4_Fault_NullFault, seL4_Fault_tag,
+};
 use sel4_common::utils::*;
 use sel4_cspace::interface::*;
 use sel4_task::{possible_switch_to, set_thread_state, tcb_t, ThreadState};
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_task::{reply::reply_t, reply_remove_tcb, sched_context::sched_context_t};
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_common::arch::n_timeoutMessage;
 use sel4_vspace::pptr_t;
 
 /// The trait for IPC transfer, please see doc.md for more details
@@ -341,17 +337,21 @@ impl Transfer for tcb_t {
                 self.tcbArch
                     .set_register(ArchReg::Badge, ntfn.get_ntfnMsgIdentifier() as usize);
                 ntfn.set_state(NtfnState::Idle as u64);
-				#[cfg(feature="KERNEL_MCS")]
-				{
-					maybeDonateSchedContext(self, ntfn);
-					if let Some(tcbsc)=convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext){
-						if tcbsc.sc_sporadic(){
-							if self.tcbSchedContext == ntfn.get_ntfnSchedContext() as usize && !tcbsc.is_current(){
-								tcbsc.refill_unblock_check();
-							}
-						}
-					}
-				}
+                #[cfg(feature = "KERNEL_MCS")]
+                {
+                    maybeDonateSchedContext(self, ntfn);
+                    if let Some(tcbsc) =
+                        convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
+                    {
+                        if tcbsc.sc_sporadic() {
+                            if self.tcbSchedContext == ntfn.get_ntfnSchedContext() as usize
+                                && !tcbsc.is_current()
+                            {
+                                tcbsc.refill_unblock_check();
+                            }
+                        }
+                    }
+                }
                 return true;
             }
         }
@@ -404,7 +404,7 @@ impl Transfer for tcb_t {
             self.do_ipc_transfer(receiver, None, 0, grant);
             set_thread_state(receiver, ThreadState::ThreadStateRunning);
         } else {
-			let restart = self.do_fault_reply_transfer(receiver);
+            let restart = self.do_fault_reply_transfer(receiver);
             receiver.tcbFault = seL4_Fault_NullFault::new().unsplay();
             if restart {
                 set_thread_state(receiver, ThreadState::ThreadStateRestart);
