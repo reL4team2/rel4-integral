@@ -109,6 +109,7 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
     // if hart_id() == 0 {
     //     debug!("handle syscall: {}", syscall);
     // }
+	// sel4_common::println!("handle syscall {}", syscall);
     match syscall {
         SysSend => {
             let ret = handleInvocation(false, true);
@@ -414,18 +415,16 @@ pub fn lookupReply() -> lookupCap_ret_t {
 fn handle_reply() {
     let current_thread = get_currenct_thread();
     let caller_slot = current_thread.get_cspace_mut_ref(tcbCaller);
-    let caller_cap = cap::cap_reply_cap(&caller_slot.capability);
-    if caller_cap.clone().unsplay().get_tag() == cap_tag::cap_reply_cap {
-        if caller_cap.get_capReplyMaster() != 0 {
+    if caller_slot.capability.clone().get_tag() == cap_tag::cap_reply_cap {
+        if cap::cap_reply_cap(&caller_slot.capability).get_capReplyMaster() != 0 {
             return;
         }
-        let caller = convert_to_mut_type_ref::<tcb_t>(caller_cap.get_capTCBPtr() as usize);
-        current_thread.do_reply(caller, caller_slot, caller_cap.get_capReplyCanGrant() != 0);
+        let caller = convert_to_mut_type_ref::<tcb_t>(cap::cap_reply_cap(&caller_slot.capability).get_capTCBPtr() as usize);
+        current_thread.do_reply(caller, caller_slot, cap::cap_reply_cap(&caller_slot.capability).get_capReplyCanGrant() != 0);
     }
 }
 #[cfg(feature = "KERNEL_MCS")]
 fn handle_recv(block: bool, canReply: bool) {
-    use sel4_common::structures_gen::cap_null_cap;
 
     let current_thread = get_currenct_thread();
     let ep_cptr = current_thread.tcbArch.get_register(ArchReg::Cap);
@@ -447,20 +446,25 @@ fn handle_recv(block: bool, canReply: bool) {
                 return handle_fault(current_thread);
             }
             // TODO: MCS
-            let mut reply_cap = cap_null_cap::new().unsplay();
             if canReply {
                 let lu_ret = lookupReply();
                 if lu_ret.status != exception_t::EXCEPTION_NONE {
                     return;
                 } else {
-                    reply_cap = lu_ret.capability;
+                    let reply_cap = lu_ret.capability;
+					convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
+						current_thread,
+						block,
+						Some(cap::cap_reply_cap(&reply_cap)),
+					);
                 }
-            }
-            convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
-                current_thread,
-                block,
-                cap::cap_reply_cap(&reply_cap),
-            );
+            } else {
+				convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
+					current_thread,
+					block,
+					None,
+				);
+			}
         }
 
         cap_Splayed::notification_cap(data) => {

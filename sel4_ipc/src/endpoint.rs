@@ -58,7 +58,7 @@ pub trait endpoint_func {
     #[cfg(not(feature = "KERNEL_MCS"))]
     fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, grant: bool);
     #[cfg(feature = "KERNEL_MCS")]
-    fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, reply_cap: &mut cap_reply_cap);
+    fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, Option_reply_cap: Option<&mut cap_reply_cap>);
     #[cfg(feature = "KERNEL_MCS")]
     fn reorder_EP(&mut self, thread: &mut tcb_t);
 }
@@ -444,16 +444,16 @@ impl endpoint_func for endpoint {
         &mut self,
         thread: &mut tcb_t,
         is_blocking: bool,
-        reply_cap: &mut cap_reply_cap,
+        Option_reply_cap: Option<&mut cap_reply_cap>,
     ) {
         use core::intrinsics::unlikely;
         use log::debug;
-        use sel4_common::structures_gen::{cap_tag::cap_reply_cap, notification_t, seL4_Fault_tag};
+        use sel4_common::structures_gen::{notification_t, seL4_Fault_tag};
 
         use crate::notification_func;
         let mut replyptr: usize = 0;
-        if reply_cap.clone().unsplay().get_tag() == cap_reply_cap {
-            replyptr = reply_cap.get_capReplyPtr() as usize;
+        if let Some(reply_cap_data) = Option_reply_cap {
+            replyptr = reply_cap_data.get_capReplyPtr() as usize;
             let reply = convert_to_mut_type_ref::<reply_t>(replyptr);
             if unlikely(reply.replyTCB != 0 && reply.replyTCB != thread.get_ptr()) {
                 debug!("Reply object already has unexecuted reply!");
