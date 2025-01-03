@@ -6,7 +6,7 @@
 [subrepo]
 	remote = git@github.com:reL4team2/rel4_kernel.git
 	branch = master
-	commit = 99065de57fdf0fc99de7f82d4ae7e3ac6ddf1ab0
- 	parent = 64adcfc0185632638b5224bf5ae93f9e51aa542a
+	commit = 1ae504d17ec5f0b301197bcc392b7f68f9c99186
+ 	parent = 41dd0428d1e46571334ed61befd29f786d21c6a1
 	method = merge
 	cmdver = 0.4.9
