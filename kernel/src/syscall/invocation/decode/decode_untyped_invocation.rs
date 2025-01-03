@@ -190,8 +190,8 @@ fn get_target_cnode(
     let target_node_cap = if node_depth == 0 {
         &get_extra_cap_by_index(0).unwrap().capability
     } else {
-        let root_cap = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
-        let lu_ret = lookup_slot_for_cnode_op(false, &root_cap, node_index, node_depth);
+        let root_cap = &get_extra_cap_by_index(0).unwrap().capability;
+        let lu_ret = lookup_slot_for_cnode_op(false, root_cap, node_index, node_depth);
         if lu_ret.status != exception_t::EXCEPTION_NONE {
             debug!("Untyped Retype: Invalid destination address.");
             return lu_ret.status;

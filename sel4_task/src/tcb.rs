@@ -489,7 +489,7 @@ impl tcb_t {
     /// # Returns
     /// The lookup result structure
     pub fn lookup_slot(&mut self, cap_ptr: usize) -> lookupSlot_raw_ret_t {
-        let thread_root = cap::cap_cnode_cap(&self.get_cspace(tcbCTable).capability);
+        let thread_root = &self.get_cspace(tcbCTable).capability;
         let res_ret = resolve_address_bits(&thread_root, cap_ptr, wordBits);
         lookupSlot_raw_ret_t {
             status: res_ret.status,
@@ -798,7 +798,7 @@ impl tcb_t {
             if lu_ret.status != exception_t::EXCEPTION_NONE {
                 return None;
             }
-            let cnode_cap = unsafe { &cap::cap_cnode_cap(&(*lu_ret.slot).capability) };
+            let cnode_cap = unsafe { &(*lu_ret.slot).capability };
             let lus_ret = resolve_address_bits(cnode_cap, buffer.receiveIndex, buffer.receiveDepth);
             if unlikely(lus_ret.status != exception_t::EXCEPTION_NONE || lus_ret.bitsRemaining != 0)
             {

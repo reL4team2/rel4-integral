@@ -86,7 +86,7 @@ pub fn c_handle_interrupt() {
             }
         }
     }
-    // debug!("c_handle_interrupt");
+    // sel4_common::println!("c_handle_interrupt");
     handleInterruptEntry();
     restore_user_context();
 }

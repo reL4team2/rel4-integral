@@ -109,7 +109,7 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
     // if hart_id() == 0 {
     //     debug!("handle syscall: {}", syscall);
     // }
-	// sel4_common::println!("handle syscall {}", syscall);
+    // sel4_common::println!("handle syscall {}", syscall);
     match syscall {
         SysSend => {
             let ret = handleInvocation(false, true);
@@ -419,13 +419,18 @@ fn handle_reply() {
         if cap::cap_reply_cap(&caller_slot.capability).get_capReplyMaster() != 0 {
             return;
         }
-        let caller = convert_to_mut_type_ref::<tcb_t>(cap::cap_reply_cap(&caller_slot.capability).get_capTCBPtr() as usize);
-        current_thread.do_reply(caller, caller_slot, cap::cap_reply_cap(&caller_slot.capability).get_capReplyCanGrant() != 0);
+        let caller = convert_to_mut_type_ref::<tcb_t>(
+            cap::cap_reply_cap(&caller_slot.capability).get_capTCBPtr() as usize,
+        );
+        current_thread.do_reply(
+            caller,
+            caller_slot,
+            cap::cap_reply_cap(&caller_slot.capability).get_capReplyCanGrant() != 0,
+        );
     }
 }
 #[cfg(feature = "KERNEL_MCS")]
 fn handle_recv(block: bool, canReply: bool) {
-
     let current_thread = get_currenct_thread();
     let ep_cptr = current_thread.tcbArch.get_register(ArchReg::Cap);
     let lu_ret = current_thread.lookup_slot(ep_cptr);
@@ -452,19 +457,19 @@ fn handle_recv(block: bool, canReply: bool) {
                     return;
                 } else {
                     let reply_cap = lu_ret.capability;
-					convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
-						current_thread,
-						block,
-						Some(cap::cap_reply_cap(&reply_cap)),
-					);
+                    convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
+                        current_thread,
+                        block,
+                        Some(cap::cap_reply_cap(&reply_cap)),
+                    );
                 }
             } else {
-				convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
-					current_thread,
-					block,
-					None,
-				);
-			}
+                convert_to_mut_type_ref::<endpoint>(data.get_capEPPtr() as usize).receive_ipc(
+                    current_thread,
+                    block,
+                    None,
+                );
+            }
         }
 
         cap_Splayed::notification_cap(data) => {

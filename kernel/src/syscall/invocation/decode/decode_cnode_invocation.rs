@@ -2,7 +2,6 @@ use log::debug;
 use sel4_common::arch::CNODE_LAST_INVOCATION;
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::shared_types_bf_gen::seL4_CapRights;
-use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_cnode_cap;
 use sel4_common::structures_gen::cap_tag;
 use sel4_common::structures_gen::lookup_fault_missing_capability;
@@ -45,7 +44,7 @@ pub fn decode_cnode_invocation(
     }
     let index = get_syscall_arg(0, buffer);
     let w_bits = get_syscall_arg(1, buffer);
-    let lu_ret = lookup_slot_for_cnode_op(false, capability, index, w_bits);
+    let lu_ret = lookup_slot_for_cnode_op(false, &capability.clone().unsplay(), index, w_bits);
 
     if lu_ret.status != exception_t::EXCEPTION_NONE {
         debug!("CNode operation: Target slot invalid.");
@@ -85,7 +84,7 @@ fn decode_cnode_invoke_with_two_slot(
 
     let src_index = get_syscall_arg(2, buffer);
     let src_depth = get_syscall_arg(3, buffer);
-    let src_root = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
+    let src_root = &get_extra_cap_by_index(0).unwrap().capability;
     if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
         debug!("CNode Copy/Mint/Move/Mutate: Destination not empty.");
         unsafe {
@@ -180,16 +179,16 @@ fn decode_cnode_rotate(
     let src_idnex = get_syscall_arg(6, buffer);
     let src_depth = get_syscall_arg(7, buffer);
 
-    let pivot_root = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
-    let src_root = cap::cap_cnode_cap(&get_extra_cap_by_index(1).unwrap().capability);
+    let pivot_root = &get_extra_cap_by_index(0).unwrap().capability;
+    let src_root = &get_extra_cap_by_index(1).unwrap().capability;
 
-    let lu_ret = lookup_slot_for_cnode_op(true, &src_root, src_idnex, src_depth);
+    let lu_ret = lookup_slot_for_cnode_op(true, src_root, src_idnex, src_depth);
     if lu_ret.status != exception_t::EXCEPTION_NONE {
         return lu_ret.status;
     }
     let src_slot = convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize);
 
-    let lu_ret = lookup_slot_for_cnode_op(true, &pivot_root, pivot_index, pivot_depth);
+    let lu_ret = lookup_slot_for_cnode_op(true, pivot_root, pivot_index, pivot_depth);
     if lu_ret.status != exception_t::EXCEPTION_NONE {
         return lu_ret.status;
     }

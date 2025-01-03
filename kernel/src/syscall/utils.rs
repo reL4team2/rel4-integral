@@ -12,7 +12,7 @@ use sel4_common::ffi::current_fault;
 use sel4_common::sel4_config::seL4_MinUntypedBits;
 use sel4_common::shared_types_bf_gen::seL4_CapRights;
 use sel4_common::structures_gen::{
-    cap, cap_Splayed, cap_cnode_cap, cap_frame_cap, cap_tag, lookup_fault_depth_mismatch,
+    cap, cap_Splayed, cap_frame_cap, cap_tag, lookup_fault_depth_mismatch,
     lookup_fault_invalid_root, notification,
 };
 use sel4_common::{
@@ -164,12 +164,12 @@ pub fn isValidVTableRoot(_cap: &cap) -> bool {
 
 pub fn lookup_slot_for_cnode_op(
     is_source: bool,
-    root: &cap_cnode_cap,
+    root: &cap,
     cap_ptr: usize,
     depth: usize,
 ) -> lookupSlot_ret_t {
     let mut ret: lookupSlot_ret_t = lookupSlot_ret_t::default();
-    if unlikely(root.clone().unsplay().get_tag() != cap_tag::cap_cnode_cap) {
+    if unlikely(root.clone().get_tag() != cap_tag::cap_cnode_cap) {
         unsafe {
             current_syscall_error._type = seL4_FailedLookup;
             current_syscall_error.failedLookupWasSource = is_source as usize;
@@ -188,7 +188,6 @@ pub fn lookup_slot_for_cnode_op(
         ret.status = exception_t::EXCEPTION_SYSCALL_ERROR;
         return ret;
     }
-
     let res_ret = resolve_address_bits(root, cap_ptr, depth);
     if unlikely(res_ret.status != exception_t::EXCEPTION_NONE) {
         unsafe {
@@ -216,7 +215,7 @@ pub fn lookup_slot_for_cnode_op(
 
 pub fn lookupSlotForCNodeOp(
     isSource: bool,
-    root: &cap_cnode_cap,
+    root: &cap,
     capptr: usize,
     depth: usize,
 ) -> lookupSlot_ret_t {

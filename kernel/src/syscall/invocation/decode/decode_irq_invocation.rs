@@ -1,5 +1,5 @@
 use log::debug;
-use sel4_common::structures_gen::{cap, cap_Splayed, cap_tag};
+use sel4_common::structures_gen::{cap_Splayed, cap_tag};
 use sel4_common::{
     arch::MessageLabel,
     sel4_config::*,
@@ -34,7 +34,7 @@ pub fn decode_irq_control_invocation(
         let index = get_syscall_arg(1, buffer);
         let depth = get_syscall_arg(2, buffer);
 
-        let cnode_cap = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
+        let cnode_cap = &get_extra_cap_by_index(0).unwrap().capability;
         let status = check_irq(irq);
         if status != exception_t::EXCEPTION_NONE {
             return status;
@@ -46,7 +46,7 @@ pub fn decode_irq_control_invocation(
             debug!("Rejecting request for IRQ {}. Already active.", irq);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
-        let lu_ret = lookupSlotForCNodeOp(false, &cnode_cap, index, depth);
+        let lu_ret = lookupSlotForCNodeOp(false, cnode_cap, index, depth);
         if lu_ret.status != exception_t::EXCEPTION_NONE {
             debug!("Target slot for new IRQ Handler cap invalid: IRQ {}.", irq);
             return lu_ret.status;

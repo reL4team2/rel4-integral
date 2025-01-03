@@ -58,7 +58,12 @@ pub trait endpoint_func {
     #[cfg(not(feature = "KERNEL_MCS"))]
     fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, grant: bool);
     #[cfg(feature = "KERNEL_MCS")]
-    fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, Option_reply_cap: Option<&mut cap_reply_cap>);
+    fn receive_ipc(
+        &mut self,
+        thread: &mut tcb_t,
+        is_blocking: bool,
+        Option_reply_cap: Option<&mut cap_reply_cap>,
+    );
     #[cfg(feature = "KERNEL_MCS")]
     fn reorder_EP(&mut self, thread: &mut tcb_t);
 }

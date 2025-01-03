@@ -312,9 +312,8 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
     let parent_slot =
         convert_to_mut_type_ref::<cte_t>(global_ops!(current_extra_caps.excaprefs[0]));
     let untyped = cap::cap_untyped_cap(&parent_slot.capability);
-    let root = cap::cap_cnode_cap(
-        &convert_to_mut_type_ref::<cte_t>(global_ops!(current_extra_caps.excaprefs[1])).capability,
-    );
+    let root =
+        &convert_to_mut_type_ref::<cte_t>(global_ops!(current_extra_caps.excaprefs[1])).capability;
 
     let mut i = 0;
     loop {
@@ -343,7 +342,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         return status;
     }
     let frame = untyped.get_capPtr() as usize;
-    let lu_ret = lookup_slot_for_cnode_op(false, &root, index, depth);
+    let lu_ret = lookup_slot_for_cnode_op(false, root, index, depth);
     if unlikely(lu_ret.status != exception_t::EXCEPTION_NONE) {
         return lu_ret.status;
     }
@@ -1090,7 +1089,7 @@ pub fn arch_decode_irq_control_invocation(
         let _trigger = get_syscall_arg(1, buffer) != 0;
         let index = get_syscall_arg(2, buffer);
         let depth = get_syscall_arg(3, buffer);
-        let cnode_cap = cap::cap_cnode_cap(&get_extra_cap_by_index(0).unwrap().capability);
+        let cnode_cap = &get_extra_cap_by_index(0).unwrap().capability;
         let status = check_irq(irq);
         if status != exception_t::EXCEPTION_NONE {
             return status;
@@ -1102,7 +1101,7 @@ pub fn arch_decode_irq_control_invocation(
             debug!("Rejecting request for IRQ {}. Already active.", irq);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
-        let lu_ret = lookupSlotForCNodeOp(false, &cnode_cap, index, depth);
+        let lu_ret = lookupSlotForCNodeOp(false, cnode_cap, index, depth);
         if lu_ret.status != exception_t::EXCEPTION_NONE {
             debug!("Target slot for new IRQ Handler cap invalid: IRQ {}.", irq);
             return lu_ret.status;
