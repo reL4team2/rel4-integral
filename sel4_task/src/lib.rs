@@ -10,6 +10,7 @@
 #![allow(non_upper_case_globals)]
 
 mod deps;
+#[cfg(feature = "KERNEL_MCS")]
 mod ffi;
 #[cfg(feature = "KERNEL_MCS")]
 pub mod sched_context;
@@ -18,6 +19,7 @@ mod structures;
 pub mod tcb;
 mod tcb_queue;
 mod thread_state;
+#[cfg(feature = "KERNEL_MCS")]
 pub use ffi::*;
 #[cfg(feature = "KERNEL_MCS")]
 pub mod reply;
