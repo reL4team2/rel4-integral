@@ -7,6 +7,6 @@
 	remote = git@github.com:reL4team2/sel4_task.git
 	branch = master
 	commit = baa8e4e37002582ad6227315f730d939b8170738
- 	parent = b6dde6ce4929ffbb8e086bb8a7d566cd101af999
+ 	parent = 30dc88363686343a33dd21810e08f5f4a4f73486
 	method = merge
 	cmdver = 0.4.9
