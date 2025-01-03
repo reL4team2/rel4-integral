@@ -14,7 +14,7 @@ use sel4_common::structures_gen::call_stack;
 #[cfg(not(feature = "KERNEL_MCS"))]
 use sel4_common::structures_gen::cap_reply_cap;
 use sel4_common::structures_gen::{
-    cap, cap_cnode_cap, cap_null_cap, cap_page_table_cap, cap_tag, endpoint, mdb_node,
+    cap, cap_null_cap, cap_tag, endpoint, mdb_node,
     notification, seL4_Fault_tag, thread_state,
 };
 use sel4_common::{
@@ -30,7 +30,7 @@ use sel4_vspace::*;
 
 #[inline]
 #[no_mangle]
-pub fn lookup_fp(_cap: &cap_cnode_cap, cptr: usize) -> cap {
+pub fn lookup_fp(_cap: &cap, cptr: usize) -> cap {
     let mut capability = _cap.clone();
     let mut bits = 0;
     let mut guardBits: usize;
@@ -39,25 +39,26 @@ pub fn lookup_fp(_cap: &cap_cnode_cap, cptr: usize) -> cap {
     let mut capGuard: usize;
     let mut radix: usize;
     let mut slot: *mut cte_t;
-    if unlikely(!(capability.clone().unsplay().get_tag() == cap_tag::cap_cnode_cap)) {
+    if unlikely(!(capability.clone().get_tag() == cap_tag::cap_cnode_cap)) {
         return cap_null_cap::new().unsplay();
     }
     loop {
-        guardBits = capability.get_capCNodeGuardSize() as usize;
-        radixBits = capability.get_capCNodeRadix() as usize;
+		let cnode_cap = cap::cap_cnode_cap(&capability);
+        guardBits = cnode_cap.get_capCNodeGuardSize() as usize;
+        radixBits = cnode_cap.get_capCNodeRadix() as usize;
         cptr2 = cptr << bits;
-        capGuard = capability.get_capCNodeGuard() as usize;
+        capGuard = cnode_cap.get_capCNodeGuard() as usize;
         if likely(guardBits != 0) && unlikely(cptr2 >> (wordBits - guardBits) != capGuard) {
             return cap_null_cap::new().unsplay();
         }
 
         radix = cptr2 << guardBits >> (wordBits - radixBits);
-        slot = unsafe { (capability.get_capCNodePtr() as *mut cte_t).add(radix) };
-        capability = unsafe { cap::cap_cnode_cap(&(*slot).capability).clone() };
+        slot = unsafe { (cnode_cap.get_capCNodePtr() as *mut cte_t).add(radix) };
+        capability = unsafe { (*slot).capability.clone() };
         bits += guardBits + radixBits;
 
         if likely(
-            !(bits < wordBits && capability.clone().unsplay().get_tag() == cap_tag::cap_cnode_cap),
+            !(bits < wordBits && capability.clone().get_tag() == cap_tag::cap_cnode_cap),
         ) {
             break;
         }
@@ -65,7 +66,7 @@ pub fn lookup_fp(_cap: &cap_cnode_cap, cptr: usize) -> cap {
     if bits > wordBits {
         return cap_null_cap::new().unsplay();
     }
-    return capability.unsplay();
+    return capability;
 }
 
 #[inline]
@@ -218,7 +219,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         slowpath(SysCall as usize);
     }
     let lookup_fp_ret = &lookup_fp(
-        &cap::cap_cnode_cap(&current.get_cspace(tcbCTable).capability),
+        &current.get_cspace(tcbCTable).capability,
         cptr,
     );
 
@@ -228,24 +229,26 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     ) {
         slowpath(SysCall as usize);
     }
-    let ep = convert_to_mut_type_ref::<endpoint>(cap::cap_endpoint_cap(lookup_fp_ret).get_capEPPtr() as usize);
+	let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
+    let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
 
     if unlikely(ep.get_ep_state() != EPState::Recv) {
         slowpath(SysCall as usize);
     }
 
     let dest = convert_to_mut_type_ref::<tcb_t>(ep.get_epQueue_head() as usize);
-    let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(tcbVTable).capability);
+    
 
-    if unlikely(!isValidVTableRoot_fp(&new_vtable.clone().unsplay())) {
+    if unlikely(!isValidVTableRoot_fp(&dest.get_cspace(tcbVTable).capability.clone())) {
         slowpath(SysCall as usize);
     }
+	let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(tcbVTable).capability);
 
     let dom = 0;
     if unlikely(dest.tcbPriority < current.tcbPriority && !isHighestPrio(dom, dest.tcbPriority)) {
         slowpath(SysCall as usize);
     }
-    if unlikely((cap::cap_endpoint_cap(lookup_fp_ret).get_capCanGrant() == 0) && (cap::cap_endpoint_cap(lookup_fp_ret).get_capCanGrantReply() == 0)) {
+    if unlikely((ep_cap.get_capCanGrant() == 0) && (ep_cap.get_capCanGrantReply() == 0)) {
         slowpath(SysCall as usize);
     }
     #[cfg(feature = "KERNEL_MCS")]
@@ -328,7 +331,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     switchToThread_fp(dest as *mut tcb_t, cap_pd, stored_hw_asid);
     info.set_capsUnwrapped(0);
     let msgInfo1 = info.to_word();
-    let badge = cap::cap_endpoint_cap(lookup_fp_ret).get_capEPBadge() as usize;
+    let badge = ep_cap.get_capEPBadge() as usize;
     fastpath_restore(badge, msgInfo1, get_currenct_thread());
 }
 
@@ -336,7 +339,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
 #[no_mangle]
 #[cfg(not(feature = "KERNEL_MCS"))]
 pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
-    // debug!("enter fastpath_reply_recv");
+    // sel4_common::println!("enter fastpath_reply_recv");
     let current = get_currenct_thread();
     let mut info = seL4_MessageInfo::from_word(msgInfo);
     let length = info.get_length() as usize;
@@ -346,17 +349,17 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
         slowpath(SysReplyRecv as usize);
     }
     let lookup_fp_ret = &lookup_fp(
-        &cap::cap_cnode_cap(&current.get_cspace(tcbCTable).capability),
+        &current.get_cspace(tcbCTable).capability,
         cptr,
     );
-    let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
     if unlikely(
-        ep_cap.clone().unsplay().get_tag() != cap_tag::cap_endpoint_cap
-            || ep_cap.get_capCanSend() == 0,
+        lookup_fp_ret.clone().get_tag() != cap_tag::cap_endpoint_cap
+            || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0,
     ) {
         slowpath(SysReplyRecv as usize);
     }
+	let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
     if let Some(ntfn) = convert_to_option_mut_type_ref::<notification>(current.tcbBoundNotification)
     {
@@ -387,13 +390,13 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
         slowpath(SysReplyRecv as usize);
     }
 
-    let new_vtable = &cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     if unlikely(!isValidVTableRoot_fp(
-        &<cap_page_table_cap as Clone>::clone(&new_vtable).unsplay(),
+        &caller.get_cspace(tcbVTable).capability.clone(),
     )) {
         slowpath(SysReplyRecv as usize);
     }
+	let new_vtable = &cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     let dom = 0;
     if unlikely(!isHighestPrio(dom, caller.tcbPriority)) {
@@ -446,7 +449,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
 #[no_mangle]
 #[cfg(feature = "KERNEL_MCS")]
 pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
-    // debug!("enter fastpath_reply_recv");
+    // sel4_common::println!("enter fastpath_reply_recv");
 
     let current = get_currenct_thread();
     let mut info = seL4_MessageInfo::from_word(msgInfo);
@@ -457,21 +460,21 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
         slowpath(SysReplyRecv as usize);
     }
     let lookup_fp_ret = &lookup_fp(
-        &cap::cap_cnode_cap(&current.get_cspace(tcbCTable).capability),
+        &current.get_cspace(tcbCTable).capability,
         cptr,
     );
-    let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
     if unlikely(
-        ep_cap.clone().unsplay().get_tag() != cap_tag::cap_endpoint_cap
-            || ep_cap.get_capCanSend() == 0,
+        lookup_fp_ret.clone().get_tag() != cap_tag::cap_endpoint_cap
+            || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0,
     ) {
         slowpath(SysReplyRecv as usize);
     }
+	let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
     /* lookup the reply object */
     let lookup_fp_ret = &lookup_fp(
-        &cap::cap_cnode_cap(&current.get_cspace(tcbCTable).capability),
+        &current.get_cspace(tcbCTable).capability,
         reply,
     );
     let reply_cap = cap::cap_reply_cap(lookup_fp_ret);
@@ -509,13 +512,13 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
         slowpath(SysReplyRecv as usize);
     }
 
-    let new_vtable = cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     if unlikely(!isValidVTableRoot_fp(
-        &<cap_page_table_cap as Clone>::clone(&new_vtable).unsplay(),
+        &caller.get_cspace(tcbVTable).capability.clone(),
     )) {
         slowpath(SysReplyRecv as usize);
     }
+	let new_vtable = cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     let dom = 0;
     if unlikely(!isHighestPrio(dom, caller.tcbPriority)) {
