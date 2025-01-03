@@ -221,14 +221,14 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         &cap::cap_cnode_cap(&current.get_cspace(tcbCTable).capability),
         cptr,
     );
-    let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
+
     if unlikely(
-        !(ep_cap.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap)
-            || (ep_cap.get_capCanSend() == 0),
+        !(lookup_fp_ret.clone().get_tag() == cap_tag::cap_endpoint_cap)
+            || (cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0),
     ) {
         slowpath(SysCall as usize);
     }
-    let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
+    let ep = convert_to_mut_type_ref::<endpoint>(cap::cap_endpoint_cap(lookup_fp_ret).get_capEPPtr() as usize);
 
     if unlikely(ep.get_ep_state() != EPState::Recv) {
         slowpath(SysCall as usize);
@@ -245,7 +245,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     if unlikely(dest.tcbPriority < current.tcbPriority && !isHighestPrio(dom, dest.tcbPriority)) {
         slowpath(SysCall as usize);
     }
-    if unlikely((ep_cap.get_capCanGrant() == 0) && (ep_cap.get_capCanGrantReply() == 0)) {
+    if unlikely((cap::cap_endpoint_cap(lookup_fp_ret).get_capCanGrant() == 0) && (cap::cap_endpoint_cap(lookup_fp_ret).get_capCanGrantReply() == 0)) {
         slowpath(SysCall as usize);
     }
     #[cfg(feature = "KERNEL_MCS")]
@@ -328,7 +328,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     switchToThread_fp(dest as *mut tcb_t, cap_pd, stored_hw_asid);
     info.set_capsUnwrapped(0);
     let msgInfo1 = info.to_word();
-    let badge = ep_cap.get_capEPBadge() as usize;
+    let badge = cap::cap_endpoint_cap(lookup_fp_ret).get_capEPBadge() as usize;
     fastpath_restore(badge, msgInfo1, get_currenct_thread());
 }
 
