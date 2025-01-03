@@ -299,8 +299,7 @@ fn decode_tcb_configure(
             }
             return dc_ret.status;
         }
-        let status =
-            check_ipc_buffer_vaild(new_buffer_addr, cap::cap_frame_cap(&dc_ret.capability));
+        let status = check_ipc_buffer_vaild(new_buffer_addr, &dc_ret.capability);
         if status != exception_t::EXCEPTION_NONE {
             return status;
         }
@@ -593,7 +592,7 @@ fn decode_set_ipc_buffer(
             }
             return dc_ret.status;
         }
-        let status = check_ipc_buffer_vaild(buffer_addr, &cap::cap_frame_cap(&dc_ret.capability));
+        let status = check_ipc_buffer_vaild(buffer_addr, &dc_ret.capability);
         if status != exception_t::EXCEPTION_NONE {
             return status;
         }

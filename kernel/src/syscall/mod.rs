@@ -308,10 +308,13 @@ fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
         }
         return exception_t::EXCEPTION_FAULT;
     }
-    let handler_cap = cap::cap_endpoint_cap(&ptr_to_mut(lu_ret.slot).capability);
-    if handler_cap.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
-        && (handler_cap.get_capCanGrant() != 0 || handler_cap.get_capCanGrantReply() != 0)
+
+    if ptr_to_mut(lu_ret.slot).capability.clone().get_tag() == cap_tag::cap_endpoint_cap
+        && (cap::cap_endpoint_cap(&ptr_to_mut(lu_ret.slot).capability).get_capCanGrant() != 0
+            || cap::cap_endpoint_cap(&ptr_to_mut(lu_ret.slot).capability).get_capCanGrantReply()
+                != 0)
     {
+        let handler_cap = cap::cap_endpoint_cap(&ptr_to_mut(lu_ret.slot).capability);
         thread.tcbFault = unsafe { current_fault.clone() };
         if thread.tcbFault.get_tag() == seL4_Fault_tag::seL4_Fault_CapFault {
             thread.tcbLookupFailure = origin_lookup_fault;

@@ -12,8 +12,7 @@ use sel4_common::ffi::current_fault;
 use sel4_common::sel4_config::seL4_MinUntypedBits;
 use sel4_common::shared_types_bf_gen::seL4_CapRights;
 use sel4_common::structures_gen::{
-    cap, cap_Splayed, cap_frame_cap, cap_tag, lookup_fault_depth_mismatch,
-    lookup_fault_invalid_root, notification,
+    cap, cap_Splayed, cap_tag, lookup_fault_depth_mismatch, lookup_fault_invalid_root, notification,
 };
 use sel4_common::{
     sel4_config::*,
@@ -103,8 +102,8 @@ pub fn check_prio(prio: usize, auth_tcb: &tcb_t) -> exception_t {
 }
 
 #[inline]
-pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap_frame_cap) -> exception_t {
-    if capability.clone().unsplay().get_tag() != cap_tag::cap_frame_cap {
+pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap) -> exception_t {
+    if capability.clone().get_tag() != cap_tag::cap_frame_cap {
         debug!("Requested IPC Buffer is not a frame cap.");
         unsafe {
             current_syscall_error._type = seL4_IllegalOperation;
@@ -112,7 +111,7 @@ pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap_frame_cap) -> except
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    if capability.get_capFIsDevice() != 0 {
+    if cap::cap_frame_cap(capability).get_capFIsDevice() != 0 {
         debug!("Specifying a device frame as an IPC buffer is not permitted.");
         unsafe {
             current_syscall_error._type = seL4_IllegalOperation;

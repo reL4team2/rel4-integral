@@ -124,19 +124,20 @@ impl Transfer for tcb_t {
         while i < seL4_MsgMaxExtraCaps && current_extra_caps[i] as usize != 0 {
             let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
             let capability_cpy = &slot.capability.clone();
-            let capability = cap::cap_endpoint_cap(capability_cpy);
-            if capability.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
+            if capability_cpy.get_tag() == cap_tag::cap_endpoint_cap
                 && ep.is_some()
-                && capability.get_capEPPtr() as usize == ep.unwrap().get_ptr()
+                && cap::cap_endpoint_cap(capability_cpy).get_capEPPtr() as usize
+                    == ep.unwrap().get_ptr()
             {
-                buffer.caps_or_badges[i] = capability.get_capEPBadge() as usize;
+                buffer.caps_or_badges[i] =
+                    cap::cap_endpoint_cap(capability_cpy).get_capEPBadge() as usize;
                 info.set_capsUnwrapped(info.get_capsUnwrapped() | (1 << i));
             } else {
                 if dest_slot.is_none() {
                     break;
                 } else {
                     let dest = dest_slot.take();
-                    let dc_ret = slot.derive_cap(&capability.clone().unsplay());
+                    let dc_ret = slot.derive_cap(&capability_cpy);
                     if dc_ret.status != exception_t::EXCEPTION_NONE
                         || dc_ret.capability.get_tag() == cap_tag::cap_null_cap
                     {
@@ -169,19 +170,20 @@ impl Transfer for tcb_t {
         while i < seL4_MsgMaxExtraCaps && current_extra_caps[i] as usize != 0 {
             let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
             let capability_cpy = &slot.capability.clone();
-            let capability = cap::cap_endpoint_cap(capability_cpy);
-            if capability.clone().unsplay().get_tag() == cap_tag::cap_endpoint_cap
+            if capability_cpy.get_tag() == cap_tag::cap_endpoint_cap
                 && ep.is_some()
-                && capability.get_capEPPtr() as usize == ep.unwrap().get_ptr()
+                && cap::cap_endpoint_cap(capability_cpy).get_capEPPtr() as usize
+                    == ep.unwrap().get_ptr()
             {
-                buffer.caps_or_badges[i] = capability.get_capEPBadge() as usize;
+                buffer.caps_or_badges[i] =
+                    cap::cap_endpoint_cap(capability_cpy).get_capEPBadge() as usize;
                 info.set_capsUnwrapped(info.get_capsUnwrapped() | (1 << i));
             } else {
                 if dest_slot.is_none() {
                     break;
                 } else {
                     let dest = dest_slot.take();
-                    let dc_ret = slot.derive_cap(&capability.clone().unsplay());
+                    let dc_ret = slot.derive_cap(&capability_cpy);
                     if dc_ret.status != exception_t::EXCEPTION_NONE
                         || dc_ret.capability.get_tag() == cap_tag::cap_null_cap
                     {
