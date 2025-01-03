@@ -683,7 +683,7 @@ unsafe fn rust_create_it_address_space(
                 root_cnode_cap,
                 create_it_pt_cap(&lvl1pt_cap, it_alloc_paging(), pt_vptr, IT_ASID).unsplay(),
             ) {
-                return cap::cap_page_table_cap(&cap_null_cap::new().unsplay()).clone();
+                return cap_page_table_cap::new(0,0,0,0);
             }
             pt_vptr += RISCV_GET_LVL_PGSIZE(i);
         }
@@ -704,7 +704,6 @@ unsafe fn rust_create_it_address_space(
 ) -> cap_vspace_cap {
     // create the PGD
 
-    use sel4_common::structures_gen::cap_null_cap;
     let vspace_cap = cap_vspace_cap::new(IT_ASID as u64, rootserver.vspace as u64, 1);
     let ptr = root_cnode_cap.get_capCNodePtr() as *mut cte_t;
     let slot_pos_before = ndks_boot.slot_pos_cur;
@@ -723,7 +722,7 @@ unsafe fn rust_create_it_address_space(
             root_cnode_cap,
             create_it_pud_cap(&vspace_cap, it_alloc_paging(), vptr, IT_ASID).unsplay(),
         ) {
-            return cap::cap_vspace_cap(&cap_null_cap::new().unsplay()).clone();
+            return cap_vspace_cap::new(0,0,0);
         }
         vptr += BIT!(PGD_INDEX_OFFSET);
     }
@@ -735,7 +734,7 @@ unsafe fn rust_create_it_address_space(
             root_cnode_cap,
             create_it_pd_cap(&vspace_cap, it_alloc_paging(), vptr, IT_ASID),
         ) {
-            return cap::cap_vspace_cap(&cap_null_cap::new().unsplay()).clone();
+            return cap_vspace_cap::new(0,0,0);
         }
         vptr += BIT!(PUD_INDEX_OFFSET);
     }
@@ -747,7 +746,7 @@ unsafe fn rust_create_it_address_space(
             root_cnode_cap,
             create_it_pt_cap(&vspace_cap, it_alloc_paging(), vptr, IT_ASID).unsplay(),
         ) {
-            return cap::cap_vspace_cap(&cap_null_cap::new().unsplay()).clone();
+            return cap_vspace_cap::new(0,0,0);
         }
         vptr += BIT!(PD_INDEX_OFFSET);
     }

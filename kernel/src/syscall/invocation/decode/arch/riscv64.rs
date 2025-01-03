@@ -262,8 +262,8 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     let vaddr = get_syscall_arg(0, buffer);
     let w_rights_mask = get_syscall_arg(1, buffer);
     let attr = vm_attributes_t::from_word(get_syscall_arg(2, buffer));
-    let lvl1pt_cap = cap::cap_page_table_cap(&get_extra_cap_by_index(0).unwrap().capability);
-    if let Some((lvl1pt, asid)) = get_vspace(&lvl1pt_cap) {
+    let lvl1pt_cap = &get_extra_cap_by_index(0).unwrap().capability;
+    if let Some((lvl1pt, asid)) = get_vspace(lvl1pt_cap) {
         let frame_size = cap::cap_frame_cap(&frame_slot.capability).get_capFSize() as usize;
         let vtop = vaddr + BIT!(pageBitsForSize(frame_size)) - 1;
         if unlikely(vtop >= USER_TOP) {
@@ -406,9 +406,9 @@ fn decode_page_table_map(
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let lvl1pt_cap = cap::cap_page_table_cap(&get_extra_cap_by_index(0).unwrap().capability);
+    let lvl1pt_cap = &get_extra_cap_by_index(0).unwrap().capability;
 
-    if let Some((lvl1pt, asid)) = get_vspace(&lvl1pt_cap) {
+    if let Some((lvl1pt, asid)) = get_vspace(lvl1pt_cap) {
         let lu_ret = lvl1pt.lookup_pt_slot(vaddr);
         let lu_slot = convert_to_mut_type_ref::<PTE>(lu_ret.ptSlot as usize);
         #[cfg(target_arch = "riscv64")]
@@ -426,9 +426,9 @@ fn decode_page_table_map(
     }
 }
 
-fn get_vspace(lvl1pt_cap: &cap_page_table_cap) -> Option<(&mut PTE, usize)> {
-    if lvl1pt_cap.clone().unsplay().get_tag() != cap_tag::cap_page_table_cap
-        || lvl1pt_cap.get_capPTIsMapped() as usize == asidInvalid
+fn get_vspace(lvl1pt_cap: &cap) -> Option<(&mut PTE, usize)> {
+    if lvl1pt_cap.clone().get_tag() != cap_tag::cap_page_table_cap
+        || cap::cap_page_table_cap(lvl1pt_cap).get_capPTIsMapped() as usize == asidInvalid
     {
         debug!("RISCVMMUInvocation: Invalid top-level PageTable.");
         unsafe {
@@ -437,9 +437,10 @@ fn get_vspace(lvl1pt_cap: &cap_page_table_cap) -> Option<(&mut PTE, usize)> {
         }
         return None;
     }
+	let lvl1pt_capability = cap::cap_page_table_cap(lvl1pt_cap);
 
-    let lvl1pt = convert_to_mut_type_ref::<PTE>(lvl1pt_cap.get_capPTBasePtr() as usize);
-    let asid = lvl1pt_cap.get_capPTMappedASID() as usize;
+    let lvl1pt = convert_to_mut_type_ref::<PTE>(lvl1pt_capability.get_capPTBasePtr() as usize);
+    let asid = lvl1pt_capability.get_capPTMappedASID() as usize;
 
     let find_ret = find_vspace_for_asid(asid);
     if find_ret.status != exception_t::EXCEPTION_NONE {
