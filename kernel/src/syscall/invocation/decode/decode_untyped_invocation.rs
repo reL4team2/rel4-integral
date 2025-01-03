@@ -2,7 +2,6 @@ use crate::BIT;
 use log::debug;
 use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_cnode_cap;
-use sel4_common::structures_gen::cap_null_cap;
 use sel4_common::structures_gen::cap_tag;
 use sel4_common::structures_gen::cap_untyped_cap;
 use sel4_common::structures_gen::lookup_fault_missing_capability;
@@ -93,14 +92,13 @@ pub fn decode_untyed_invocation(
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let cap_null_new = &cap_null_cap::new().unsplay();
-    let mut node_cap = cap::cap_cnode_cap(cap_null_new);
-    let status = get_target_cnode(node_index, node_depth, &mut node_cap);
+    let node_cap = &mut cap_cnode_cap::new(0, 0, 0, 0);
+    let status = get_target_cnode(node_index, node_depth, node_cap);
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
 
-    let status = check_cnode_slot(&node_cap, node_offset, node_window);
+    let status = check_cnode_slot(node_cap, node_offset, node_window);
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
