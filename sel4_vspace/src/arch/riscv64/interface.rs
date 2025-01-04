@@ -6,7 +6,6 @@ use crate::PTEFlags;
 use crate::RISCV_GET_PT_INDEX;
 use core::intrinsics::unlikely;
 use sel4_common::sel4_config::CONFIG_PT_LEVELS;
-use sel4_common::structures_gen::cap_page_table_cap;
 use sel4_common::structures_gen::cap_tag;
 use sel4_common::{
     structures::exception_t, structures_gen::lookup_fault, utils::convert_to_mut_type_ref,
