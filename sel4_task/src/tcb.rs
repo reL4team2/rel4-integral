@@ -424,35 +424,7 @@ impl tcb_t {
     pub fn set_vm_root(&mut self) -> Result<(), lookup_fault> {
         // let threadRoot = &(*getCSpace(thread as usize, tcbVTable)).cap;
         let thread_root = &self.get_cspace(tcbVTable).capability;
-        #[cfg(target_arch = "riscv64")]
-        let thread_root_vspace = cap::cap_page_table_cap(&thread_root);
-        #[cfg(target_arch = "aarch64")]
-        let thread_root_vspace = cap::cap_vspace_cap(&thread_root);
-        #[cfg(target_arch = "aarch64")]
-        {
-            if !thread_root.is_valid_native_root() {
-                setCurrentUserVSpaceRoot(ttbr_new(
-                    0,
-                    kpptr_to_paddr(get_arm_global_user_vspace_base()),
-                ));
-                return Ok(());
-            }
-
-            let vspace_root = thread_root_vspace.get_capVSBasePtr() as usize;
-            let asid = thread_root_vspace.get_capVSMappedASID() as usize;
-            let find_ret = find_vspace_for_asid(asid);
-
-            if let Some(root) = find_ret.vspace_root {
-                if find_ret.status != exception_t::EXCEPTION_NONE || root as usize != vspace_root {
-                    setCurrentUserVSpaceRoot(ttbr_new(
-                        0,
-                        kpptr_to_paddr(get_arm_global_user_vspace_base()),
-                    ));
-                    return Ok(());
-                }
-            }
-        }
-        set_vm_root(thread_root_vspace)
+        set_vm_root(thread_root)
     }
 
     #[inline]

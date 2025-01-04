@@ -7,13 +7,14 @@ use crate::arch::VAddr;
 use crate::{asid_t, find_vspace_for_asid, paddr_to_pptr, pptr_t, pptr_to_paddr, vptr_t, PTE};
 use sel4_common::arch::MessageLabel;
 use sel4_common::structures::exception_t;
-use sel4_common::structures_gen::{cap_tag, cap_vspace_cap};
+use sel4_common::structures_gen::{cap, cap_tag, cap_vspace_cap};
 use sel4_common::utils::{pageBitsForSize, ptr_to_mut};
 use sel4_common::{
     sel4_config::{seL4_PageBits, PT_INDEX_BITS},
     structures_gen::lookup_fault,
     BIT,
 };
+use sel4_cspace::capability::cap_arch_func;
 pub const PageAlignedLen: usize = BIT!(PT_INDEX_BITS);
 #[repr(align(4096))]
 #[derive(Clone, Copy)]
@@ -118,8 +119,29 @@ pub fn set_kernel_page_table_by_index(idx: usize, pte: PTE) {
 /// 根据给定的`vspace_root`设置相应的页表，会检查`vspace_root`是否合法，如果不合法默认设置为内核页表
 ///
 /// Use page table in vspace_root to set the satp register.
-pub fn set_vm_root(vspace_root: &cap_vspace_cap) -> Result<(), lookup_fault> {
-    setCurrentUserVSpaceRoot(pptr_to_paddr(vspace_root.get_capVSBasePtr() as usize));
+pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
+	if !thread_root.is_valid_native_root() {
+		setCurrentUserVSpaceRoot(ttbr_new(
+			0,
+			kpptr_to_paddr(get_arm_global_user_vspace_base()),
+		));
+		return Ok(());
+	}
+	let thread_root_vspace = cap::cap_vspace_cap(&thread_root);
+	let vspace_root = thread_root_vspace.get_capVSBasePtr() as usize;
+	let asid = thread_root_vspace.get_capVSMappedASID() as usize;
+	let find_ret = find_vspace_for_asid(asid);
+
+	if let Some(root) = find_ret.vspace_root {
+		if find_ret.status != exception_t::EXCEPTION_NONE || root as usize != vspace_root {
+			setCurrentUserVSpaceRoot(ttbr_new(
+				0,
+				kpptr_to_paddr(get_arm_global_user_vspace_base()),
+			));
+			return Ok(());
+		}
+	}
+    setCurrentUserVSpaceRoot(pptr_to_paddr(thread_root_vspace.get_capVSBasePtr() as usize));
     Ok(())
 }
 

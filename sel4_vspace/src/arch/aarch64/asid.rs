@@ -3,8 +3,7 @@ use sel4_common::{
     sel4_config::{asidHighBits, asidLowBits, IT_ASID},
     structures::exception_t,
     structures_gen::{
-        asid_map_Splayed, asid_map_asid_map_none, asid_map_asid_map_vspace, asid_map_tag,
-        cap_asid_pool_cap, cap_vspace_cap, lookup_fault, lookup_fault_invalid_root,
+        asid_map_Splayed, asid_map_asid_map_none, asid_map_asid_map_vspace, asid_map_tag, cap, cap_asid_pool_cap, cap_vspace_cap, lookup_fault, lookup_fault_invalid_root
     },
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
     BIT, MASK,
@@ -69,7 +68,7 @@ pub fn find_vspace_for_asid(asid: usize) -> findVSpaceForASID_ret {
 pub fn delete_asid(
     asid: usize,
     vspace: *mut PTE,
-    capability: &cap_vspace_cap,
+    capability: &cap,
 ) -> Result<(), lookup_fault> {
     let ptr = convert_to_option_mut_type_ref::<asid_pool_t>(get_asid_table()[asid >> asidLowBits]);
     if let Some(pool) = ptr {
@@ -92,7 +91,7 @@ pub fn delete_asid(
 pub fn delete_asid_pool(
     asid_base: asid_t,
     pool: *mut asid_pool_t,
-    default_vspace_cap: &cap_vspace_cap,
+    default_vspace_cap: &cap,
 ) -> Result<(), lookup_fault> {
     let pool_in_table = get_asid_pool_by_index(asid_base >> asidLowBits);
     if pool as usize == pool_in_table {

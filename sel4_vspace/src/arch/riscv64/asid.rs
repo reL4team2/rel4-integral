@@ -4,7 +4,7 @@ use sel4_common::{
     sel4_config::{asidHighBits, asidLowBits, IT_ASID},
     structures::exception_t,
     structures_gen::{
-        cap_asid_pool_cap, cap_page_table_cap, lookup_fault, lookup_fault_invalid_root,
+        cap, cap_asid_pool_cap, cap_page_table_cap, lookup_fault, lookup_fault_invalid_root,
     },
     utils::convert_to_option_mut_type_ref,
     BIT, MASK,
@@ -34,7 +34,7 @@ pub fn write_it_asid_pool(it_ap_cap: &cap_asid_pool_cap, it_lvl1pt_cap: &cap_pag
 pub fn delete_asid(
     asid: asid_t,
     vspace: *mut PTE,
-    default_vspace_cap: &cap_page_table_cap,
+    default_vspace_cap: &cap,
 ) -> Result<(), lookup_fault> {
     unsafe {
         let poolPtr = riscvKSASIDTable[asid >> asidLowBits];
@@ -110,7 +110,7 @@ pub fn find_vspace_for_asid(asid: asid_t) -> findVSpaceForASID_ret {
 pub fn delete_asid_pool(
     asid_base: asid_t,
     pool: *mut asid_pool_t,
-    default_vspace_cap: &cap_page_table_cap,
+    default_vspace_cap: &cap,
 ) -> Result<(), lookup_fault> {
     unsafe {
         if riscvKSASIDTable[asid_base >> asidLowBits] == pool {

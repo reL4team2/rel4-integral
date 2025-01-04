@@ -395,7 +395,7 @@ pub fn deleteASID(asid: asid_t, vspace: *mut PTE) {
         if let Err(lookup_fault) = delete_asid(
             asid,
             vspace,
-            cap::cap_page_table_cap(&get_currenct_thread().get_cspace(tcbVTable).capability),
+            &get_currenct_thread().get_cspace(tcbVTable).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }
@@ -409,7 +409,7 @@ pub fn deleteASID(asid: asid_t, vspace: *mut PTE) {
         if let Err(lookup_fault) = delete_asid(
             asid,
             vspace,
-            &cap::cap_vspace_cap(&get_currenct_thread().get_cspace(tcbVTable).capability),
+            &get_currenct_thread().get_cspace(tcbVTable).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }
@@ -423,7 +423,7 @@ pub fn deleteASIDPool(asid_base: asid_t, pool: *mut asid_pool_t) {
         if let Err(lookup_fault) = delete_asid_pool(
             asid_base,
             pool,
-            &cap::cap_vspace_cap(&get_currenct_thread().get_cspace(tcbVTable).capability),
+            &get_currenct_thread().get_cspace(tcbVTable).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }
@@ -437,7 +437,7 @@ pub fn deleteASIDPool(asid_base: asid_t, pool: *mut asid_pool_t) {
         if let Err(lookup_fault) = delete_asid_pool(
             asid_base,
             pool,
-            &cap::cap_page_table_cap(&get_currenct_thread().get_cspace(tcbVTable).capability),
+            &get_currenct_thread().get_cspace(tcbVTable).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }
