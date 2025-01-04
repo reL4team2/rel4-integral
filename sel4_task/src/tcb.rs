@@ -25,16 +25,9 @@ use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::BIT;
 use sel4_common::MASK;
-#[cfg(target_arch = "aarch64")]
-use sel4_cspace::capability::cap_arch_func;
 #[cfg(not(feature = "KERNEL_MCS"))]
 use sel4_cspace::interface::cte_insert;
 use sel4_cspace::interface::{cte_t, resolve_address_bits};
-#[cfg(target_arch = "aarch64")]
-use sel4_vspace::{
-    find_vspace_for_asid, get_arm_global_user_vspace_base, kpptr_to_paddr,
-    setCurrentUserVSpaceRoot, ttbr_new,
-};
 use sel4_vspace::{pptr_t, set_vm_root};
 
 use super::scheduler::{

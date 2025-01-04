@@ -13,7 +13,7 @@ use sel4_common::sel4_config::{
     seL4_RevokeFirst, seL4_TruncatedMessage,
 };
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
-use sel4_common::structures_gen::{cap, cap_page_table_cap, cap_tag};
+use sel4_common::structures_gen::{cap, cap_tag};
 use sel4_common::structures_gen::{lookup_fault_invalid_root, lookup_fault_missing_capability};
 use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
 use sel4_common::{BIT, MASK};
