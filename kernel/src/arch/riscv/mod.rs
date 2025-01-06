@@ -11,6 +11,8 @@ pub use platform::{init_cpu, init_freemem};
 pub use exception::handleUnknownSyscall;
 
 core::arch::global_asm!(include_str!("restore_fp.S"));
+core::arch::global_asm!(include_str!("head.S"));
+core::arch::global_asm!(include_str!("traps.S"));
 
 pub fn read_stval() -> usize {
     let temp: usize;
