@@ -14,7 +14,8 @@ unstable-options = true
 
 [target.riscv64imac-unknown-none-elf]
 rustflags = [
-    "-Ztls-model=local-exec"
+    "-Ztls-model=local-exec",
+    "-Clink-arg=-Tkernel/src/arch/riscv/linker.lds_pp"
 ]
 
 [env]

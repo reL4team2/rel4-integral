@@ -1,3 +1,5 @@
+.global __fastpath_restore
+
 __fastpath_restore:
 	mv  t0 , a2
 	ld  ra, (0*8)(t0)

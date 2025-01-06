@@ -1,10 +1,3 @@
-extern "C" {
-    // #[cfg(target_arch = "aarch64")]
-    // pub fn kernel_stack_alloc();
-    #[cfg(target_arch = "riscv64")]
-    pub fn init_plat();
-}
-
 #[cfg(feature = "ENABLE_SMP")]
 #[link(name = "kernel_all.c")]
 extern "C" {

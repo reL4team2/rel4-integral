@@ -18,6 +18,7 @@ extern "C" {
 }
 
 #[no_mangle]
+#[link_section = ".boot.text"]
 pub fn rust_try_init_kernel(
     ui_p_reg_start: usize,
     ui_p_reg_end: usize,
