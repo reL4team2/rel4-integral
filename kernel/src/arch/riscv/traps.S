@@ -1,9 +1,7 @@
 .section .text
 
 .global trap_entry
-.extern c_handle_syscall
-.extern c_handle_fastpath_reply_recv
-.extern c_handle_fastpath_call
+.extern handle_syscall
 .extern c_handle_interrupt
 .extern c_handle_exception
 
@@ -57,19 +55,7 @@ trap_entry:
   li s4, 8
   bne s0, s4, exception
 
-handle_syscall:
-  addi x1, x1, 4
-  sd x1, (34*(64 / 8))(t0)
-  li t3, -1
-  bne a7, t3, 1f
-  j c_handle_fastpath_call
-1:
-  li t3, -2
-  bne a7, t3, 2f
-  j c_handle_fastpath_reply_recv
-2:
-  mv a2, a7
-  j c_handle_syscall
+  j handle_syscall
 
 exception:
   sd x1, (34*(64 / 8))(t0)
