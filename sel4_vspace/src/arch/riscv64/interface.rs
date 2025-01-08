@@ -6,11 +6,11 @@ use crate::PTEFlags;
 use crate::RISCV_GET_PT_INDEX;
 use core::intrinsics::unlikely;
 use sel4_common::sel4_config::CONFIG_PT_LEVELS;
+use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_tag;
 use sel4_common::{
     structures::exception_t, structures_gen::lookup_fault, utils::convert_to_mut_type_ref,
 };
-use sel4_common::structures_gen::cap;
 
 use crate::PTE;
 
@@ -26,7 +26,7 @@ pub fn set_vm_root(vspace_root_cap: &cap) -> Result<(), lookup_fault> {
             return Ok(());
         }
     }
-	let vspace_root = cap::cap_page_table_cap(vspace_root_cap);
+    let vspace_root = cap::cap_page_table_cap(vspace_root_cap);
     let lvl1pt = convert_to_mut_type_ref::<PTE>(vspace_root.get_capPTBasePtr() as usize);
     let asid = vspace_root.get_capPTMappedASID() as usize;
     let find_ret = find_vspace_for_asid(asid);

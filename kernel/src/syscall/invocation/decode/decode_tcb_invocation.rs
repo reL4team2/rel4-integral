@@ -514,10 +514,11 @@ fn decode_set_sched_params(
 fn decode_set_sched_params(
     capability: &cap_thread_cap,
     length: usize,
-    _slot: &mut cte_t,
+    slot: &mut cte_t,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    // TODO: MCS
+    use sel4_common::{sel4_config::tcbFaultHandler, structures_gen::cap_Splayed};
+    use sel4_task::sched_context::sched_context_t;
     if length < 2
         || get_extra_cap_by_index(0).is_none()
         || get_extra_cap_by_index(1).is_none()
@@ -532,6 +533,11 @@ fn decode_set_sched_params(
     let new_mcp = get_syscall_arg(0, buffer);
     let new_prio = get_syscall_arg(1, buffer);
     let auth_cap = cap::cap_thread_cap(&get_extra_cap_by_index(0).unwrap().capability);
+
+    let sc_cap = &get_extra_cap_by_index(1).unwrap().capability;
+    let fh_slot = get_extra_cap_by_index(2);
+    let fh_cap = &get_extra_cap_by_index(2).unwrap().capability;
+
     if auth_cap.clone().unsplay().get_tag() != cap_tag::cap_thread_cap {
         debug!("SetSchedParams: authority cap not a TCB.");
         unsafe {
@@ -558,11 +564,80 @@ fn decode_set_sched_params(
         );
         return status;
     }
+    let tcb = convert_to_mut_type_ref::<tcb_t>(capability.get_capTCBPtr() as usize);
+    let mut have_sc = false;
+    match sc_cap.clone().splay() {
+        cap_Splayed::sched_context_cap(data) => {
+            let sc = convert_to_mut_type_ref::<sched_context_t>(data.get_capSCPtr() as usize);
+            have_sc = true;
+            if tcb.tcbSchedContext != 0 {
+                debug!("TCB Configure: tcb already has a scheduling context.");
+                unsafe {
+                    current_syscall_error._type = seL4_IllegalOperation;
+                }
+                return exception_t::EXCEPTION_SYSCALL_ERROR;
+            }
+            if sc.scTcb != 0 {
+                debug!("TCB Configure: sched contextext already bound.");
+                unsafe {
+                    current_syscall_error._type = seL4_IllegalOperation;
+                }
+                return exception_t::EXCEPTION_SYSCALL_ERROR;
+            }
+            if tcb.is_blocked() && !sc.sc_released() {
+                debug!("TCB Configure: tcb blocked and scheduling context not schedulable.");
+                unsafe {
+                    current_syscall_error._type = seL4_IllegalOperation;
+                }
+                return exception_t::EXCEPTION_SYSCALL_ERROR;
+            }
+        }
+        cap_Splayed::null_cap(_) => {
+            if tcb.is_current() {
+                debug!("TCB SetSchedParams: Cannot change sched_context of current thread");
+                unsafe {
+                    current_syscall_error._type = seL4_IllegalOperation;
+                }
+                return exception_t::EXCEPTION_SYSCALL_ERROR;
+            }
+        }
+        _ => {
+            debug!("TCB Configure: sched context cap invalid.");
+            unsafe {
+                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error.invalidCapNumber = 2;
+            }
+            return exception_t::EXCEPTION_SYSCALL_ERROR;
+        }
+    }
+    if !validFaultHandler(fh_cap) {
+        debug!("TCB Configure: fault endpoint cap invalid.");
+        unsafe {
+            current_syscall_error._type = seL4_InvalidCapability;
+            current_syscall_error.invalidCapNumber = 3;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
 
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    let target = convert_to_mut_type_ref::<tcb_t>(capability.get_capTCBPtr() as usize);
-    invoke_tcb_set_mcp(target, new_mcp);
-    invoke_tcb_set_priority(target, new_prio)
+    let t_cap = cap_thread_cap::new(tcb.get_ptr() as u64).unsplay();
+
+    let status = installTCBCap(tcb, &t_cap, slot, tcbFaultHandler, fh_cap, fh_slot.unwrap());
+    if status != exception_t::EXCEPTION_NONE {
+        return status;
+    }
+    invoke_tcb_set_mcp(tcb, new_mcp);
+    invoke_tcb_set_priority(tcb, new_prio);
+    if have_sc && cap::cap_sched_context_cap(sc_cap).get_capSCPtr() as usize != tcb.tcbSchedContext
+    {
+        let sc = convert_to_mut_type_ref::<sched_context_t>(
+            cap::cap_sched_context_cap(sc_cap).get_capSCPtr() as usize,
+        );
+        sc.schedContext_bindTCB(tcb);
+    } else if !have_sc && tcb.tcbSchedContext != 0 {
+        convert_to_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext).schedContext_unbindTCB(tcb);
+    }
+    exception_t::EXCEPTION_NONE
 }
 
 fn decode_set_ipc_buffer(

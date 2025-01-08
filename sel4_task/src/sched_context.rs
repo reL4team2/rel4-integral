@@ -180,6 +180,7 @@ impl sched_context {
                     (*self.refill_head()).rAmount += (*old_head).rAmount;
                 }
             }
+            assert!(self.refill_sufficient(0));
         }
     }
     #[inline]
@@ -278,7 +279,7 @@ impl sched_context {
     }
 
     pub fn schedContext_resume(&mut self) {
-        assert!(self.get_ptr() != 0 || self.scTcb != 0);
+        assert!(self.get_ptr() == 0 || self.scTcb != 0);
         if likely(self.get_ptr() != 0)
             && convert_to_mut_type_ref::<tcb_t>(self.scTcb).is_schedulable()
         {

@@ -120,27 +120,27 @@ pub fn set_kernel_page_table_by_index(idx: usize, pte: PTE) {
 ///
 /// Use page table in vspace_root to set the satp register.
 pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
-	if !thread_root.is_valid_native_root() {
-		setCurrentUserVSpaceRoot(ttbr_new(
-			0,
-			kpptr_to_paddr(get_arm_global_user_vspace_base()),
-		));
-		return Ok(());
-	}
-	let thread_root_vspace = cap::cap_vspace_cap(&thread_root);
-	let vspace_root = thread_root_vspace.get_capVSBasePtr() as usize;
-	let asid = thread_root_vspace.get_capVSMappedASID() as usize;
-	let find_ret = find_vspace_for_asid(asid);
+    if !thread_root.is_valid_native_root() {
+        setCurrentUserVSpaceRoot(ttbr_new(
+            0,
+            kpptr_to_paddr(get_arm_global_user_vspace_base()),
+        ));
+        return Ok(());
+    }
+    let thread_root_vspace = cap::cap_vspace_cap(&thread_root);
+    let vspace_root = thread_root_vspace.get_capVSBasePtr() as usize;
+    let asid = thread_root_vspace.get_capVSMappedASID() as usize;
+    let find_ret = find_vspace_for_asid(asid);
 
-	if let Some(root) = find_ret.vspace_root {
-		if find_ret.status != exception_t::EXCEPTION_NONE || root as usize != vspace_root {
-			setCurrentUserVSpaceRoot(ttbr_new(
-				0,
-				kpptr_to_paddr(get_arm_global_user_vspace_base()),
-			));
-			return Ok(());
-		}
-	}
+    if let Some(root) = find_ret.vspace_root {
+        if find_ret.status != exception_t::EXCEPTION_NONE || root as usize != vspace_root {
+            setCurrentUserVSpaceRoot(ttbr_new(
+                0,
+                kpptr_to_paddr(get_arm_global_user_vspace_base()),
+            ));
+            return Ok(());
+        }
+    }
     setCurrentUserVSpaceRoot(pptr_to_paddr(thread_root_vspace.get_capVSBasePtr() as usize));
     Ok(())
 }

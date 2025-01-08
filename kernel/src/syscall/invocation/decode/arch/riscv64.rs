@@ -437,7 +437,7 @@ fn get_vspace(lvl1pt_cap: &cap) -> Option<(&mut PTE, usize)> {
         }
         return None;
     }
-	let lvl1pt_capability = cap::cap_page_table_cap(lvl1pt_cap);
+    let lvl1pt_capability = cap::cap_page_table_cap(lvl1pt_cap);
 
     let lvl1pt = convert_to_mut_type_ref::<PTE>(lvl1pt_capability.get_capPTBasePtr() as usize);
     let asid = lvl1pt_capability.get_capPTMappedASID() as usize;
