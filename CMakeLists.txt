@@ -7,10 +7,15 @@ if(KernelArchRiscV)
     set(KERNEL_ELF_PATH ${PROJECT_SOURCE_DIR}/target/${RUST_TARGET}/release/rel4_kernel)
 endif()
 
+set(BUILD_COMMAND cargo build --target ${RUST_TARGET} --release)
+if(KernelIsMCS)
+    set(BUILD_COMMAND cargo build --release --target ${RUST_TARGET} --features KERNEL_MCS)
+endif()
+
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/reL4/kernel.elf
     COMMAND cargo update -p home --precise 0.5.5
-    COMMAND cargo build --target ${RUST_TARGET} --release
+    COMMAND ${BUILD_COMMAND}
     COMMAND ${CMAKE_OBJCOPY} --remove-section=.riscv.attributes ${KERNEL_ELF_PATH} ${CMAKE_BINARY_DIR}/reL4/kernel.elf
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Build and prepare reL4 kernel.elf"
