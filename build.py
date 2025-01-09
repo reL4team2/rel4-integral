@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('-c', '--cpu', dest="cpu_nums", type=int,
                         help="kernel & qemu cpu nums", default=1)
     parser.add_argument('-m', '--mcs', dest='mcs', default='off', help="set-mcs")
+    parser.add_argument('-B', '--bin', dest='bin', action='store_true', help="use rel4 kernel binary")
     args = parser.parse_args()
     return args
 
@@ -62,33 +63,25 @@ if __name__ == "__main__":
             clean_config()
             sys.exit(-1)
     else:
+        build_command = f"cargo build --release --target {target}"
         if args.cpu_nums > 1:
-            if mcs == True:
-                print("[ Config ] multi cpu and mcs\n")
-                if not exec_shell(f"cargo build --release --target {target} --features \"ENABLE_SMP KERNEL_MCS\""):
-                    clean_config()
-                    sys.exit(-1)
-            else:
-                print("[ Config ] multi cpu no mcs\n")
-                if not exec_shell(f"cargo build --release --target {target} --features ENABLE_SMP"):
-                    clean_config()
-                    sys.exit(-1)
+            build_command += " --features ENABLE_SMP"
+        if args.mcs == "on":
+            build_command += " --features KERNEL_MCS"
+        if args.bin == False:
+            build_command += " --lib"
         else:
-            if mcs == True:
-                print("[ Config ] single cpu and mcs\n")
-                if not exec_shell(f"cargo build --release --target {target} --features \"KERNEL_MCS\""):
-                    clean_config()
-                    sys.exit(-1)
-            else:
-                print("[ Config ] single cpu no mcs\n")
-                if not exec_shell(f"cargo build --release --target {target}"):
-                    clean_config()
-                    sys.exit(-1)
+            build_command += " --bin rel4_kernel --features BUILD_BINARY"
+        if not exec_shell(build_command):
+            clean_config()
+            sys.exit(-1)
     
     if args.cpu_nums > 1:
         shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE -DSMP=TRUE "
         if mcs==True:
             shell_command = shell_command + " -DMCS=TRUE "
+        if args.bin == True:
+            shell_command = shell_command + " -DREL4_KERNEL=TRUE "
         shell_command = shell_command + " && ninja"
         if not exec_shell(shell_command):
             clean_config()
@@ -97,6 +90,8 @@ if __name__ == "__main__":
     shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE "
     if mcs==True:
         shell_command = shell_command + " -DMCS=TRUE "
+    if args.bin == True:
+        shell_command = shell_command + " -DREL4_KERNEL=TRUE "
     shell_command = shell_command + " && ninja"
     if not exec_shell(shell_command):
         clean_config()

@@ -5,7 +5,6 @@ use crate::{
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
     config::{BI_FRAME_SIZE_BITS, USER_TOP},
-    ffi::init_plat,
     structures::{p_region_t, seL4_SlotRegion, v_region_t},
 };
 use log::debug;
@@ -47,10 +46,7 @@ pub fn try_init_kernel(
     let extra_bi_frame_vptr = bi_frame_vptr + BIT!(BI_FRAME_SIZE_BITS);
     rust_map_kernel_window();
     init_cpu();
-
-    unsafe {
-        init_plat();
-    }
+    init_plat();
 
     let dtb_p_reg = init_dtb(dtb_size, dtb_phys_addr, &mut extra_bi_size);
     if dtb_p_reg.is_none() {
@@ -118,3 +114,5 @@ pub fn try_init_kernel(
 
     true
 }
+
+pub fn init_plat() {}

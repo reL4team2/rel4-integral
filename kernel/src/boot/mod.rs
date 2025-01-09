@@ -1,5 +1,5 @@
-mod interface;
-mod mm;
+pub mod interface;
+pub mod mm;
 mod root_server;
 mod untyped;
 mod utils;
