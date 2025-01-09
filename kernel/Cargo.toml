@@ -3,6 +3,15 @@ name = "rel4_kernel"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "rustlib"
+path = "src/lib.rs"
+crate-type = ["staticlib"]
+
+[[bin]]
+name = "rel4_kernel"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
