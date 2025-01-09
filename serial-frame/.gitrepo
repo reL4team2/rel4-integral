@@ -7,6 +7,6 @@
 	remote = git@github.com:reL4team2/serial-frame.git
 	branch = master
 	commit = 2aa356208798e16f25347fb2c701e55ee2c99eb5
- 	parent = 4b84279dcaaf3ae9845772255daaa8373cac3a65
+ 	parent = 1f672b27f50e2677ec45d63bcbfe81ec995cb751
 	method = merge
 	cmdver = 0.4.9
