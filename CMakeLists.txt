@@ -7,7 +7,7 @@ if(KernelArchRiscV)
     set(KERNEL_ELF_PATH ${PROJECT_SOURCE_DIR}/target/${RUST_TARGET}/release/rel4_kernel)
 endif()
 
-set(BUILD_COMMAND cargo build --target ${RUST_TARGET} --release)
+set(BUILD_COMMAND cargo build --target ${RUST_TARGET} --release --features BUILD_BINARY)
 if(KernelIsMCS)
     set(BUILD_COMMAND ${BUILD_COMMAND} --features KERNEL_MCS)
 endif()

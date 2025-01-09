@@ -7,8 +7,6 @@ use crate::{
         RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
     },
     syscall::slowpath,
-    kernel::fastpath::fastpath_call,
-    kernel::fastpath::fastpath_reply_recv,
 };
 
 use sel4_task::*;
@@ -95,50 +93,8 @@ pub fn restore_user_context() {
 }
 
 #[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
 pub fn handle_syscall() {
-    // asm!(
-    //     "csrrw t0, sscratch, t0",
-    //     "sd ra, (0*(64 / 8))(t0)",
-    //     "sd sp, (1*(64 / 8))(t0)",
-    //     "sd gp, (2*(64 / 8))(t0)",
-    //     "sd tp, (3*(64 / 8))(t0)",
-    //     "sd t1, (5*(64 / 8))(t0)",
-    //     "sd t2, (6*(64 / 8))(t0)",
-    //     "sd s0, (7*(64 / 8))(t0)",
-    //     "sd s1, (8*(64 / 8))(t0)",
-    //     "sd a0, (9*(64 / 8))(t0)",
-    //     "sd a1, (10*(64 / 8))(t0)",
-    //     "sd a2, (11*(64 / 8))(t0)",
-    //     "sd a3, (12*(64 / 8))(t0)",
-    //     "sd a4, (13*(64 / 8))(t0)",
-    //     "sd a5, (14*(64 / 8))(t0)",
-    //     "sd a6, (15*(64 / 8))(t0)",
-    //     "sd a7, (16*(64 / 8))(t0)",
-    //     "sd s2, (17*(64 / 8))(t0)",
-    //     "sd s3, (18*(64 / 8))(t0)",
-    //     "sd s4, (19*(64 / 8))(t0)",
-    //     "sd s5, (20*(64 / 8))(t0)",
-    //     "sd s6, (21*(64 / 8))(t0)",
-    //     "sd s7, (22*(64 / 8))(t0)",
-    //     "sd s8, (23*(64 / 8))(t0)",
-    //     "sd s9, (24*(64 / 8))(t0)",
-    //     "sd s10, (25*(64 / 8))(t0)",
-    //     "sd s11, (26*(64 / 8))(t0)",
-    //     "sd t3, (27*(64 / 8))(t0)",
-    //     "sd t4, (28*(64 / 8))(t0)",
-    //     "sd t5, (29*(64 / 8))(t0)",
-    //     "sd t6, (30*(64 / 8))(t0)",
-    //     "csrr x1, sscratch",
-    //     "sd x1, (4*(64 / 8))(t0)",
-    //     "csrr x1, sstatus",
-    //     "sd x1, (32*(64 / 8))(t0)",
-    //     "csrr s0, scause",
-    //     "sd s0, (31*(64 / 8))(t0)",
-    //     ".option push",
-    //     ".option norelax",
-    //     "la gp, __global_pointer$",
-    //     ".option pop"
-    // )
     unsafe {
         asm!(
             "addi x1, x1, 4",
@@ -225,18 +181,24 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
 }
 
 #[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
 pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) {
+    use crate::kernel::fastpath::fastpath_call;
     fastpath_call(cptr, msgInfo);
 }
 
 #[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
 #[cfg(not(feature = "KERNEL_MCS"))]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) {
+    use crate::kernel::fastpath::fastpath_reply_recv;
     fastpath_reply_recv(cptr, msgInfo);
 }
 
 #[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
 #[cfg(feature = "KERNEL_MCS")]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
+    use crate::kernel::fastpath::fastpath_reply_recv;
     fastpath_reply_recv(cptr, msgInfo, reply);
 }

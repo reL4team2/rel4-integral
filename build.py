@@ -71,7 +71,7 @@ if __name__ == "__main__":
         if args.bin == False:
             build_command += " --lib"
         else:
-            build_command += " --bin rel4_kernel"
+            build_command += " --bin rel4_kernel --features BUILD_BINARY"
         if not exec_shell(build_command):
             clean_config()
             sys.exit(-1)
