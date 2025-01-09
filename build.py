@@ -68,10 +68,11 @@ if __name__ == "__main__":
             build_command += " --features ENABLE_SMP"
         if args.mcs == "on":
             build_command += " --features KERNEL_MCS"
-        if args.bin == False:
-            build_command += " --lib"
-        else:
-            build_command += " --bin rel4_kernel --features BUILD_BINARY"
+        if args.platform == "spike":
+            if args.bin == False or args.platform == "qemu-arm-virt":
+                build_command += " --lib"
+            else:
+                build_command += " --bin rel4_kernel --features BUILD_BINARY"
         if not exec_shell(build_command):
             clean_config()
             sys.exit(-1)
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE -DSMP=TRUE "
         if mcs==True:
             shell_command = shell_command + " -DMCS=TRUE "
-        if args.bin == True:
+        if args.bin == True and args.platform == "spike":
             shell_command = shell_command + " -DREL4_KERNEL=TRUE "
         shell_command = shell_command + " && ninja"
         if not exec_shell(shell_command):
@@ -90,7 +91,7 @@ if __name__ == "__main__":
     shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE "
     if mcs==True:
         shell_command = shell_command + " -DMCS=TRUE "
-    if args.bin == True:
+    if args.bin == True and args.platform == "spike":
         shell_command = shell_command + " -DREL4_KERNEL=TRUE "
     shell_command = shell_command + " && ninja"
     if not exec_shell(shell_command):
