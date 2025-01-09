@@ -85,6 +85,7 @@ pub fn init_kernel(
     dtb_addr_p: usize,
     dtb_size: usize
 ) {
+    sel4_common::println!("Now we use rel4 kernel binary");
     log::set_max_level(log::LevelFilter::Trace);
     boot::interface::pRegsToR(
         &avail_p_regs as *const p_region_t as *const usize, 
