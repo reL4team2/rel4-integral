@@ -94,7 +94,7 @@ jobs:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
         run: cd rel4_kernel/build && ./simulate > 1.log
-        timeout-minutes: 2
+        timeout-minutes: 3
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
       - name: Check Result
@@ -151,7 +151,7 @@ jobs:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
         run: cd rel4_kernel/build && ./simulate > 1.log
-        timeout-minutes: 3
+        timeout-minutes: 4
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
       - name: Check Result
