@@ -7,6 +7,6 @@
 	remote = git@github.com:reL4team2/sel4_ipc.git
 	branch = master
 	commit = 321a4b599802802816b6b5bd69728a67203954ee
- 	parent = f9c1204ab6cfe9c0fc6eda6b23f19f5eab3e006f
+ 	parent = 4b84279dcaaf3ae9845772255daaa8373cac3a65
 	method = merge
 	cmdver = 0.4.9
