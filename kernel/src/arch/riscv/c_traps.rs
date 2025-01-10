@@ -106,8 +106,9 @@ pub fn handle_syscall() {
             "li t3, -2",
             "bne a7, t3, 2f"
         );
-        
-        #[cfg(feature = "KERNEL_MCS")] {
+
+        #[cfg(feature = "KERNEL_MCS")]
+        {
             asm!("mv a2, a6");
         }
 

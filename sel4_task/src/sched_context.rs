@@ -125,6 +125,18 @@ impl sched_context {
         !self.scSporadic
     }
     #[inline]
+    pub fn refill_sum(&mut self) -> ticks_t {
+        unsafe {
+            let mut sum = (*self.refill_head()).rAmount;
+            let mut current = self.scRefillHead;
+            while current != self.scRefillTail {
+                current = self.refill_next(current);
+                sum += (*self.refill_index(current)).rAmount;
+            }
+            sum
+        }
+    }
+    #[inline]
     pub fn refill_add_tail(&mut self, rTime: ticks_t, rAmount: ticks_t) {
         assert!(self.refill_size() < self.scRefillMax);
         let new_tail = self.refill_next(self.scRefillTail);
@@ -367,9 +379,8 @@ impl sched_context {
         }
     }
 }
-pub fn refill_budget_check(_usage: ticks_t) {
+pub fn refill_budget_check(mut usage: ticks_t) {
     unsafe {
-        let mut usage = _usage;
         let sc = get_current_sc();
         assert!(!sc.is_round_robin());
 

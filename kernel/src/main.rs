@@ -32,12 +32,12 @@ mod compatibility;
 mod ffi;
 mod interfaces_impl;
 
-pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
-use sel4_task::{activateThread, schedule};
-use structures::p_region_t;
-use sel4_cspace::interface::cte_t;
 use boot::interface::rust_try_init_kernel;
 use interrupt::intStateIRQNodeToR;
+pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
+use sel4_cspace::interface::cte_t;
+use sel4_task::{activateThread, schedule};
+use structures::p_region_t;
 
 #[no_mangle]
 pub extern "C" fn halt() {
@@ -60,7 +60,10 @@ pub extern "C" fn strnlen(str: *const u8, _max_len: usize) -> usize {
 #[link_section = ".boot.bss"]
 static avail_p_regs: [p_region_t; 1] = [
     // TODO: Fixed region, need config
-    p_region_t {start: 0x80200000, end: 0x17ff00000}
+    p_region_t {
+        start: 0x80200000,
+        end: 0x17ff00000,
+    },
 ];
 
 #[repr(align(128))]
@@ -83,16 +86,23 @@ pub fn init_kernel(
     pv_offset: isize,
     v_entry: usize,
     dtb_addr_p: usize,
-    dtb_size: usize
+    dtb_size: usize,
 ) {
     sel4_common::println!("Now we use rel4 kernel binary");
     log::set_max_level(log::LevelFilter::Trace);
     boot::interface::pRegsToR(
-        &avail_p_regs as *const p_region_t as *const usize, 
-        core::mem::size_of_val(&avail_p_regs)/core::mem::size_of::<p_region_t>()
+        &avail_p_regs as *const p_region_t as *const usize,
+        core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
     );
     intStateIRQNodeToR(irqnode.0.as_ptr() as *mut usize);
-    let result = rust_try_init_kernel(ui_p_reg_start, ui_p_reg_end, pv_offset, v_entry, dtb_addr_p, dtb_size);
+    let result = rust_try_init_kernel(
+        ui_p_reg_start,
+        ui_p_reg_end,
+        pv_offset,
+        v_entry,
+        dtb_addr_p,
+        dtb_size,
+    );
     if !result {
         log::error!("ERROR: kernel init failed");
         panic!()

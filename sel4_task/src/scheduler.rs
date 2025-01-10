@@ -633,10 +633,8 @@ pub fn setNextInterrupt() {
 
     unsafe {
         let mut next_interrupt = ksCurTime
-            + (*convert_to_mut_type_ref::<sched_context_t>(
-                convert_to_mut_type_ref::<tcb_t>(ksCurThread).tcbSchedContext,
-            )
-            .refill_head())
+            + (*convert_to_mut_type_ref::<sched_context_t>(get_currenct_thread().tcbSchedContext)
+                .refill_head())
             .rAmount;
         if numDomains > 1 {
             next_interrupt = core::cmp::min(next_interrupt, ksCurTime + ksDomainTime);
