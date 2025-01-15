@@ -1,0 +1,22 @@
+name: Trigger Release Action
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger release workflow
+        env:
+          GH_TOKEN: ${{ secrets.SSH_KEY }}
+          REPO: rel4-kernel-autobuild
+          EVENT_TYPE: "rel4-kernel-update-event"
+        run: |
+          gh api --method POST \
+            /repos/${REPO}/dispatches \
+            -f "event_type=${EVENT_TYPE}"
