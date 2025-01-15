@@ -372,7 +372,7 @@ pub fn preemptionPoint() -> exception_t {
             {
                 updateTimestamp();
                 let sc = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
-                if !sc.sc_active() && sc.refill_sufficient(ksConsumed)
+                if !(sc.sc_active() && sc.refill_sufficient(ksConsumed))
                     || isCurDomainExpired()
                     || isIRQPending()
                 {

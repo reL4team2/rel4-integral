@@ -121,7 +121,7 @@ fn create_object(
 }
 
 pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
-    let prev_cap = &mut cap::cap_untyped_cap(&(*srcSlot).capability);
+    let prev_cap = cap::cap_untyped_cap(&(*srcSlot).capability);
     let block_size = prev_cap.get_capBlockSize() as usize;
     let region_base = prev_cap.get_capPtr() as usize;
     let chunk = CONFIG_RESET_CHUNK_BITS;
