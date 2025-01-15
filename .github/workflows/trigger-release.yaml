@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Trigger release workflow
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_FOR_REL4 }}
           REPO: reL4team2/rel4-kernel-autobuild
           EVENT_TYPE: "rel4-kernel-update-event"
         run: |
