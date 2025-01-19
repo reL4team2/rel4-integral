@@ -129,6 +129,7 @@ pub fn mask_interrupt(disable: bool, irq: usize) {
 }
 
 #[cfg(target_arch = "riscv64")]
+#[inline]
 pub fn isIRQPending() -> bool {
     let sip = read_sip();
     if (sip & (BIT!(SIP_STIP) | BIT!(SIP_SEIP))) != 0 {

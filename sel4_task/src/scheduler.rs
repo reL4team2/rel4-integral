@@ -145,7 +145,7 @@ pub static mut ksReadyQueuesL2Bitmap: [[usize; L2_BITMAP_SIZE]; CONFIG_NUM_DOMAI
 pub static mut ksReadyQueuesL1Bitmap: [usize; CONFIG_NUM_DOMAINS] = [0; CONFIG_NUM_DOMAINS];
 
 #[no_mangle]
-// #[link_section = ".boot.bss"]
+#[link_section = ".boot.bss"]
 pub static mut ksWorkUnitsCompleted: usize = 0;
 
 // #[link_section = ".boot.bss"]
