@@ -7,6 +7,6 @@
 	remote = git@github.com:reL4team2/sel4_vspace.git
 	branch = master
 	commit = 3d629985da7c4e56962c4641ff545ec4c2586c4d
- 	parent = d973b554d3d294836950c9132df31bc39e3ccf2c
+ 	parent = b7ed495fc7fd51a3d9c5023adc066d1ae2fa1818
 	method = merge
 	cmdver = 0.4.9
