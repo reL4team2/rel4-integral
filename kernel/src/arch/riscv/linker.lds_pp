@@ -1,3 +1,0 @@
-OUTPUT_ARCH(riscv)
-
-INCLUDE kernel/src/arch/linker.ld.in

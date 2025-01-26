@@ -1,0 +1,18 @@
+{
+    "name": "reL4 DevContainer",
+    "image": "croakexciting/rel4_dev:0.0.3",  // 使用你想基于的镜像
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cmake-tools",
+                "ms-vscode.cpptools",
+                "rust-lang.rust-analyzer"
+            ]
+        }
+    },
+    "runArgs": [
+        "--network=host"  // 使用 host 网络
+    ]
+    // "postCreateCommand": "cd rel4_kernel && cargo update -p home --precise 0.5.5"
+}
+  

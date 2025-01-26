@@ -1,0 +1,12 @@
+# cpu arch
+cpu:
+  arch: aarch64
+  freq: 10000000
+
+# memory layout
+memory:
+  vmem_offset: 0xffffff8000000000
+  pmem_start: 0x40000000
+  kernel_start: 0x40000000
+  avail_mem_zone:
+    - {start: 0x40000000, end: 0x80000000}

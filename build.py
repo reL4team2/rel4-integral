@@ -14,6 +14,7 @@ import shutil
 from pygments import highlight
 from pygments.lexers import BashLexer
 from pygments.formatters import TerminalFormatter
+import tools.generator as gen
 
 build_dir = "./build"
 
@@ -55,6 +56,10 @@ if __name__ == "__main__":
     if args.mcs == "on":
         mcs = True
     
+    # generator some code
+    gen.linker_gen(args.platform)
+    gen.dev_gen(args.platform)
+
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
     os.makedirs(build_dir)
