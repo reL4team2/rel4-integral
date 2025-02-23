@@ -10,7 +10,7 @@ use crate::strnlen;
 use crate::syscall::handle_fault;
 use crate::syscall::{
     SysDebugCapIdentify, SysDebugDumpScheduler, SysDebugHalt, SysDebugNameThread, SysDebugPutChar,
-    SysDebugSnapshot, SysGetClock,
+    SysDebugSnapshot, SysGetClock,SysShutdown
 };
 
 use aarch64_cpu::registers::Readable;
@@ -95,6 +95,9 @@ pub fn handleUnknownSyscall(w: isize) -> exception_t {
         thread.tcbArch.set_register(Cap, current);
         return exception_t::EXCEPTION_NONE;
     }
+	if w == SysShutdown{
+		sel4_common::arch::shutdown();
+	}
     #[cfg(not(feature = "KERNEL_MCS"))]
     unsafe {
         current_fault = seL4_Fault_UnknownSyscall::new(w as u64).unsplay();
