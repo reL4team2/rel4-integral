@@ -25,6 +25,8 @@ use sel4_common::sel4_config::{
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 #[cfg(target_arch = "riscv64")]
 use sel4_common::structures_gen::cap_page_table_cap;
+#[cfg(feature = "ENABLE_SMC")]
+use sel4_common::structures_gen::cap_smc_cap;
 #[cfg(target_arch = "aarch64")]
 use sel4_common::structures_gen::cap_vspace_cap;
 use sel4_common::structures_gen::{
@@ -83,6 +85,8 @@ pub fn root_server_init(
 
     create_domain_cap(&root_cnode_cap);
     init_irqs(&root_cnode_cap);
+    #[cfg(feature = "ENABLE_SMC")]
+    init_smc(&root_cnode_cap);
     unsafe {
         rust_populate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr, extra_bi_size);
     }
@@ -398,6 +402,14 @@ fn create_it_asid_pool(root_cnode_cap: &cap_cnode_cap) -> cap_asid_pool_cap {
         ap_cap.get_capASIDPool()
     );
     ap_cap
+}
+#[cfg(feature = "ENABLE_SMC")]
+pub fn init_smc(root_cnode_cap: &cap_cnode_cap) {
+    let capability = cap_smc_cap::new(0).unsplay();
+    unsafe {
+        let pos = root_cnode_cap.get_capCNodePtr() as *mut cte_t;
+        write_slot(pos.add(seL4_CapSMC), capability);
+    }
 }
 
 #[cfg(feature = "KERNEL_MCS")]
