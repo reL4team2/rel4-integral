@@ -149,3 +149,6 @@ pub const seL4_MinPrio: usize = 0;
 
 pub const CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION: usize = 100;
 pub const CONFIG_RETYPE_FAN_OUT_LIMIT: usize = 256;
+
+#[cfg(feature = "ENABLE_SMC")]
+pub const NUM_SMC_REGS: usize = 8;

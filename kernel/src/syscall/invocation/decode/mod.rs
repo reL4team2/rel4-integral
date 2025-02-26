@@ -140,7 +140,7 @@ pub fn decode_invocation(
             decode_irq_handler_invocation(label, data.get_capIRQ() as usize)
         }
         #[cfg(feature = "ENABLE_SMC")]
-        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(),
+        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(label, length, &data, call, buffer),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }
@@ -286,7 +286,7 @@ pub fn decode_invocation(
             decode_sched_context_invocation(label, &data)
         }
         #[cfg(feature = "ENABLE_SMC")]
-        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(),
+        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(label, length, &data, call, buffer),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }

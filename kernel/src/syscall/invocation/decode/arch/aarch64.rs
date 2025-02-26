@@ -42,10 +42,18 @@ use sel4_vspace::{
 use crate::syscall::invocation::invoke_mmu_op::{
     invoke_page_get_address, invoke_page_map, invoke_page_table_unmap, invoke_page_unmap,
 };
+#[cfg(feature = "ENABLE_SMC")]
+use crate::{compatibility::lookupIPCBuffer, config::NUM_SMC_REGS};
 use crate::{
     config::maxIRQ,
     interrupt::is_irq_active,
     syscall::{invocation::invoke_irq::invoke_irq_control, lookupSlotForCNodeOp},
+};
+#[cfg(feature = "ENABLE_SMC")]
+use sel4_common::{
+    arch::msgRegisterNum, arch::ArchReg, arch::MessageLabel::ARMSMCCall,
+    message_info::seL4_MessageInfo_func, shared_types_bf_gen::seL4_MessageInfo,
+    structures_gen::cap_smc_cap,
 };
 
 pub fn decode_mmu_invocation(
@@ -1120,6 +1128,95 @@ pub fn arch_decode_irq_control_invocation(
     }
 }
 #[cfg(feature = "ENABLE_SMC")]
-pub fn decode_ARM_SMC_invocation() -> exception_t {
+pub fn decode_ARM_SMC_invocation(
+    label: MessageLabel,
+    length: usize,
+    capability: &cap_smc_cap,
+    call: bool,
+    buffer: &seL4_IPCBuffer,
+) -> exception_t {
+    if label != ARMSMCCall {
+        debug!("ARMSMCInvocation: Illegal operation.");
+        unsafe {
+            current_syscall_error._type = seL4_IllegalOperation;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+    if length < NUM_SMC_REGS {
+        debug!("ARMSMCCall: Truncated message.");
+        unsafe {
+            current_syscall_error._type = seL4_TruncatedMessage;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+    let badge = capability.get_capSMCBadge();
+    let smc_func_id = get_syscall_arg(0, buffer);
+    if badge != 0 && badge != smc_func_id as u64 {
+        debug!("ARMSMCCall: Illegal operation.");
+        unsafe {
+            current_syscall_error._type = seL4_IllegalOperation;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+    set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+
+    invokeSMCCall(buffer, call)
+}
+#[cfg(feature = "ENABLE_SMC")]
+fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
+    use core::arch::asm;
+
+    let thread = get_currenct_thread();
+    let ipc_buffer = lookupIPCBuffer(true, thread);
+
+	
+    let mut args: [usize; NUM_SMC_REGS] = [0; NUM_SMC_REGS];
+    for i in 0..NUM_SMC_REGS {
+        args[i] = get_syscall_arg(i, buffer);
+    }
+    unsafe {
+        asm!(
+			"mov x0, {0} \n",
+            "mov x1, {1} \n",
+            "mov x2, {2} \n",
+            "mov x3, {3} \n",
+            "mov x4, {4} \n",
+            "mov x5, {5} \n",
+            "mov x6, {6} \n",
+            "mov x7, {7} \n",
+			
+            "smc #0 \n",
+            "mov {0}, x0 \n",
+            "mov {1}, x1 \n",
+            "mov {2}, x2 \n",
+            "mov {3}, x3 \n",
+            "mov {4}, x4 \n",
+            "mov {5}, x5 \n",
+            "mov {6}, x6 \n",
+            "mov {7}, x7 \n",
+            inout(reg) args[0],
+            inout(reg) args[1],
+            inout(reg) args[2],
+            inout(reg) args[3],
+            inout(reg) args[4],
+            inout(reg) args[5],
+            inout(reg) args[6],
+            inout(reg) args[7],
+        );
+    }
+	// for i in 0..NUM_SMC_REGS {
+    //     sel4_common::println!("args {} {:x}",i,args[i]);
+    // }
+    // if call {
+    //     for i in 0..msgRegisterNum {
+    //         thread.tcbArch.set_register(ArchReg::Msg(i), args[i]);
+    //     }
+    //     if ipc_buffer != 0 {
+    //         //TODO
+    //     }
+    //     thread.tcbArch.set_register(ArchReg::Badge, 0);
+    //     thread.tcbArch.set_register(ArchReg::MsgInfo, 0);
+    // }
+    set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRunning);
     exception_t::EXCEPTION_NONE
 }

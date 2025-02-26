@@ -160,7 +160,7 @@ pub fn Arch_finaliseCap(capability: &cap, final_: bool) -> finaliseCap_ret {
             }
         }
         cap_tag::cap_asid_control_cap => {}
-        _ => unimplemented!("finaliseCap: {:?}", capability.get_tag()),
+        _ => {}
     }
     fc_ret.remainder = cap_null_cap::new().unsplay();
     fc_ret.cleanupInfo = cap_null_cap::new().unsplay();
