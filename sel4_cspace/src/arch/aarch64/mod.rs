@@ -10,6 +10,23 @@ use crate::{
 use sel4_common::structures_gen::{cap, cap_null_cap};
 
 impl cap_arch_func for cap {
+    fn arch_updatedata(&self, _preserve: bool, _new_data: u64) -> Self {
+        #[cfg(feature = "ENABLE_SMC")]
+        {
+            if self.clone().get_tag() == cap_tag::cap_smc_cap {
+                if !_preserve && cap::cap_smc_cap(self).get_capSMCBadge() == 0 {
+                    cap::cap_smc_cap(self).set_capSMCBadge(_new_data);
+                    return self.clone();
+                } else {
+                    return cap_null_cap::new().unsplay();
+                }
+            } else {
+                return self.clone();
+            }
+        }
+        #[cfg(not(feature = "ENABLE_SMC"))]
+        return self.clone();
+    }
     fn get_cap_ptr(&self) -> usize {
         match self.get_tag() {
             cap_tag::cap_untyped_cap => cap::cap_untyped_cap(self).get_capPtr() as usize,
@@ -116,6 +133,10 @@ impl cte_t {
             cap_tag::cap_asid_control_cap | cap_tag::cap_asid_pool_cap => {
                 ret.capability = capability.clone();
             }
+            #[cfg(feature = "ENABLE_SMC")]
+            cap_tag::cap_smc_cap => {
+                ret.capability = capability.clone();
+            }
             _ => {
                 panic!(" Invalid arch cap type : {}", capability.get_tag() as usize);
             }
@@ -174,6 +195,12 @@ pub fn arch_same_region_as(cap1: &cap, cap2: &cap) -> bool {
             if cap2.get_tag() == cap_tag::cap_asid_pool_cap {
                 return cap::cap_asid_pool_cap(cap1).get_capASIDPool()
                     == cap::cap_asid_pool_cap(cap2).get_capASIDPool();
+            }
+        }
+        #[cfg(feature = "ENABLE_SMC")]
+        cap_tag::cap_smc_cap => {
+            if cap2.get_tag() == cap_tag::cap_smc_cap {
+                return true;
             }
         }
         _ => panic!("unknown cap"),

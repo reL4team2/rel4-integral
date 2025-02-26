@@ -60,8 +60,6 @@ pub const SysDebugNameThread: isize = SysDebugSnapshot - 1;
 pub const SysGetClock: isize = -30;
 #[cfg(feature = "KERNEL_MCS")]
 pub const SysGetClock: isize = -33;
-/*This SysShutdown syscall is used for debug*/
-pub const SysShutdown: isize = -34;
 #[cfg(feature = "KERNEL_MCS")]
 use crate::structures::lookupCap_ret_t;
 use sel4_common::structures::exception_t;

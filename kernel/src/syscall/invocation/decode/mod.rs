@@ -27,6 +27,8 @@ use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 use crate::kernel::boot::current_syscall_error;
 use crate::syscall::invocation::decode::decode_irq_invocation::decode_irq_handler_invocation;
 
+#[cfg(feature = "ENABLE_SMC")]
+use self::arch::decode_ARM_SMC_invocation;
 #[cfg(feature = "KERNEL_MCS")]
 use self::decode_sched_invocation::{
     decode_sched_context_invocation, decode_sched_control_invocation,
@@ -137,6 +139,8 @@ pub fn decode_invocation(
         cap_Splayed::irq_handler_cap(data) => {
             decode_irq_handler_invocation(label, data.get_capIRQ() as usize)
         }
+        #[cfg(feature = "ENABLE_SMC")]
+        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }
@@ -281,6 +285,8 @@ pub fn decode_invocation(
             }
             decode_sched_context_invocation(label, &data)
         }
+        #[cfg(feature = "ENABLE_SMC")]
+        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }

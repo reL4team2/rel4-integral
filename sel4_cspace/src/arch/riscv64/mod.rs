@@ -15,6 +15,9 @@ use crate::{
 };
 
 impl cap_arch_func for cap {
+    fn arch_updatedata(&self, _preserve: bool, _new_data: u64) -> Self {
+        return self.clone();
+    }
     fn get_cap_ptr(&self) -> usize {
         match self.get_tag() {
             cap_tag::cap_untyped_cap => cap::cap_untyped_cap(self).get_capPtr() as usize,

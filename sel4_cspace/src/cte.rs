@@ -117,6 +117,15 @@ impl cte_t {
                 badge == cap::cap_notification_cap(&next.capability).get_capNtfnBadge()
                     && next.cteMDBNode.get_mdbFirstBadged() == 0
             }
+            #[cfg(feature = "ENABLE_SMC")]
+            cap_tag::cap_smc_cap => {
+                let badge = cap::cap_smc_cap(&self.capability).get_capSMCBadge();
+                if badge == 0 {
+                    return true;
+                }
+                badge == cap::cap_smc_cap(&next.capability).get_capSMCBadge()
+                    && next.cteMDBNode.get_mdbFirstBadged() == 0
+            }
             _ => true,
         }
     }

@@ -16,3 +16,4 @@ rust_sel4_pbf_parser= { git = "https://github.com/reL4team2/rust_sel4_pbf_parser
 [features]
 ENABLE_SMP = []
 KERNEL_MCS = []
+ENABLE_SMC = []

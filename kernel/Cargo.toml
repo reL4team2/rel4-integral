@@ -31,4 +31,5 @@ driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", bran
 [features]
 ENABLE_SMP = ["sel4_common/ENABLE_SMP", "sel4_task/ENABLE_SMP", "sel4_vspace/ENABLE_SMP"]
 KERNEL_MCS = ["sel4_common/KERNEL_MCS", "sel4_task/KERNEL_MCS", "sel4_cspace/KERNEL_MCS"]
+ENABLE_SMC = ["sel4_common/ENABLE_SMC", "sel4_cspace/ENABLE_SMC"]
 BUILD_BINARY = []

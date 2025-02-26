@@ -49,6 +49,7 @@ pub trait cap_func {
     fn isArchCap(&self) -> bool;
 }
 pub trait cap_arch_func {
+    fn arch_updatedata(&self, preserve: bool, new_data: u64) -> Self;
     fn get_cap_ptr(&self) -> usize;
     fn is_vtable_root(&self) -> bool;
     fn is_valid_native_root(&self) -> bool;
@@ -57,7 +58,7 @@ pub trait cap_arch_func {
 impl cap_func for cap {
     fn update_data(&self, preserve: bool, new_data: u64) -> Self {
         if self.isArchCap() {
-            return self.clone();
+            return self.arch_updatedata(preserve, new_data);
         }
         match self.get_tag() {
             cap_tag::cap_endpoint_cap => {

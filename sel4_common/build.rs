@@ -34,10 +34,17 @@ fn main() {
     let target = env::var("TARGET").unwrap_or_else(|_| "unknown-target".to_string());
     if std::env::var("CARGO_FEATURE_KERNEL_MCS").is_ok() {
         if target == String::from("aarch64-unknown-none-softfloat") {
-            pbf_parser(
-                String::from("./pbf/aarch64/mcs"),
-                dir_path.to_str().unwrap().to_string(),
-            );
+            if std::env::var("CARGO_FEATURE_ENABLE_SMC").is_ok() {
+                pbf_parser(
+                    String::from("./pbf/aarch64/smc_mcs"),
+                    dir_path.to_str().unwrap().to_string(),
+                );
+            } else {
+                pbf_parser(
+                    String::from("./pbf/aarch64/mcs"),
+                    dir_path.to_str().unwrap().to_string(),
+                );
+            }
         } else if target == String::from("riscv64imac-unknown-none-elf") {
             pbf_parser(
                 String::from("./pbf/riscv64/mcs"),
@@ -46,10 +53,17 @@ fn main() {
         }
     } else {
         if target == String::from("aarch64-unknown-none-softfloat") {
-            pbf_parser(
-                String::from("./pbf/aarch64/nomcs"),
-                dir_path.to_str().unwrap().to_string(),
-            );
+            if std::env::var("CARGO_FEATURE_ENABLE_SMC").is_ok() {
+                pbf_parser(
+                    String::from("./pbf/aarch64/smc_nomcs"),
+                    dir_path.to_str().unwrap().to_string(),
+                );
+            } else {
+                pbf_parser(
+                    String::from("./pbf/aarch64/nomcs"),
+                    dir_path.to_str().unwrap().to_string(),
+                );
+            }
         } else if target == String::from("riscv64imac-unknown-none-elf") {
             pbf_parser(
                 String::from("./pbf/riscv64/nomcs"),

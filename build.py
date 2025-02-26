@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('-c', '--cpu', dest="cpu_nums", type=int,
                         help="kernel & qemu cpu nums", default=1)
     parser.add_argument('-m', '--mcs', dest='mcs', default='off', help="set-mcs")
+    parser.add_argument('-s', '--smc', dest='smc', default='off', help="set-arm-smc-enable")
     parser.add_argument('-B', '--bin', dest='bin', action='store_true', help="use rel4 kernel binary")
     args = parser.parse_args()
     return args
@@ -73,6 +74,9 @@ if __name__ == "__main__":
                 build_command += " --lib"
             else:
                 build_command += " --bin rel4_kernel --features BUILD_BINARY"
+        elif args.platform == "qemu-arm-virt":
+            if args.smc == "on":
+                build_command += " --features ENABLE_SMC"
         if not exec_shell(build_command):
             clean_config()
             sys.exit(-1)
@@ -83,6 +87,8 @@ if __name__ == "__main__":
             shell_command = shell_command + " -DMCS=TRUE "
         if args.bin == True and args.platform == "spike":
             shell_command = shell_command + " -DREL4_KERNEL=TRUE "
+        elif args.platform == "qemu-arm-virt" and args.smc == "on":
+            shell_command = shell_command + " -DKernelAllowSMCCalls=ON "
         shell_command = shell_command + " && ninja"
         if not exec_shell(shell_command):
             clean_config()
@@ -93,7 +99,10 @@ if __name__ == "__main__":
         shell_command = shell_command + " -DMCS=TRUE "
     if args.bin == True and args.platform == "spike":
         shell_command = shell_command + " -DREL4_KERNEL=TRUE "
+    elif args.platform == "qemu-arm-virt" and args.smc == "on":
+        shell_command = shell_command + " -DKernelAllowSMCCalls=ON "
     shell_command = shell_command + " && ninja"
+    print(shell_command)
     if not exec_shell(shell_command):
         clean_config()
         sys.exit(-1)

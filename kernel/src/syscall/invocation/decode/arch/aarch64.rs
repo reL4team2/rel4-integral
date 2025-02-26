@@ -1119,3 +1119,7 @@ pub fn arch_decode_irq_control_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 }
+#[cfg(feature = "ENABLE_SMC")]
+pub fn decode_ARM_SMC_invocation() -> exception_t {
+    exception_t::EXCEPTION_NONE
+}
