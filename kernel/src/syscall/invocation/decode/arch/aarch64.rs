@@ -1135,7 +1135,6 @@ pub fn decode_ARM_SMC_invocation(
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    sel4_common::println!("start decode arm smc invocation");
     if label != ARMSMCCall {
         debug!("ARMSMCInvocation: Illegal operation.");
         unsafe {

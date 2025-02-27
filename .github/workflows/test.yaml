@@ -156,4 +156,63 @@ jobs:
       - run: cat rel4_kernel/build/1.log
       - name: Check Result
         run: rel4_kernel/.github/workflows/parse.py rel4_kernel/build/1.log
+  sel4-test-smc:
+    # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [qemu-arm-virt]
+        mcs: [on, off]
+        include:
+          - platform: qemu-arm-virt
+            arch: aarch64
+          - platform: spike
+            arch: riscv64
+    container:
+      image: yfblock/rel4-dev:1.2
+      options: --user=root
+    defaults:
+      run:
+        working-directory: ./sel4-test
+    steps:
+      - run: mkdir sel4-test
+        working-directory: .
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly-2024-02-01
+          components: rust-src rustfmt
+          rustflags:
+          target: riscv64imac-unknown-none-elf aarch64-unknown-none-softfloat
+      - name: Install qemu
+        run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
+      - name: Clone Menifest && Sync repositories
+        run: | 
+          repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
+          sed -i "19c\ \t<project name=\"rel4-integral.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"master\" dest-branch=\"master\"/>"  .repo/manifests/default.xml
+          repo sync
+      - run: cd kernel && git checkout master
+      # - run: cd rel4_kernel && git checkout master
+      - name: Adapt dependencies
+        run: |
+          cd rel4_kernel
+          cargo update -p home --precise 0.5.5
+      - name: Build
+        env:
+          ARCH: ${{ matrix.arch  }}
+          PLATFORM: ${{ matrix.platform }}
+          MCS: ${{ matrix.mcs }}
+        run: |
+          echo $ARCH
+          echo $PLATFORM
+          cd rel4_kernel && ./build.py -p $PLATFORM -m $MCS -s on --bin
+      - name: simulate
+        env:
+          ARCH: ${{ matrix.arch  }}
+          PLATFORM: ${{ matrix.platform }}
+        run: cd rel4_kernel/build && ./simulate > 1.log
+        timeout-minutes: 5
+        continue-on-error: true
+      - run: cat rel4_kernel/build/1.log
+      - name: Check Result
+        run: rel4_kernel/.github/workflows/parse.py rel4_kernel/build/1.log
 
