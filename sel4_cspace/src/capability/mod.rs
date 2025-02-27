@@ -50,6 +50,7 @@ pub trait cap_func {
 }
 pub trait cap_arch_func {
     fn arch_updatedata(&self, preserve: bool, new_data: u64) -> Self;
+    fn arch_is_cap_revocable(&self, src_cap: &cap) -> bool;
     fn get_cap_ptr(&self) -> usize;
     fn is_vtable_root(&self) -> bool;
     fn is_valid_native_root(&self) -> bool;
@@ -269,7 +270,7 @@ pub fn same_object_as(cap1: &cap, cap2: &cap) -> bool {
 /// 判断一个`capability`是否是可撤销的
 pub fn is_cap_revocable(derived_cap: &cap, src_cap: &cap) -> bool {
     if derived_cap.isArchCap() {
-        return false;
+        return derived_cap.arch_is_cap_revocable(src_cap);
     }
 
     match derived_cap.get_tag() {
