@@ -15,8 +15,9 @@ impl cap_arch_func for cap {
         {
             if self.clone().get_tag() == cap_tag::cap_smc_cap {
                 if !_preserve && cap::cap_smc_cap(self).get_capSMCBadge() == 0 {
-                    cap::cap_smc_cap(self).set_capSMCBadge(_new_data);
-                    return self.clone();
+                    let new_cap = self.clone();
+                    cap::cap_smc_cap(&new_cap).set_capSMCBadge(_new_data);
+                    return new_cap;
                 } else {
                     return cap_null_cap::new().unsplay();
                 }

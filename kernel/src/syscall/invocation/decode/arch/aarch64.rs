@@ -1135,6 +1135,7 @@ pub fn decode_ARM_SMC_invocation(
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
+    sel4_common::println!("start decode arm smc invocation");
     if label != ARMSMCCall {
         debug!("ARMSMCInvocation: Illegal operation.");
         unsafe {
@@ -1169,14 +1170,13 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     let thread = get_currenct_thread();
     let ipc_buffer = lookupIPCBuffer(true, thread);
 
-	
     let mut args: [usize; NUM_SMC_REGS] = [0; NUM_SMC_REGS];
     for i in 0..NUM_SMC_REGS {
         args[i] = get_syscall_arg(i, buffer);
     }
     unsafe {
         asm!(
-			"mov x0, {0} \n",
+            "mov x0, {0} \n",
             "mov x1, {1} \n",
             "mov x2, {2} \n",
             "mov x3, {3} \n",
@@ -1184,8 +1184,8 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
             "mov x5, {5} \n",
             "mov x6, {6} \n",
             "mov x7, {7} \n",
-			
-            "smc #0 \n",
+
+            "hvc #0 \n",
             "mov {0}, x0 \n",
             "mov {1}, x1 \n",
             "mov {2}, x2 \n",
@@ -1204,19 +1204,16 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
             inout(reg) args[7],
         );
     }
-	// for i in 0..NUM_SMC_REGS {
-    //     sel4_common::println!("args {} {:x}",i,args[i]);
-    // }
-    // if call {
-    //     for i in 0..msgRegisterNum {
-    //         thread.tcbArch.set_register(ArchReg::Msg(i), args[i]);
-    //     }
-    //     if ipc_buffer != 0 {
-    //         //TODO
-    //     }
-    //     thread.tcbArch.set_register(ArchReg::Badge, 0);
-    //     thread.tcbArch.set_register(ArchReg::MsgInfo, 0);
-    // }
+    if call {
+        for i in 0..msgRegisterNum {
+            thread.tcbArch.set_register(ArchReg::Msg(i), args[i]);
+        }
+        if ipc_buffer != 0 {
+            //TODO
+        }
+        thread.tcbArch.set_register(ArchReg::Badge, 0);
+        thread.tcbArch.set_register(ArchReg::MsgInfo, 0);
+    }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRunning);
     exception_t::EXCEPTION_NONE
 }

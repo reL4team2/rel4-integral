@@ -16,7 +16,7 @@ pub mod zombie;
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag};
 use sel4_common::{sel4_config::*, MASK};
 
-use crate::arch::arch_same_object_as;
+use crate::arch::{arch_same_object_as, arch_same_region_as};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -236,7 +236,13 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
             }
             false
         }
-        _ => false,
+        _ => {
+            if cap1.isArchCap() && cap2.isArchCap() {
+                arch_same_region_as(cap1, cap2)
+            } else {
+                false
+            }
+        }
     }
 }
 
