@@ -15,8 +15,9 @@ impl cap_arch_func for cap {
         {
             if self.clone().get_tag() == cap_tag::cap_smc_cap {
                 if !_preserve && cap::cap_smc_cap(self).get_capSMCBadge() == 0 {
-                    cap::cap_smc_cap(self).set_capSMCBadge(_new_data);
-                    return self.clone();
+                    let new_cap = self.clone();
+                    cap::cap_smc_cap(&new_cap).set_capSMCBadge(_new_data);
+                    return new_cap;
                 } else {
                     return cap_null_cap::new().unsplay();
                 }
@@ -26,6 +27,22 @@ impl cap_arch_func for cap {
         }
         #[cfg(not(feature = "ENABLE_SMC"))]
         return self.clone();
+    }
+    fn arch_is_cap_revocable(&self, _src_cap: &cap) -> bool {
+        #[cfg(feature = "ENABLE_SMC")]
+        {
+            match self.get_tag() {
+                cap_tag::cap_smc_cap => {
+                    return cap::cap_smc_cap(self).get_capSMCBadge()
+                        != cap::cap_smc_cap(_src_cap).get_capSMCBadge()
+                }
+                _ => {
+                    return false;
+                }
+            }
+        }
+        #[cfg(not(feature = "ENABLE_SMC"))]
+        return false;
     }
     fn get_cap_ptr(&self) -> usize {
         match self.get_tag() {
