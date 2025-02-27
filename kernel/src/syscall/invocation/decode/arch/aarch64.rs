@@ -43,7 +43,7 @@ use crate::syscall::invocation::invoke_mmu_op::{
     invoke_page_get_address, invoke_page_map, invoke_page_table_unmap, invoke_page_unmap,
 };
 #[cfg(feature = "ENABLE_SMC")]
-use crate::{compatibility::lookupIPCBuffer, config::NUM_SMC_REGS};
+use crate::config::NUM_SMC_REGS;
 use crate::{
     config::maxIRQ,
     interrupt::is_irq_active,
@@ -52,7 +52,6 @@ use crate::{
 #[cfg(feature = "ENABLE_SMC")]
 use sel4_common::{
     arch::msgRegisterNum, arch::ArchReg, arch::MessageLabel::ARMSMCCall,
-    message_info::seL4_MessageInfo_func, shared_types_bf_gen::seL4_MessageInfo,
     structures_gen::cap_smc_cap,
 };
 
@@ -1167,7 +1166,7 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     use core::arch::asm;
 
     let thread = get_currenct_thread();
-    let ipc_buffer = lookupIPCBuffer(true, thread);
+	let op_ipc_buffer = thread.lookup_mut_ipc_buffer(true);
 
     let mut args: [usize; NUM_SMC_REGS] = [0; NUM_SMC_REGS];
     for i in 0..NUM_SMC_REGS {
@@ -1184,7 +1183,7 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
             "mov x6, {6} \n",
             "mov x7, {7} \n",
 
-            "hvc #0 \n",
+            "smc #0 \n",
             "mov {0}, x0 \n",
             "mov {1}, x1 \n",
             "mov {2}, x2 \n",
@@ -1204,11 +1203,16 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
         );
     }
     if call {
-        for i in 0..msgRegisterNum {
+		let mut i: usize = 0;
+		while i < msgRegisterNum {
             thread.tcbArch.set_register(ArchReg::Msg(i), args[i]);
+			i+=1;
         }
-        if ipc_buffer != 0 {
-            //TODO
+        if let Some(ipc_buffer) = op_ipc_buffer {
+            while i < NUM_SMC_REGS {
+                ipc_buffer.msg[i + 1] = args[i];
+                i += 1;
+            }
         }
         thread.tcbArch.set_register(ArchReg::Badge, 0);
         thread.tcbArch.set_register(ArchReg::MsgInfo, 0);
