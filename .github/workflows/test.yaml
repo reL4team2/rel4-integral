@@ -166,8 +166,6 @@ jobs:
         include:
           - platform: qemu-arm-virt
             arch: aarch64
-          - platform: spike
-            arch: riscv64
     container:
       image: yfblock/rel4-dev:1.2
       options: --user=root
@@ -182,7 +180,7 @@ jobs:
           toolchain: nightly-2024-02-01
           components: rust-src rustfmt
           rustflags:
-          target: riscv64imac-unknown-none-elf aarch64-unknown-none-softfloat
+          target: aarch64-unknown-none-softfloat
       - name: Install qemu
         run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
       - name: Clone Menifest && Sync repositories
