@@ -79,3 +79,6 @@ use crate::platform::time_def::ticks_t;
 pub fn getKernelWcetTicks() -> ticks_t {
     usToTicks(getKernelWcetUs())
 }
+
+#[cfg(any(target_arch = "aarch64", test))]
+pub type FPUState = aarch64::arch_tcb::FPUState;

@@ -1,22 +1,24 @@
 import yaml, os
+import subprocess
 
 
 def linker_gen(platform):
     src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_file = os.path.join(src_dir, "kernel/src/platform", f"{platform}.yml")
-    linker_file = os.path.join(src_dir, "kernel/src/arch/linker_gen.ld")
     with open(config_file, 'r') as file:
         doc = yaml.safe_load(file)
         kstart = doc['memory']['kernel_start']
         vmem_offset = doc['memory']['vmem_offset']
         arch = doc["cpu"]["arch"]
-    
+
+    linker_file = os.path.join(src_dir, f"kernel/src/arch/{arch}/linker_gen.ld")
+
     with open(linker_file, 'w') as file:
         file.write("# This file is auto generated\n")
         file.write(f"OUTPUT_ARCH({arch})\n\n")
         file.write(f"KERNEL_OFFSET = {vmem_offset:#x};\n")
         file.write(f"START_ADDR = {(vmem_offset + kstart):#x};\n\n")
-        file.write("INCLUDE kernel/src/arch/linker.ld.in")
+        file.write(f"INCLUDE kernel/src/arch/{arch}/linker.ld.in")
 
 
 def dev_gen(platform):
@@ -40,7 +42,40 @@ def dev_gen(platform):
             file.write("    },\n")
         file.write("];\n")    
 
+
+def asm_gen(platform, asm_name, config = []):
+    src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_file = os.path.join(src_dir, "kernel/src/platform", f"{platform}.yml")
+    arch = "riscv"
+    with open(config_file, 'r') as file:
+        doc = yaml.safe_load(file)
+        arch = doc["cpu"]["arch"]
+        stack_bits = doc["memory"]["stack_bits"]
+
+    asm_src_file = os.path.join(src_dir, f"kernel/src/arch/{arch}/{asm_name}")
+    asm_gen_file = os.path.join(src_dir, f"kernel/src/arch/{arch}/gen/{asm_name}")
+    include_dir = os.path.join(src_dir, f"kernel/include")
+    if os.path.exists(os.path.dirname(asm_gen_file)) is False:
+        os.makedirs(os.path.dirname(asm_gen_file))
+
+    commands = ['gcc', '-E', f"-I{include_dir}"]
+    commands.append(f"-DCONFIG_KERNEL_STACK_BITS={stack_bits}")
+    for cfg in config:
+        commands.append(f"-D{cfg}")
+    commands.extend([asm_src_file, "-o", asm_gen_file])
+
+    try:
+        subprocess.run(commands, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"asm file generator error: {e}")
+
+
+def asms_gen(platform, config = []):
+    asm_gen(platform, "traps.S", config)
+    asm_gen(platform, "head.S", config)
+
+
 if __name__ == "__main__":
-    linker_gen("qemu-arm-virt")
-    dev_gen("qemu-arm-virt")
-    
+    # linker_gen("qemu-arm-virt")
+    # dev_gen("qemu-arm-virt")
+    asms_gen("qemu-arm-virt", ["CONFIG_HAVE_FPU"]) 

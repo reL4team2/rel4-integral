@@ -81,7 +81,7 @@ pub fn init_kernel(
     dtb_size: usize,
 ) {
     use crate::platform::dev_gen::avail_p_regs;
-    sel4_common::println!("Now we use rel4 kernel binary");
+    // sel4_common::println!("Now we use rel4 kernel binary");
     log::set_max_level(log::LevelFilter::Trace);
     boot::interface::pRegsToR(
         &avail_p_regs as *const p_region_t as *const usize,

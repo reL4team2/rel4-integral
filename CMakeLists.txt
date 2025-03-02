@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.7.2)
 project(ReL4Kernel)
 
-set(RUST_TARGET riscv64imac-unknown-none-elf)
-
 if(KernelArchRiscV)
-    set(KERNEL_ELF_PATH ${PROJECT_SOURCE_DIR}/target/${RUST_TARGET}/release/rel4_kernel)
+    set(RUST_TARGET riscv64imac-unknown-none-elf)
+elseif(KernelSel4ArchAarch64)
+    set(RUST_TARGET aarch64-unknown-none-softfloat)
 endif()
+
+set(KERNEL_ELF_PATH ${PROJECT_SOURCE_DIR}/target/${RUST_TARGET}/release/rel4_kernel)
 
 set(BUILD_COMMAND cargo build --target ${RUST_TARGET} --release --features BUILD_BINARY)
 if(KernelIsMCS)

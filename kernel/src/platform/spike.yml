@@ -10,3 +10,4 @@ memory:
   kernel_start: 0x84000000
   avail_mem_zone:
     - {start: 0x80200000, end: 0x17ff00000}
+  stack_bits: 12 # 2^12 4K

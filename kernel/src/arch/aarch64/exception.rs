@@ -1,8 +1,8 @@
 #[cfg(feature = "KERNEL_MCS")]
 use core::intrinsics::likely;
 
-use crate::arch::aarch64::consts::ARMDataAbort;
-use crate::arch::aarch64::consts::ARMPrefetchAbort;
+use crate::arch::aarch64::c_traps::entry_hook;
+use crate::arch::aarch64::consts::*;
 use crate::compatibility::lookupIPCBuffer;
 use crate::halt;
 use crate::object::lookupCapAndSlot;
@@ -33,6 +33,7 @@ use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedul
 use sel4_task::{checkBudgetRestart, updateTimestamp};
 
 use super::instruction::*;
+use super::restore_user_context;
 
 #[no_mangle]
 pub fn handleUnknownSyscall(w: isize) -> exception_t {
@@ -229,4 +230,26 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
         }
         _ => panic!("Invalid VM fault type:{}", type_),
     }
+}
+
+#[inline(always)]
+#[cfg(feature = "BUILD_BINARY")]
+pub fn c_handle_vm_fault(type_: usize) -> ! {
+    // TODO: NODE_LOCK needed in smp mod, now not supported
+    entry_hook();
+    handleVMFaultEvent(type_);
+    restore_user_context();
+    unreachable!()
+}
+
+#[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
+pub fn c_handle_data_fault() -> ! {
+    c_handle_vm_fault(seL4_DataFault)
+}
+
+#[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
+pub fn c_handle_instruction_fault() -> ! {
+    c_handle_vm_fault(seL4_InstructionFault)
 }

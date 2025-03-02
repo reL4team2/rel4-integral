@@ -66,4 +66,9 @@ impl ArchTCB {
             asm!("msr tpidrro_el0,{}", in(reg) self.registers[TPIDRRO_EL0]);
         }
     }
+    #[inline]
+    pub fn fpu_state_ptr(&mut self) -> *const FPUState {
+        &self.fpu as *const FPUState
+    }
+
 }

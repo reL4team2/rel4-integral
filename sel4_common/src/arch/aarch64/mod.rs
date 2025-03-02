@@ -1,5 +1,5 @@
 #![allow(unused)]
-mod arch_tcb;
+pub mod arch_tcb;
 pub mod config;
 mod message_info;
 mod object;
