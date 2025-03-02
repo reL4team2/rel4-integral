@@ -56,7 +56,8 @@ if __name__ == "__main__":
     elif args.platform == "qemu-arm-virt":
         rust_command += " --target aarch64-unknown-none-softfloat"
         if args.smc == "on":
-            shell_command = shell_command + " -DKernelAllowSMCCalls=ON "
+            cmake_command += " -DKernelAllowSMCCalls=ON"
+            rust_command += " --features ENABLE_SMC"
     
     if args.mcs == "on":
         rust_command += " --features KERNEL_MCS"
