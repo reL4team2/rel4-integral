@@ -1,5 +1,13 @@
 import yaml, os
 import subprocess
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--platform', dest="platform", help="target platform")
+    args = parser.parse_args()
+    return args
 
 
 def linker_gen(platform):
@@ -76,6 +84,8 @@ def asms_gen(platform, config = []):
 
 
 if __name__ == "__main__":
-    # linker_gen("qemu-arm-virt")
-    # dev_gen("qemu-arm-virt")
-    asms_gen("qemu-arm-virt", ["CONFIG_HAVE_FPU"]) 
+    args = parse_args()
+
+    linker_gen(args.platform)
+    dev_gen(args.platform)
+    asms_gen(args.platform, ["CONFIG_HAVE_FPU"]) 

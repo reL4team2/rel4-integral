@@ -74,12 +74,6 @@ if __name__ == "__main__":
         cmake_command += " -DREL4_KERNEL=TRUE"
     
     cmake_command += " && ninja"
-    
-    # generator some code
-    gen.linker_gen(args.platform)
-    gen.dev_gen(args.platform)
-    # default enable CONFIG_HAVE_FPU
-    gen.asms_gen(args.platform, generator_defs)
 
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
