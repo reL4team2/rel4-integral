@@ -152,3 +152,5 @@ pub const CONFIG_RETYPE_FAN_OUT_LIMIT: usize = 256;
 
 #[cfg(feature = "ENABLE_SMC")]
 pub const NUM_SMC_REGS: usize = 8;
+
+pub const CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH: usize = 64;

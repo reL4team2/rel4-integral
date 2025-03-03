@@ -27,6 +27,8 @@ pub fn restore_user_context() {
     // c_exit_hook();
     get_currenct_thread().tcbArch.load_thread_local();
 
+    // TODO: I have already implement lazyFPURestore, But I am not very clearly about the fpu operator
+    // So I project to add it in the next pull request
     // #ifdef CONFIG_HAVE_FPU
     //     lazyFPURestore(NODE_STATE(ksCurThread));
     // #endif /* CONFIG_HAVE_FPU */
@@ -111,4 +113,60 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
 #[inline]
 pub fn entry_hook() {
     get_currenct_thread().tcbArch.save_thread_local();
+}
+
+#[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
+pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) -> ! {
+    // TODO: support NODE_LOCK_SYS for smp mode
+    entry_hook();
+    use crate::kernel::fastpath::fastpath_call;
+    fastpath_call(cptr, msgInfo);
+    unreachable!()
+}
+
+#[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
+#[cfg(not(feature = "KERNEL_MCS"))]
+pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) -> ! {
+    // TODO: support NODE_LOCK_SYS for smp mode
+    entry_hook();
+    crate::kernel::fastpath::fastpath_reply_recv(cptr, msgInfo);
+    unreachable!()
+}
+
+#[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "KERNEL_MCS")]
+pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -> ! {
+    // TODO: support NODE_LOCK_SYS for smp mode
+    entry_hook();
+    crate::kernel::fastpath::fastpath_reply_recv(cptr, msgInfo, reply);
+    unreachable!()
+}
+
+#[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
+pub fn c_handle_undefined_instruction() -> ! {
+    // TODO: support NODE_LOCK_SYS for smp mode
+    entry_hook();
+    
+    // Only support aarch64
+    // No hypervisor support
+
+    let esr: usize;
+    unsafe { asm!("mrs {}, ESR_EL1", out(reg) esr) }
+    super::exception::handleUserLevelFault(esr, 0);
+    restore_user_context();
+    unreachable!()
+}
+
+#[no_mangle]
+#[cfg(feature = "BUILD_BINARY")]
+pub fn c_handle_enfp() -> ! {
+    use super::fpu::handleFPUFault;
+    entry_hook();
+    unsafe { handleFPUFault() };
+    restore_user_context();
+    unreachable!()
 }

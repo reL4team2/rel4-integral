@@ -193,6 +193,7 @@ fn insert_region(reg: region_t) -> bool {
     return false;
 }
 
+#[no_mangle]
 pub unsafe fn reserve_region(reg: p_region_t) -> bool {
     assert!(reg.start <= reg.end);
     if reg.start == reg.end {

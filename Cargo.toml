@@ -14,7 +14,6 @@ members = [
 ]
 [profile.release]
 lto = true
-opt-level = 3
 
 [patch.'https://github.com/reL4team2/driver-collect.git']
 driver-collect = { path = "driver-collect" }

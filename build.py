@@ -14,6 +14,7 @@ import shutil
 from pygments import highlight
 from pygments.lexers import BashLexer
 from pygments.formatters import TerminalFormatter
+import tools.generator as gen
 
 build_dir = "./build"
 
@@ -45,65 +46,58 @@ if __name__ == "__main__":
     clean_config()
     progname = sys.argv[0]
 
-    target = ""
+    rust_command = "cargo build --release"
+    cmake_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE"
+    #TODO: later, call generator tools in cmake
+    generator_defs = ["CONFIG_HAVE_FPU"]
+
     if args.platform == "spike":
-        target = "riscv64imac-unknown-none-elf"
+        rust_command += " --target riscv64imac-unknown-none-elf"
     elif args.platform == "qemu-arm-virt":
-        target = "aarch64-unknown-none-softfloat"
+        rust_command += " --target aarch64-unknown-none-softfloat"
+        if args.smc == "on":
+            cmake_command += " -DKernelAllowSMCCalls=ON"
+            rust_command += " --features ENABLE_SMC"
     
-    mcs = False
     if args.mcs == "on":
-        mcs = True
+        rust_command += " --features KERNEL_MCS"
+        cmake_command += " -DMCS=TRUE "
+
+    if args.cpu_nums > 1:
+        rust_command += " --features ENABLE_SMP"
+        cmake_command += " -DSMP=TRUE"
+
+    if args.bin == False:
+        rust_command += " --lib"
+    else:
+        rust_command += " --bin rel4_kernel --features BUILD_BINARY"
+        cmake_command += " -DREL4_KERNEL=TRUE"
     
+    cmake_command += " && ninja"
+    
+    # generator some code
+    gen.linker_gen(args.platform)
+    gen.dev_gen(args.platform)
+    # default enable CONFIG_HAVE_FPU
+    gen.asms_gen(args.platform, generator_defs)
+
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
     os.makedirs(build_dir)
+
+    # prebuild rel4_kernel
     if args.baseline == True:
         shell_command = "cd ../kernel && git checkout baseline"
         if not exec_shell(shell_command):
             clean_config()
             sys.exit(-1)
     else:
-        build_command = f"cargo build --release --target {target}"
-        if args.cpu_nums > 1:
-            build_command += " --features ENABLE_SMP"
-        if args.mcs == "on":
-            build_command += " --features KERNEL_MCS"
-        if args.platform == "spike":
-            if args.bin == False or args.platform == "qemu-arm-virt":
-                build_command += " --lib"
-            else:
-                build_command += " --bin rel4_kernel --features BUILD_BINARY"
-        elif args.platform == "qemu-arm-virt":
-            if args.smc == "on":
-                build_command += " --features ENABLE_SMC"
-        if not exec_shell(build_command):
+        if not exec_shell(rust_command):
             clean_config()
             sys.exit(-1)
     
-    if args.cpu_nums > 1:
-        shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE -DSMP=TRUE "
-        if mcs==True:
-            shell_command = shell_command + " -DMCS=TRUE "
-        if args.bin == True and args.platform == "spike":
-            shell_command = shell_command + " -DREL4_KERNEL=TRUE "
-        elif args.platform == "qemu-arm-virt" and args.smc == "on":
-            shell_command = shell_command + " -DKernelAllowSMCCalls=ON "
-        shell_command = shell_command + " && ninja"
-        if not exec_shell(shell_command):
-            clean_config()
-            sys.exit(-1)
-        sys.exit(0)
-    shell_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE "
-    if mcs==True:
-        shell_command = shell_command + " -DMCS=TRUE "
-    if args.bin == True and args.platform == "spike":
-        shell_command = shell_command + " -DREL4_KERNEL=TRUE "
-    elif args.platform == "qemu-arm-virt" and args.smc == "on":
-        shell_command = shell_command + " -DKernelAllowSMCCalls=ON "
-    shell_command = shell_command + " && ninja"
-    print(shell_command)
-    if not exec_shell(shell_command):
+    # build sel4test
+    if not exec_shell(cmake_command):
         clean_config()
         sys.exit(-1)
     clean_config()

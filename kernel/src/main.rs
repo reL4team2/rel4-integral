@@ -27,6 +27,7 @@ mod object;
 mod structures;
 mod syscall;
 mod utils;
+mod platform;
 
 mod compatibility;
 mod ffi;
@@ -57,15 +58,6 @@ pub extern "C" fn strnlen(str: *const u8, _max_len: usize) -> usize {
     }
 }
 
-#[link_section = ".boot.bss"]
-static avail_p_regs: [p_region_t; 1] = [
-    // TODO: Fixed region, need config
-    p_region_t {
-        start: 0x80200000,
-        end: 0x17ff00000,
-    },
-];
-
 #[repr(align(128))]
 struct intStateIRQNode([u8; core::mem::size_of::<cte_t>() * 4]);
 
@@ -88,7 +80,8 @@ pub fn init_kernel(
     dtb_addr_p: usize,
     dtb_size: usize,
 ) {
-    sel4_common::println!("Now we use rel4 kernel binary");
+    use crate::platform::dev_gen::avail_p_regs;
+    // sel4_common::println!("Now we use rel4 kernel binary");
     log::set_max_level(log::LevelFilter::Trace);
     boot::interface::pRegsToR(
         &avail_p_regs as *const p_region_t as *const usize,
