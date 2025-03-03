@@ -13,6 +13,9 @@ set(BUILD_COMMAND cargo build --target ${RUST_TARGET} --release --features BUILD
 if(KernelIsMCS)
     set(BUILD_COMMAND ${BUILD_COMMAND} --features KERNEL_MCS)
 endif()
+if(KernelAllowSMCCalls)
+    set(BUILD_COMMAND ${BUILD_COMMAND} --features ENABLE_SMC)
+endif()
 
 set(PYTHON_DEFINE_ARGS "")
 if (KernelHaveFPU)

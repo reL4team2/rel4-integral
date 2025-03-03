@@ -91,7 +91,6 @@ if __name__ == "__main__":
         for d in args.definitions:
             defines.append(d)
 
-    print(f"lxy debug, {args.platform}, {defines}")
     linker_gen(args.platform)
     dev_gen(args.platform)
     asms_gen(args.platform, defines) 
