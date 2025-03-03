@@ -14,7 +14,7 @@ import shutil
 from pygments import highlight
 from pygments.lexers import BashLexer
 from pygments.formatters import TerminalFormatter
-import tools.generator as gen
+import kernel.generator as gen
 
 build_dir = "./build"
 

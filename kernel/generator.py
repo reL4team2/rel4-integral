@@ -12,6 +12,7 @@ def parse_args():
 
 
 def linker_gen(platform):
+    print(platform)
     src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_file = os.path.join(src_dir, "kernel/src/platform", f"{platform}.yml")
     with open(config_file, 'r') as file:
@@ -21,7 +22,7 @@ def linker_gen(platform):
         arch = doc["cpu"]["arch"]
 
     linker_file = os.path.join(src_dir, f"kernel/src/arch/{arch}/linker_gen.ld")
-
+    print(linker_file)
     with open(linker_file, 'w') as file:
         file.write("# This file is auto generated\n")
         file.write(f"OUTPUT_ARCH({arch})\n\n")
