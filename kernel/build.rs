@@ -1,5 +1,5 @@
-use std::process::Command;
 use std::env;
+use std::process::Command;
 
 fn file_gen(dir: &str, name: &str) {
     let src = format!("{}/{}", dir, name);
@@ -8,10 +8,11 @@ fn file_gen(dir: &str, name: &str) {
 
     Command::new("gcc")
         .args(&[
-            "-E", 
-            "-I./include",  // 使用相对路径添加头文件路径
-            &src,       // 汇编文件路径
-            "-o", &out // 输出路径
+            "-E",
+            "-I./include", // 使用相对路径添加头文件路径
+            &src,          // 汇编文件路径
+            "-o",
+            &out, // 输出路径
         ])
         .status()
         .expect("Failed to preprocess assembly");

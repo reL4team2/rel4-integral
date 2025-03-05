@@ -177,7 +177,8 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
         ksCurSC = get_currenct_thread().tcbSchedContext;
         ksConsumed = 0;
         ksReprogram = true;
-        ksReleaseHead = 0;
+        ksReleaseQueue.head = 0;
+        ksReleaseQueue.tail = 0;
         ksCurTime = timer.getCurrentTime();
     }
 }

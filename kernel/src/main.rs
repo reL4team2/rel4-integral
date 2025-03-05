@@ -24,10 +24,10 @@ mod interrupt;
 mod kernel;
 mod lang_items;
 mod object;
+mod platform;
 mod structures;
 mod syscall;
 mod utils;
-mod platform;
 
 mod compatibility;
 mod ffi;

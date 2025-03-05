@@ -76,4 +76,50 @@ impl tcb_queue_t {
     pub fn empty(&self) -> bool {
         return self.head == 0;
     }
+    #[inline]
+    pub fn prepend(&mut self, tcb: &mut tcb_t) {
+        if self.empty() {
+            self.tail = tcb.get_ptr();
+        } else {
+            tcb.tcbSchedNext = self.head;
+            convert_to_mut_type_ref::<tcb_t>(self.head).tcbSchedPrev = tcb.get_ptr();
+        }
+        self.head = tcb.get_ptr();
+    }
+    #[inline]
+    pub fn append(&mut self, tcb: &mut tcb_t) {
+        if self.empty() {
+            self.head = tcb.get_ptr();
+        } else {
+            tcb.tcbSchedPrev = self.tail;
+            convert_to_mut_type_ref::<tcb_t>(self.tail).tcbSchedNext = tcb.get_ptr();
+        }
+        self.tail = tcb.get_ptr();
+    }
+    #[inline]
+    pub fn remove(&mut self, tcb: &mut tcb_t) {
+        let before = tcb.tcbSchedPrev;
+        let after = tcb.tcbSchedNext;
+        if self.head == tcb.get_ptr() && self.tail == tcb.get_ptr() {
+            self.head = 0;
+            self.tail = 0;
+        } else {
+            if self.head == tcb.get_ptr() {
+                convert_to_mut_type_ref::<tcb_t>(after).tcbSchedPrev = 0;
+                tcb.tcbSchedNext = 0;
+                self.head = after;
+            } else {
+                if self.tail == tcb.get_ptr() {
+                    convert_to_mut_type_ref::<tcb_t>(before).tcbSchedNext = 0;
+                    tcb.tcbSchedPrev = 0;
+                    self.tail = before;
+                } else {
+                    convert_to_mut_type_ref::<tcb_t>(before).tcbSchedNext = after;
+                    convert_to_mut_type_ref::<tcb_t>(after).tcbSchedPrev = before;
+                    tcb.tcbSchedPrev = 0;
+                    tcb.tcbSchedNext = 0;
+                }
+            }
+        }
+    }
 }

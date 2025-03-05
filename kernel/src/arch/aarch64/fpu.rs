@@ -1,6 +1,9 @@
 #![allow(unused)]
 
-use core::{arch::asm, intrinsics::{likely, unlikely}};
+use core::{
+    arch::asm,
+    intrinsics::{likely, unlikely},
+};
 
 use sel4_common::arch::arch_tcb::FPUState;
 use sel4_task::{get_currenct_thread, tcb_t};
@@ -118,7 +121,7 @@ unsafe fn switchLocalFpuOwner(new_owner: Option<*const FPUState>) {
     if let Some(ptr) = ksActiveFPUStatePtr {
         save_fpu_state(ptr);
     }
-    
+
     if let Some(owner) = new_owner {
         ksFPURestoresSinceSwitch = 0;
         load_fpu_state(owner as *const FPUState as usize);
@@ -133,7 +136,7 @@ unsafe fn switchLocalFpuOwner(new_owner: Option<*const FPUState>) {
 #[allow(unused)]
 pub(crate) unsafe fn handleFPUFault() {
     let new_owner = get_currenct_thread().tcbArch.fpu_state_ptr();
-    switchLocalFpuOwner(Some(new_owner ));
+    switchLocalFpuOwner(Some(new_owner));
 }
 
 #[inline(always)]
@@ -141,7 +144,7 @@ unsafe fn nativeThreadUsingFPU(thread: &mut tcb_t) -> bool {
     if let Some(ptr) = ksActiveFPUStatePtr {
         return thread.tcbArch.fpu_state_ptr() as usize == ptr;
     }
-    
+
     false
 }
 
@@ -149,7 +152,7 @@ unsafe fn nativeThreadUsingFPU(thread: &mut tcb_t) -> bool {
 #[allow(unused)]
 pub(crate) unsafe fn lazyFPURestore(thread: &mut tcb_t) {
     if let Some(_) = ksActiveFPUStatePtr {
-        if unlikely( ksFPURestoresSinceSwitch > CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH) {
+        if unlikely(ksFPURestoresSinceSwitch > CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH) {
             switchLocalFpuOwner(None);
             ksFPURestoresSinceSwitch = 0
         } else {

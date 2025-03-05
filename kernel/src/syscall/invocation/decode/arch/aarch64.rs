@@ -39,11 +39,11 @@ use sel4_vspace::{
     pptr_to_paddr, pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
 };
 
+#[cfg(feature = "ENABLE_SMC")]
+use crate::config::NUM_SMC_REGS;
 use crate::syscall::invocation::invoke_mmu_op::{
     invoke_page_get_address, invoke_page_map, invoke_page_table_unmap, invoke_page_unmap,
 };
-#[cfg(feature = "ENABLE_SMC")]
-use crate::config::NUM_SMC_REGS;
 use crate::{
     config::maxIRQ,
     interrupt::is_irq_active,
@@ -1166,7 +1166,7 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     use core::arch::asm;
 
     let thread = get_currenct_thread();
-	let op_ipc_buffer = thread.lookup_mut_ipc_buffer(true);
+    let op_ipc_buffer = thread.lookup_mut_ipc_buffer(true);
 
     let mut args: [usize; NUM_SMC_REGS] = [0; NUM_SMC_REGS];
     for i in 0..NUM_SMC_REGS {
@@ -1203,10 +1203,10 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
         );
     }
     if call {
-		let mut i: usize = 0;
-		while i < msgRegisterNum {
+        let mut i: usize = 0;
+        while i < msgRegisterNum {
             thread.tcbArch.set_register(ArchReg::Msg(i), args[i]);
-			i+=1;
+            i += 1;
         }
         if let Some(ipc_buffer) = op_ipc_buffer {
             while i < NUM_SMC_REGS {

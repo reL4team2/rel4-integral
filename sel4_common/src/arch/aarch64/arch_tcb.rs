@@ -70,5 +70,4 @@ impl ArchTCB {
     pub fn fpu_state_ptr(&mut self) -> *const FPUState {
         &self.fpu as *const FPUState
     }
-
 }

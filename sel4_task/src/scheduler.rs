@@ -111,7 +111,7 @@ pub static mut ksSchedulerAction: usize = 1;
 
 #[no_mangle]
 #[cfg(feature = "KERNEL_MCS")]
-pub static mut ksReleaseHead: usize = 0;
+pub static mut ksReleaseQueue: tcb_queue_t = tcb_queue_t { head: 0, tail: 0 };
 
 #[no_mangle]
 #[cfg(feature = "KERNEL_MCS")]
@@ -523,9 +523,9 @@ pub fn rescheduleRequired() {
 pub fn awaken() {
     while unsafe {
         unlikely(
-            ksReleaseHead != 0
+            ksReleaseQueue.head != 0
                 && convert_to_mut_type_ref::<sched_context_t>(
-                    convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedContext,
+                    convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head).tcbSchedContext,
                 )
                 .refill_ready(),
         )
@@ -545,8 +545,6 @@ pub fn awaken() {
                     .refill_sufficient(0)
             );
             possible_switch_to(&mut *awakened);
-            /* changed head of release queue -> need to reprogram */
-            ksReprogram = true;
         }
     }
 }
@@ -639,10 +637,10 @@ pub fn setNextInterrupt() {
         if numDomains > 1 {
             next_interrupt = core::cmp::min(next_interrupt, ksCurTime + ksDomainTime);
         }
-        if ksReleaseHead != 0 {
+        if ksReleaseQueue.head != 0 {
             next_interrupt = core::cmp::min(
                 (*convert_to_mut_type_ref::<sched_context_t>(
-                    convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedContext,
+                    convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head).tcbSchedContext,
                 )
                 .refill_head())
                 .rTime,

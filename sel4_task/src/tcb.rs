@@ -3,7 +3,7 @@ use crate::ksCurSC;
 use crate::tcb_queue::tcb_queue_t;
 use crate::{ksReadyQueues, prio_t};
 #[cfg(feature = "KERNEL_MCS")]
-use crate::{ksReleaseHead, sched_context::sched_context_t};
+use crate::{ksReleaseQueue, sched_context::sched_context_t};
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     msgRegisterNum, n_exceptionMessage, n_syscallMessage, vm_rights_t, ArchReg, ArchTCB,
@@ -19,12 +19,12 @@ use sel4_common::structures_gen::{
 };
 #[cfg(not(feature = "KERNEL_MCS"))]
 use sel4_common::structures_gen::{cap_reply_cap, mdb_node};
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_common::utils::convert_to_option_mut_type_ref;
 use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::BIT;
 use sel4_common::MASK;
+#[cfg(feature = "KERNEL_MCS")]
+use sel4_common::{platform::time_def::ticks_t, utils::convert_to_option_mut_type_ref};
 #[cfg(not(feature = "KERNEL_MCS"))]
 use sel4_cspace::interface::cte_insert;
 use sel4_cspace::interface::{cte_t, resolve_address_bits};
@@ -269,21 +269,28 @@ impl tcb_t {
                     .refill_sufficient(0)
             );
         }
-        let self_ptr = self as *mut tcb_t;
+
         if self.tcbState.get_tcbQueued() == 0 {
             let dom = self.domain;
             let prio = self.tcbPriority;
             let idx = ready_queues_index(dom, prio);
             let queue = self.get_sched_queue(idx);
-            if queue.tail == 0 {
-                queue.tail = self_ptr as usize;
+
+            if queue.empty() {
                 addToBitmap(self.get_cpu(), dom, prio);
-            } else {
-                convert_to_mut_type_ref::<tcb_t>(queue.head).tcbSchedPrev = self_ptr as usize;
             }
-            self.tcbSchedPrev = 0;
-            self.tcbSchedNext = queue.head;
-            queue.head = self_ptr as usize;
+
+            queue.prepend(self);
+            // if queue.tail == 0 {
+            //     queue.tail = self_ptr as usize;
+            //     addToBitmap(self.get_cpu(), dom, prio);
+            // } else {
+            //     convert_to_mut_type_ref::<tcb_t>(queue.head).tcbSchedPrev = self_ptr as usize;
+            // }
+            // self.tcbSchedPrev = 0;
+            // self.tcbSchedNext = queue.head;
+            // queue.head = self_ptr as usize;
+
             unsafe {
                 ksReadyQueues[idx] = *queue;
             }
@@ -330,25 +337,18 @@ impl tcb_t {
             let prio = self.tcbPriority;
             let idx = ready_queues_index(dom, prio);
             let queue = self.get_sched_queue(idx);
-            if self.tcbSchedPrev != 0 {
-                convert_to_mut_type_ref::<tcb_t>(self.tcbSchedPrev).tcbSchedNext =
-                    self.tcbSchedNext;
-            } else {
-                queue.head = self.tcbSchedNext;
-                if likely(self.tcbSchedNext == 0) {
-                    removeFromBitmap(self.get_cpu(), dom, prio);
-                }
-            }
-            if self.tcbSchedNext != 0 {
-                convert_to_mut_type_ref::<tcb_t>(self.tcbSchedNext).tcbSchedPrev =
-                    self.tcbSchedPrev;
-            } else {
-                queue.tail = self.tcbSchedPrev;
-            }
+
+            queue.remove(self);
+
             unsafe {
                 ksReadyQueues[idx] = *queue;
             }
+
             self.tcbState.set_tcbQueued(0);
+
+            if likely(queue.head == 0) {
+                removeFromBitmap(self.get_cpu(), dom, prio);
+            }
         }
     }
 
@@ -934,30 +934,50 @@ impl tcb_t {
     }
     pub fn DebugAppend(&mut self) {}
     pub fn DebugRemove(&mut self) {}
+
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn Ready_Time(&self) -> ticks_t {
+        unsafe {
+            (*convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext).refill_head()).rTime
+        }
+    }
+    #[inline]
+    #[cfg(feature = "KERNEL_MCS")]
+    pub fn Time_After(&self, new_time: ticks_t) -> bool {
+        new_time >= self.Ready_Time()
+    }
+
+    #[inline]
+    pub fn queue_insert(&mut self, tcb_after: &mut tcb_t) {
+        let before = tcb_after.tcbSchedPrev;
+        assert!(before != 0);
+        assert!(before != tcb_after.get_ptr());
+
+        self.tcbSchedPrev = before;
+        self.tcbSchedNext = tcb_after.get_ptr();
+
+        tcb_after.tcbSchedPrev = self.get_ptr();
+        convert_to_mut_type_ref::<tcb_t>(before).tcbSchedNext = self.get_ptr();
+    }
+
     #[inline]
     #[cfg(feature = "KERNEL_MCS")]
     pub fn Release_Remove(&mut self) {
         use crate::ksReprogram;
 
-        if likely(self.tcbState.get_tcbInReleaseQueue() != 0) {
-            if self.tcbSchedPrev != 0 {
-                convert_to_mut_type_ref::<tcb_t>(self.tcbSchedPrev).tcbSchedNext =
-                    self.tcbSchedNext;
-            } else {
-                unsafe {
-                    ksReleaseHead = self.tcbSchedNext;
+        unsafe {
+            if likely(self.tcbState.get_tcbInReleaseQueue() != 0) {
+                let mut queue = ksReleaseQueue;
+
+                if queue.head == self.get_ptr() {
                     ksReprogram = true;
                 }
-            }
+                queue.remove(self);
+                ksReleaseQueue = queue;
 
-            if self.tcbSchedNext != 0 {
-                convert_to_mut_type_ref::<tcb_t>(self.tcbSchedNext).tcbSchedPrev =
-                    self.tcbSchedPrev;
+                self.tcbState.set_tcbInReleaseQueue(0);
             }
-
-            self.tcbSchedNext = 0;
-            self.tcbSchedPrev = 0;
-            self.tcbState.set_tcbInReleaseQueue(0);
         }
     }
     #[inline]
@@ -969,37 +989,24 @@ impl tcb_t {
         assert!(self.tcbState.get_tcbQueued() == 0);
 
         unsafe {
-            let mut before_ptr: usize = 0;
-            let mut after_ptr: usize = ksReleaseHead;
+            let new_time = self.Ready_Time();
+            let mut queue = ksReleaseQueue;
 
-            /* find our place in the ordered queue */
-            while after_ptr != 0
-                && (*convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext).refill_head())
-                    .rTime
-                    >= (*convert_to_mut_type_ref::<sched_context_t>(
-                        convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbSchedContext,
-                    )
-                    .refill_head())
-                    .rTime
+            if queue.empty() || new_time < convert_to_mut_type_ref::<tcb_t>(queue.head).Ready_Time()
             {
-                before_ptr = after_ptr;
-                after_ptr = convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbSchedNext;
-            }
-
-            if before_ptr == 0 {
-                /* insert at head */
-                ksReleaseHead = self.get_ptr();
+                queue.prepend(self);
+                ksReleaseQueue = queue;
                 ksReprogram = true;
             } else {
-                convert_to_mut_type_ref::<tcb_t>(before_ptr).tcbSchedNext = self.get_ptr();
+                if convert_to_mut_type_ref::<tcb_t>(queue.tail).Ready_Time() < new_time {
+                    queue.append(self);
+                    ksReleaseQueue = queue;
+                } else {
+                    let after =
+                        Find_Time_After(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
+                    self.queue_insert(convert_to_mut_type_ref(after as usize));
+                }
             }
-
-            if after_ptr != 0 {
-                convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbSchedPrev = self.get_ptr();
-            }
-
-            self.tcbSchedNext = after_ptr;
-            self.tcbSchedPrev = before_ptr;
         }
 
         self.tcbState.set_tcbInReleaseQueue(1);
@@ -1037,30 +1044,36 @@ pub fn set_thread_state(tcb: &mut tcb_t, state: ThreadState) {
     tcb.tcbState.set_tsType(state as u64);
     schedule_tcb(tcb);
 }
+#[inline]
+#[cfg(feature = "KERNEL_MCS")]
+pub fn Find_Time_After(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
+    let mut after = tcb;
+    while after.Time_After(new_time) {
+        if after.tcbSchedContext != 0 {
+            after = convert_to_mut_type_ref::<tcb_t>(after.tcbSchedContext)
+        } else {
+            // we do not check the ptr is 0 in time after, but do it here
+            break;
+        }
+    }
+    return after;
+}
 
 #[cfg(feature = "KERNEL_MCS")]
 pub fn tcb_Release_Dequeue() -> *mut tcb_t {
     use crate::ksReprogram;
 
     unsafe {
-        assert!(ksReleaseHead != 0);
-        assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedPrev == 0);
+        assert!(ksReleaseQueue.head != 0);
+        assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head).tcbSchedPrev == 0);
 
-        let detached_head = ksReleaseHead as *mut tcb_t;
-        ksReleaseHead = (*detached_head).tcbSchedNext;
+        let awakened = convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head);
+        assert!(awakened.get_ptr() != get_currenct_thread().get_ptr());
 
-        if ksReleaseHead != 0 {
-            convert_to_mut_type_ref::<tcb_t>(ksReleaseHead).tcbSchedPrev = 0;
-        }
-        if (*detached_head).tcbSchedNext != 0 {
-            convert_to_mut_type_ref::<tcb_t>((*detached_head).tcbSchedNext).tcbSchedPrev = 0;
-            (*detached_head).tcbSchedNext = 0;
-        }
-
-        (*detached_head).tcbState.set_tcbInReleaseQueue(0);
+        awakened.Release_Remove();
         ksReprogram = true;
 
-        return detached_head;
+        return awakened;
     }
 }
 #[cfg(feature = "KERNEL_MCS")]

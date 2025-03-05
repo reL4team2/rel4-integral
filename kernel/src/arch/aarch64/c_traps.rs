@@ -150,7 +150,7 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -
 pub fn c_handle_undefined_instruction() -> ! {
     // TODO: support NODE_LOCK_SYS for smp mode
     entry_hook();
-    
+
     // Only support aarch64
     // No hypervisor support
 
