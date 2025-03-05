@@ -1,66 +1,138 @@
+/*
+ * Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+ * Copyright 2015, 2016 Hesham Almatary <heshamelmatary@gmail.com>
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
+#include <assembler.h>
+#include <riscv64/hardware.h>
+
+#define REGBYTES (CONFIG_WORD_SIZE / 8)
+
 .section .text
 
 .global trap_entry
-.extern handle_syscall
+.extern c_handle_syscall
+.extern c_handle_fastpath_reply_recv
+.extern c_handle_fastpath_call
 .extern c_handle_interrupt
 .extern c_handle_exception
 
 trap_entry:
+
+#ifdef ENABLE_SMP_SUPPORT
+/* The sscratch contains the stack for the current core */
+  csrrw sp, sscratch, sp
+/* Now we have a valid kernel stack */
+  STORE t0, (-2*REGBYTES)(sp)
+  LOAD  t0, (-1*REGBYTES)(sp)
+#else
   csrrw t0, sscratch, t0
-  sd ra, (0*(64 / 8))(t0)
-  sd sp, (1*(64 / 8))(t0)
-  sd gp, (2*(64 / 8))(t0)
-  sd tp, (3*(64 / 8))(t0)
-  sd t1, (5*(64 / 8))(t0)
-  sd t2, (6*(64 / 8))(t0)
-  sd s0, (7*(64 / 8))(t0)
-  sd s1, (8*(64 / 8))(t0)
-  sd a0, (9*(64 / 8))(t0)
-  sd a1, (10*(64 / 8))(t0)
-  sd a2, (11*(64 / 8))(t0)
-  sd a3, (12*(64 / 8))(t0)
-  sd a4, (13*(64 / 8))(t0)
-  sd a5, (14*(64 / 8))(t0)
-  sd a6, (15*(64 / 8))(t0)
-  sd a7, (16*(64 / 8))(t0)
-  sd s2, (17*(64 / 8))(t0)
-  sd s3, (18*(64 / 8))(t0)
-  sd s4, (19*(64 / 8))(t0)
-  sd s5, (20*(64 / 8))(t0)
-  sd s6, (21*(64 / 8))(t0)
-  sd s7, (22*(64 / 8))(t0)
-  sd s8, (23*(64 / 8))(t0)
-  sd s9, (24*(64 / 8))(t0)
-  sd s10, (25*(64 / 8))(t0)
-  sd s11, (26*(64 / 8))(t0)
-  sd t3, (27*(64 / 8))(t0)
-  sd t4, (28*(64 / 8))(t0)
-  sd t5, (29*(64 / 8))(t0)
-  sd t6, (30*(64 / 8))(t0)
-  csrr x1, sscratch
-  sd x1, (4*(64 / 8))(t0)
+#endif
+  STORE ra, (0*REGBYTES)(t0)
+#ifndef ENABLE_SMP_SUPPORT
+  STORE sp, (1*REGBYTES)(t0)
+#endif
+  STORE gp, (2*REGBYTES)(t0)
+  STORE tp, (3*REGBYTES)(t0)
+  STORE t1, (5*REGBYTES)(t0)
+  STORE t2, (6*REGBYTES)(t0)
+  STORE s0, (7*REGBYTES)(t0)
+  STORE s1, (8*REGBYTES)(t0)
+  STORE a0, (9*REGBYTES)(t0)
+  STORE a1, (10*REGBYTES)(t0)
+  STORE a2, (11*REGBYTES)(t0)
+  STORE a3, (12*REGBYTES)(t0)
+  STORE a4, (13*REGBYTES)(t0)
+  STORE a5, (14*REGBYTES)(t0)
+  STORE a6, (15*REGBYTES)(t0)
+  STORE a7, (16*REGBYTES)(t0)
+  STORE s2, (17*REGBYTES)(t0)
+  STORE s3, (18*REGBYTES)(t0)
+  STORE s4, (19*REGBYTES)(t0)
+  STORE s5, (20*REGBYTES)(t0)
+  STORE s6, (21*REGBYTES)(t0)
+  STORE s7, (22*REGBYTES)(t0)
+  STORE s8, (23*REGBYTES)(t0)
+  STORE s9, (24*REGBYTES)(t0)
+  STORE s10, (25*REGBYTES)(t0)
+  STORE s11, (26*REGBYTES)(t0)
+  STORE t3, (27*REGBYTES)(t0)
+  STORE t4, (28*REGBYTES)(t0)
+  STORE t5, (29*REGBYTES)(t0)
+  STORE t6, (30*REGBYTES)(t0)
+  /* save t0 value */
+#ifdef ENABLE_SMP_SUPPORT
+  LOAD  x1, (-2*REGBYTES)(sp)
+#else
+  csrr  x1, sscratch
+#endif
+  STORE    x1, (4*REGBYTES)(t0)
+
   csrr x1, sstatus
-  sd x1, (32*(64 / 8))(t0)
+  STORE x1, (32*REGBYTES)(t0)
+
   csrr s0, scause
-  sd s0, (31*(64 / 8))(t0)
+  STORE s0, (31*REGBYTES)(t0)
 
 .option push
 .option norelax
   la gp, __global_pointer$
 .option pop
-  la sp, (kernel_stack_alloc + (1ul << (12)))
-  csrr x1, sepc
-  sd x1, (33*(64 / 8))(t0)
+
+#ifdef ENABLE_SMP_SUPPORT
+  /* save the user sp */
+  csrr  x1, sscratch
+  STORE x1, (1*REGBYTES)(t0)
+  /* restore the sscratch */
+  csrw  sscratch, sp
+#else
+  /* Load kernel's stack address */
+  la sp, (kernel_stack_alloc + BIT(CONFIG_KERNEL_STACK_BITS))
+#endif
+
+  /* Save exception PC */
+  csrr x1,  sepc
+  STORE   x1, (33*REGBYTES)(t0)
+
+  /* Check if it's an interrupt */
   bltz s0, interrupt
-  li s4, 8
-  bne s0, s4, exception
 
-  j handle_syscall
+  /* ratified priv has value 8 for ecall from U-mode exception */
+  li   s4, 8
+  bne  s0, s4, exception
 
+handle_syscall:
+  /* Set the return address to sepc + 4 in the case of a system/environment call */
+  addi x1, x1, 4
+  /* Save NextIP */
+  STORE   x1, (34*REGBYTES)(t0)
+
+#ifdef CONFIG_FASTPATH
+  li t3, SYSCALL_CALL
+  beq a7, t3, c_handle_fastpath_call
+
+  li t3, SYSCALL_REPLY_RECV
+#ifdef CONFIG_KERNEL_MCS
+  /* move reply to 3rd argument */
+  mv a2, a6
+#endif
+  beq a7, t3, c_handle_fastpath_reply_recv
+#endif
+
+  /* move syscall number to 3rd argument */
+  mv a2, a7
+
+  j c_handle_syscall
+
+/* Not an interrupt or a syscall */
 exception:
-  sd x1, (34*(64 / 8))(t0)
+  /* Save NextIP */
+  STORE   x1, (34*REGBYTES)(t0)
   j c_handle_exception
 
 interrupt:
-  sd x1, (34*(64 / 8))(t0)
+  /* Save NextIP */
+  STORE   x1, (34*REGBYTES)(t0)
   j c_handle_interrupt

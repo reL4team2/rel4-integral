@@ -9,17 +9,23 @@ endif()
 
 set(KERNEL_ELF_PATH ${PROJECT_SOURCE_DIR}/target/${RUST_TARGET}/release/rel4_kernel)
 
+set(PYTHON_DEFINE_ARGS "")
+
 set(BUILD_COMMAND cargo build --target ${RUST_TARGET} --release --features BUILD_BINARY)
 if(KernelIsMCS)
     set(BUILD_COMMAND ${BUILD_COMMAND} --features KERNEL_MCS)
+    list(APPEND PYTHON_DEFINE_ARGS "--define" "CONFIG_KERNEL_MCS")
 endif()
 if(KernelAllowSMCCalls)
     set(BUILD_COMMAND ${BUILD_COMMAND} --features ENABLE_SMC)
 endif()
 
-set(PYTHON_DEFINE_ARGS "")
 if (KernelHaveFPU)
     list(APPEND PYTHON_DEFINE_ARGS "--define" "CONFIG_HAVE_FPU")
+endif()
+
+if (KernelFastpath)
+    list(APPEND PYTHON_DEFINE_ARGS "--define" "CONFIG_FASTPATH")
 endif()
 
 add_custom_command(
