@@ -194,6 +194,7 @@ lel_syscall:
 
     lsp_i   x19
 
+#ifdef CONFIG_FASTPATH
     cmp     x7, #SYSCALL_CALL
     b.eq    c_handle_fastpath_call
 #ifdef CONFIG_SIGNAL_FASTPATH
@@ -205,6 +206,7 @@ lel_syscall:
     mov     x2, x6
 #endif
     b.eq    c_handle_fastpath_reply_recv
+#endif
 
     mov     x2, x7
     b       c_handle_syscall

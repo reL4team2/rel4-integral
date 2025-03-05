@@ -93,35 +93,6 @@ pub fn restore_user_context() {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
-pub fn handle_syscall() {
-    unsafe {
-        asm!(
-            "addi x1, x1, 4",
-            "sd x1, (34*(64 / 8))(t0)",
-            "li t3, -1",
-            "bne a7, t3, 1f",
-            "j c_handle_fastpath_call",
-            "1:",
-            "li t3, -2",
-            "bne a7, t3, 2f"
-        );
-
-        #[cfg(feature = "KERNEL_MCS")]
-        {
-            asm!("mv a2, a6");
-        }
-
-        asm!(
-            "j c_handle_fastpath_reply_recv",
-            "2:",
-            "mv a2, a7",
-            "j c_handle_syscall"
-        );
-    }
-}
-
-#[no_mangle]
 pub fn c_handle_interrupt() {
     // debug!("c_handle_interrupt");
     // if hart_id() != 0 {
@@ -183,6 +154,7 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
 
 #[no_mangle]
 #[cfg(feature = "BUILD_BINARY")]
+#[link_section = ".text"]
 pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) {
     use crate::kernel::fastpath::fastpath_call;
     fastpath_call(cptr, msgInfo);
@@ -190,6 +162,7 @@ pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) {
 
 #[no_mangle]
 #[cfg(feature = "BUILD_BINARY")]
+#[link_section = ".text"]
 #[cfg(not(feature = "KERNEL_MCS"))]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     use crate::kernel::fastpath::fastpath_reply_recv;
@@ -198,6 +171,7 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) {
 
 #[no_mangle]
 #[cfg(feature = "BUILD_BINARY")]
+#[link_section = ".text"]
 #[cfg(feature = "KERNEL_MCS")]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     use crate::kernel::fastpath::fastpath_reply_recv;
