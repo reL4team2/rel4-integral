@@ -36,7 +36,6 @@ jobs:
         run: |
           cd rel4_kernel
           cargo update -p home --precise 0.5.5
-          rustup target add aarch64-unknown-none-softfloat
       - name: Make rel4_kernel
         run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} run
       - name: Build kernel

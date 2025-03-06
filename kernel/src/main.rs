@@ -72,6 +72,7 @@ static irqnode: intStateIRQNode = intStateIRQNode::new();
 
 #[no_mangle]
 #[link_section = ".boot.text"]
+#[cfg(feature = "BUILD_BINARY")]
 pub fn init_kernel(
     ui_p_reg_start: usize,
     ui_p_reg_end: usize,
