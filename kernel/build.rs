@@ -17,9 +17,36 @@ fn file_gen(dir: &str, name: &str) {
         .status()
         .expect("Failed to preprocess assembly");
 }
+fn python_gen() {
+    let target = env::var("TARGET").unwrap_or_else(|_| "unknown-target".to_string());
+    let mut platform="";
+    if target == "aarch64-unknown-none-softfloat" {
+        platform = "-pqemu-arm-virt"
+    } else if target == "riscv64imac-unknown-none-elf" {
+        platform = "-pspike"
+    }
+    if std::env::var("CARGO_FEATURE_BUILD_BINARY").is_ok() {
+        if std::env::var("CARGO_FEATURE_KERNEL_MCS").is_ok() {
+            Command::new("python3").args(&[
+				"generator.py",
+                platform,
+                "-d CONFIG_HAVE_FPU",
+                "-d CONFIG_FASTPATH",
+                "-d CONFIG_KERNEL_MCS",
+            ]).status().expect("Failed to generate");
+        } else {
+            Command::new("python3").args(&[
+				"generator.py",
+                platform,
+                "-d CONFIG_HAVE_FPU",
+                "-d CONFIG_FASTPATH",
+            ]).status().expect("Failed to generate");
+        }
+    }
+}
 
 fn main() {
-    file_gen("src/arch/riscv", "head.S");
+	python_gen();
 
-    println!("cargo:rerun-if-changed=build.rs");
+    file_gen("src/arch/riscv", "head.S");
 }

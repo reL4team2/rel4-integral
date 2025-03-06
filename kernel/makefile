@@ -15,10 +15,8 @@ env:
 	rustup default nightly-2023-05-01
 	rustup target add riscv64imac-unknown-none-elf
 	rustup component add rust-src
-build: gen
+build:
 	cargo build --release --target $(TARGET)
-run: gen
+run:
 	cargo build --release --target $(TARGET)
-gen:
-	python3 generator.py -p $(PLATFORM)
 .PHONY: all build env run

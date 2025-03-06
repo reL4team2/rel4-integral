@@ -49,7 +49,7 @@ if __name__ == "__main__":
     rust_command = "cargo build --release"
     cmake_command = f"cd ./build && ../../init-build.sh  -DPLATFORM={args.platform} -DSIMULATION=TRUE"
     #TODO: later, call generator tools in cmake
-    generator_defs = ["CONFIG_HAVE_FPU", "CONFIG_FASTPATH"]
+    # generator_defs = ["CONFIG_HAVE_FPU", "CONFIG_FASTPATH"]
 
     if args.platform == "spike":
         rust_command += " --target riscv64imac-unknown-none-elf"
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     if args.mcs == "on":
         rust_command += " --features KERNEL_MCS"
         cmake_command += " -DMCS=TRUE "
-        generator_defs.append("CONFIG_KERNEL_MCS")
+        # generator_defs.append("CONFIG_KERNEL_MCS")
 
     if args.cpu_nums > 1:
         rust_command += " --features ENABLE_SMP"
@@ -77,10 +77,10 @@ if __name__ == "__main__":
     cmake_command += " && ninja"
     
     # generator some code
-    gen.linker_gen(args.platform)
-    gen.dev_gen(args.platform)
+    # gen.linker_gen(args.platform)
+    # gen.dev_gen(args.platform)
     # default enable CONFIG_HAVE_FPU
-    gen.asms_gen(args.platform, generator_defs)
+    # gen.asms_gen(args.platform, generator_defs)
 
     if os.path.exists(build_dir):
         shutil.rmtree(build_dir)
