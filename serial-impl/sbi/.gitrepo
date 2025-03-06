@@ -7,6 +7,6 @@
 	remote = git@github.com:reL4team2/serial-impl-sbi.git
 	branch = master
 	commit = e7954c4d704aedbc64bdc77a5543e331e337ff91
- 	parent = be44a99fc2186df1a5c7b3b628deff886b181c06
+ 	parent = ade402e6b4f2f4c83212cd62119ba1d669908be2
 	method = merge
 	cmdver = 0.4.9
