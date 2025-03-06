@@ -37,3 +37,5 @@ ENABLE_SMP = ["sel4_common/ENABLE_SMP", "sel4_task/ENABLE_SMP", "sel4_vspace/ENA
 KERNEL_MCS = ["sel4_common/KERNEL_MCS", "sel4_task/KERNEL_MCS", "sel4_cspace/KERNEL_MCS"]
 ENABLE_SMC = ["sel4_common/ENABLE_SMC", "sel4_cspace/ENABLE_SMC"]
 BUILD_BINARY = []
+ENABLE_ARM_PCNT = []
+ENABLE_ARM_PTMR = []

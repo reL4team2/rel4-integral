@@ -29,6 +29,8 @@ def parse_args():
     parser.add_argument('-m', '--mcs', dest='mcs', default='off', help="set-mcs")
     parser.add_argument('-s', '--smc', dest='smc', default='off', help="set-arm-smc-enable")
     parser.add_argument('-B', '--bin', dest='bin', action='store_true', help="use rel4 kernel binary")
+    parser.add_argument('--arm_pcnt',dest='pnct',default='off',help="enable the arm pcnt at user space")
+    parser.add_argument('--arm_ptmr',dest='ptmr',default='off',help="enable the arm ptmr at user space")
     args = parser.parse_args()
     return args
 
@@ -58,6 +60,12 @@ if __name__ == "__main__":
         if args.smc == "on":
             cmake_command += " -DKernelAllowSMCCalls=ON"
             rust_command += " --features ENABLE_SMC"
+        if args.pnct == "on":
+            cmake_command += " -DKernelArmExportPCNTUser=ON"
+            rust_command += " --features ENABLE_ARM_PCNT"
+        if args.ptmr == "on":
+            cmake_command += " -DKernelArmExportPTMRUser=ON"
+            rust_command += " --features ENABLE_ARM_PTMR"
     
     if args.mcs == "on":
         rust_command += " --features KERNEL_MCS"
