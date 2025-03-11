@@ -76,8 +76,6 @@ impl ObjectType {
             Self::seL4_ARM_HugePageObject
                 | Self::seL4_ARM_SmallPageObject
                 | Self::seL4_ARM_LargePageObject
-                | Self::seL4_ARM_PageTableObject
-                | Self::seL4_ARM_VSpaceObject
         )
     }
 }

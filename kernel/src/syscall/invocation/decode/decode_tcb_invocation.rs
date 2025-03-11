@@ -468,7 +468,7 @@ fn decode_set_sched_params(
     length: usize,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    if length < 2 || get_extra_cap_by_index(0).is_some() {
+    if length < 2 || get_extra_cap_by_index(0).is_none() {
         debug!("TCB SetSchedParams: Truncated message.");
         unsafe {
             current_syscall_error._type = seL4_TruncatedMessage;

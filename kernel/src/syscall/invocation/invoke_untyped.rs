@@ -131,8 +131,8 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
         return exception_t::EXCEPTION_NONE;
     }
 
-    if device_mem != 0 && block_size < chunk {
-        if device_mem != 0 {
+    if device_mem != 0 || block_size < chunk {
+        if device_mem == 0 {
             clear_memory(region_base as *mut u8, block_size);
         }
         prev_cap.set_capFreeIndex(0);

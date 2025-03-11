@@ -136,7 +136,7 @@ pub fn decode_untyed_invocation(
     }
 
     let device_mem = capability.get_capIsDevice() != 0;
-    if device_mem && new_type.is_arch_type() && new_type != ObjectType::UnytpedObject {
+    if device_mem && !new_type.is_arch_type() && new_type != ObjectType::UnytpedObject {
         debug!("Untyped Retype: Creating kernel objects with device untyped");
         unsafe {
             current_syscall_error._type = seL4_InvalidArgument;
