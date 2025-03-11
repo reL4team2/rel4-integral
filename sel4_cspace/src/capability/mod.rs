@@ -120,6 +120,10 @@ impl cap_func for cap {
     }
 
     fn get_cap_is_physical(&self) -> bool {
+        #[cfg(target_arch = "aarch64")]
+        if self.get_tag() == cap_tag::cap_vspace_cap {
+            return true;
+        }
         #[cfg(not(feature = "KERNEL_MCS"))]
         {
             matches!(

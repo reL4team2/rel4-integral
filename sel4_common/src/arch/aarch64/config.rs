@@ -9,3 +9,5 @@ pub const PPTR_BASE: usize = 0xffffff8000000000;
 pub const PADDR_BASE: usize = 0x0;
 pub const PPTR_BASE_OFFSET: usize = PPTR_BASE - PADDR_BASE;
 pub const PADDR_TOP: usize = PPTR_TOP - PPTR_BASE_OFFSET;
+
+pub const seL4_MaxUntypedBits: usize = 38;

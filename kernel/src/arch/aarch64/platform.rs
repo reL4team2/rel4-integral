@@ -190,12 +190,14 @@ fn readCacheSize(level: usize) -> usize {
 
 fn armv_init_user_access() {
     let mut val: usize = 0;
-    #[cfg(feature = "ENABLE_ARM_PCNT")]{
-		val |= sel4_common::BIT!(0);
-	}
-    #[cfg(feature = "ENABLE_ARM_PTMR")]{
-		val |= sel4_common::BIT!(9);
-	}
+    #[cfg(feature = "ENABLE_ARM_PCNT")]
+    {
+        val |= sel4_common::BIT!(0);
+    }
+    #[cfg(feature = "ENABLE_ARM_PTMR")]
+    {
+        val |= sel4_common::BIT!(9);
+    }
     CNTKCTL_EL1.set(val as u64);
 }
 

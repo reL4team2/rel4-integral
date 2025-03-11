@@ -6,11 +6,12 @@ use crate::{
 
 use crate::{BIT, IS_ALIGNED, MASK};
 use log::debug;
-use sel4_common::utils::MAX_FREE_INDEX;
+use sel4_common::{arch::config::seL4_MaxUntypedBits, utils::MAX_FREE_INDEX};
 use sel4_common::{
-    sel4_config::{seL4_MaxUntypedBits, seL4_MinUntypedBits},
+    sel4_config::seL4_MinUntypedBits,
     structures_gen::{cap_cnode_cap, cap_untyped_cap},
 };
+
 use sel4_vspace::*;
 
 pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: region_t) -> bool {

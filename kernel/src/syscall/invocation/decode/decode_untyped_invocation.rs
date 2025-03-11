@@ -1,5 +1,6 @@
 use crate::BIT;
 use log::debug;
+use sel4_common::arch::config::seL4_MaxUntypedBits;
 use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_cnode_cap;
 use sel4_common::structures_gen::cap_tag;

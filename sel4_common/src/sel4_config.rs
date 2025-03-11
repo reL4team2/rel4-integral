@@ -13,7 +13,6 @@ pub const seL4_ReplyBits: usize = 5;
 pub const seL4_NotificationBits: usize = 5;
 pub const seL4_SlotBits: usize = 5;
 pub const seL4_MinUntypedBits: usize = 4;
-pub const seL4_MaxUntypedBits: usize = 38;
 
 // page table relevant
 pub const PT_SIZE_BITS: usize = 12;
