@@ -22,7 +22,7 @@ use crate::ffi::{ipi_clear_irq, ipi_get_irq};
 #[no_mangle]
 pub static mut intStateIRQTable: [usize; maxIRQ + 1] = [0; maxIRQ + 1];
 
-pub static mut intStateIRQNode: pptr_t = 0;
+pub static mut intStateIRQNode_ptr: pptr_t = 0;
 
 #[no_mangle]
 // #[link_section = ".boot.bss"]
@@ -55,7 +55,7 @@ pub fn get_irq_state(irq: usize) -> IRQState {
 
 #[inline]
 pub fn get_irq_handler_slot(irq: usize) -> &'static mut cte_t {
-    unsafe { convert_to_mut_type_ref::<cte_t>(intStateIRQNode).get_offset_slot(irq) }
+    unsafe { convert_to_mut_type_ref::<cte_t>(intStateIRQNode_ptr).get_offset_slot(irq) }
 }
 
 pub fn deletingIRQHandler(irq: usize) {
@@ -78,10 +78,21 @@ pub fn setIRQState(state: IRQState, irq: usize) {
     mask_interrupt(state == IRQState::IRQInactive, irq);
 }
 
+#[repr(align(128))]
+pub struct intStateIRQ_Node([u8; core::mem::size_of::<cte_t>() * 4]);
+
+impl intStateIRQ_Node {
+    const fn new() -> Self {
+        let buf = [0; core::mem::size_of::<cte_t>() * 4];
+        Self(buf)
+    }
+}
 #[no_mangle]
-pub extern "C" fn intStateIRQNodeToR(ptr: *mut usize) {
+pub(crate) static intStateIRQNode: intStateIRQ_Node = intStateIRQ_Node::new();
+#[no_mangle]
+pub extern "C" fn intStateIRQNodeToR() {
     unsafe {
-        intStateIRQNode = ptr as usize;
+        intStateIRQNode_ptr = intStateIRQNode.0.as_ptr() as usize;
     }
 }
 

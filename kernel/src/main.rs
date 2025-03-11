@@ -34,7 +34,6 @@ mod ffi;
 mod interfaces_impl;
 
 use boot::interface::rust_try_init_kernel;
-use interrupt::intStateIRQNodeToR;
 pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
 use sel4_cspace::interface::cte_t;
 use sel4_task::{activateThread, schedule};
@@ -58,18 +57,6 @@ pub extern "C" fn strnlen(str: *const u8, _max_len: usize) -> usize {
     }
 }
 
-#[repr(align(128))]
-struct intStateIRQNode([u8; core::mem::size_of::<cte_t>() * 4]);
-
-impl intStateIRQNode {
-    const fn new() -> Self {
-        let buf = [0; core::mem::size_of::<cte_t>() * 4];
-        Self(buf)
-    }
-}
-
-static irqnode: intStateIRQNode = intStateIRQNode::new();
-
 #[no_mangle]
 #[link_section = ".boot.text"]
 #[cfg(feature = "BUILD_BINARY")]
@@ -88,7 +75,6 @@ pub fn init_kernel(
         &avail_p_regs as *const p_region_t as *const usize,
         core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
     );
-    intStateIRQNodeToR(irqnode.0.as_ptr() as *mut usize);
     let result = rust_try_init_kernel(
         ui_p_reg_start,
         ui_p_reg_end,

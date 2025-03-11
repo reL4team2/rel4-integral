@@ -18,6 +18,7 @@ use crate::{
 };
 
 use super::platform::initIRQController;
+use crate::interrupt::intStateIRQNodeToR;
 
 pub fn try_init_kernel(
     ui_p_reg_start: usize,
@@ -28,6 +29,7 @@ pub fn try_init_kernel(
     dtb_size: usize,
     ki_boot_end: usize,
 ) -> bool {
+    intStateIRQNodeToR();
     // Init logging for log crate
     sel4_common::logging::init();
     let boot_mem_reuse_p_reg = p_region_t {

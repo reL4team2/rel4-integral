@@ -1,3 +1,4 @@
+use crate::interrupt::intStateIRQNodeToR;
 use crate::{
     arch::{init_cpu, init_freemem},
     boot::{
@@ -22,8 +23,9 @@ pub fn try_init_kernel(
     dtb_size: usize,
     ki_boot_end: usize,
 ) -> bool {
+    intStateIRQNodeToR();
     sel4_common::logging::init();
-    debug!("hello logging");
+    // debug!("hello logging");
     debug!("hello logging");
     let boot_mem_reuse_p_reg = p_region_t {
         start: kpptr_to_paddr(KERNEL_ELF_BASE),
