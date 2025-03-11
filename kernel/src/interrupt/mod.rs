@@ -169,7 +169,7 @@ pub fn ackInterrupt(irq: usize) {
 
 #[inline]
 pub fn is_irq_active(irq: usize) -> bool {
-    get_irq_state(irq) == IRQState::IRQInactive
+    get_irq_state(irq) != IRQState::IRQInactive
 }
 
 #[no_mangle]
