@@ -94,7 +94,7 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
     let thread = get_currenct_thread();
     if call {
         thread.tcbArch.set_register(ArchReg::Badge, 0);
-        let length = thread.set_mr(0, vbase_ptr) as u64;
+        let length = thread.set_mr(0, pptr_to_paddr(vbase_ptr)) as u64;
         thread.tcbArch.set_register(
             ArchReg::MsgInfo,
             seL4_MessageInfo::new(0, 0, 0, length).to_word(),
