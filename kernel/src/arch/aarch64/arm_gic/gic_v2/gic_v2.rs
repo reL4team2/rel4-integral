@@ -41,6 +41,13 @@ pub fn irq_enable(irq: usize) {
     GIC_DIST.regs().enable_set[word].set(1 << bits);
 }
 
+/// Disable the IRQ controller
+pub fn irq_disable(irq: usize) {
+    let word = irq >> 5;
+    let bits = (irq & 0x1f) as u32;
+    GIC_DIST.regs().enable_clr[word].set(1 << bits);
+}
+
 /// Get the current interrupt number
 pub fn gic_int_ack() -> usize {
     GIC_CPUIFACE.regs().int_ack.get() as usize

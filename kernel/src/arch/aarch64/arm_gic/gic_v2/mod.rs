@@ -2,7 +2,7 @@ pub mod consts;
 pub mod gic_v2;
 
 use core::ptr::NonNull;
-pub use gic_v2::irq_enable;
+pub use gic_v2::{irq_disable, irq_enable};
 use tock_registers::register_structs;
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 

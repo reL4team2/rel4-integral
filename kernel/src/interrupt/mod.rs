@@ -78,7 +78,7 @@ pub fn setIRQState(state: IRQState, irq: usize) {
     mask_interrupt(state == IRQState::IRQInactive, irq);
 }
 
-#[repr(align(128))]
+#[repr(align(8192))]
 pub struct intStateIRQ_Node([u8; core::mem::size_of::<cte_t>() * 4]);
 
 impl intStateIRQ_Node {
@@ -129,12 +129,10 @@ pub fn mask_interrupt(disable: bool, irq: usize) {
     }
     #[cfg(target_arch = "aarch64")]
     {
-        if irq == KERNEL_TIMER_IRQ {
-            if disable {
-                log::info!("disable interrupt: {}", irq);
-            } else {
-                crate::arch::arm_gic::gic_v2::irq_enable(irq);
-            }
+        if disable {
+            crate::arch::arm_gic::gic_v2::irq_disable(irq);
+        } else {
+            crate::arch::arm_gic::gic_v2::irq_enable(irq);
         }
     }
 }
