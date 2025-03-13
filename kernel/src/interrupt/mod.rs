@@ -158,13 +158,13 @@ pub fn ackInterrupt(irq: usize) {
     unsafe {
         active_irq[cpu_id()] = irqInvalid;
     }
-    if irq == KERNEL_TIMER_IRQ {
-        #[cfg(target_arch = "aarch64")]
-        {
-            crate::arch::arm_gic::gic_v2::gic_v2::ack_irq(irq);
-            global_ops!(active_irq[cpu_id()] = 0);
+    #[cfg(target_arch = "aarch64")]
+    {
+        if crate::arch::arm_gic::gic_v2::irq_is_edge_triggered(irq) {
+            crate::arch::arm_gic::gic_v2::dist_pending_clr(irq);
         }
-        return;
+        crate::arch::arm_gic::gic_v2::gic_v2::ack_irq(irq);
+        global_ops!(active_irq[cpu_id()] = 0);
     }
     #[cfg(feature = "ENABLE_SMP")]
     {
@@ -174,6 +174,7 @@ pub fn ackInterrupt(irq: usize) {
             }
         }
     }
+    return;
 }
 
 #[inline]

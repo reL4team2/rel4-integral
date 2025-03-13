@@ -48,6 +48,20 @@ pub fn irq_disable(irq: usize) {
     GIC_DIST.regs().enable_clr[word].set(1 << bits);
 }
 
+/// is edge triggered
+pub fn irq_is_edge_triggered(irq: usize) -> bool {
+    let word = irq >> 4;
+    let bits = ((irq & 0xf) * 2) as u32;
+    (GIC_DIST.regs().config[word].get() & (1 << (bits + 1))) != 0
+}
+
+/// pending clear
+pub fn dist_pending_clr(irq: usize) {
+    let word = irq >> 5;
+    let bits = (irq & 0x1f) as u32;
+    GIC_DIST.regs().pending_clr[word].set(1 << bits);
+}
+
 /// Get the current interrupt number
 pub fn gic_int_ack() -> usize {
     GIC_CPUIFACE.regs().int_ack.get() as usize
@@ -79,7 +93,7 @@ pub fn dist_init() {
     }
 
     for i in (64..nirqs).step_by(32) {
-        GIC_DIST.regs().config[i >> 5].set(0x55555555);
+        GIC_DIST.regs().config[i >> 5].set(0xffffffff);
     }
 
     for i in (0..nirqs).step_by(32) {

@@ -1,4 +1,5 @@
 use core::intrinsics::likely;
+use core::intrinsics::unlikely;
 
 use super::endpoint::*;
 use super::notification::*;
@@ -144,6 +145,7 @@ impl Transfer for tcb_t {
                         break;
                     }
                     cte_insert(&dc_ret.capability, slot, dest.unwrap());
+                    dest_slot = None;
                 }
             }
             i += 1;
@@ -286,7 +288,12 @@ impl Transfer for tcb_t {
             seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
         let mut current_extra_caps = [0; seL4_MsgMaxExtraCaps];
         if can_grant {
-            let _ = self.lookup_extra_caps(&mut current_extra_caps);
+            let status = self.lookup_extra_caps(&mut current_extra_caps);
+            if unlikely(status != exception_t::EXCEPTION_NONE) {
+                current_extra_caps[0] = 0;
+            }
+        } else {
+            current_extra_caps[0] = 0;
         }
         let msg_transferred = self.copy_mrs(receiver, tag.get_length() as usize);
         receiver.set_transfer_caps(ep, &mut tag, &current_extra_caps);
@@ -443,7 +450,9 @@ impl Transfer for tcb_t {
             possible_switch_to(receiver);
         } else {
             slot.delete_one();
-            if self.do_fault_reply_transfer(receiver) {
+            let restart = self.do_fault_reply_transfer(receiver);
+            receiver.tcbFault = seL4_Fault_NullFault::new().unsplay();
+            if restart {
                 set_thread_state(receiver, ThreadState::ThreadStateRestart);
                 possible_switch_to(receiver);
             } else {

@@ -9,6 +9,7 @@ use sel4_common::arch::{
     msgRegisterNum, n_exceptionMessage, n_syscallMessage, vm_rights_t, ArchReg, ArchTCB,
 };
 use sel4_common::fault::*;
+use sel4_common::ffi::current_fault;
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::sel4_config::*;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
@@ -617,10 +618,7 @@ impl tcb_t {
     /// * `res` - The result array to store the extra caps
     /// # Returns
     /// The result of the lookup represented by seL4_Fault_t
-    pub fn lookup_extra_caps(
-        &mut self,
-        res: &mut [pptr_t; seL4_MsgMaxExtraCaps],
-    ) -> Result<(), seL4_Fault> {
+    pub fn lookup_extra_caps(&mut self, res: &mut [pptr_t; seL4_MsgMaxExtraCaps]) -> exception_t {
         let info =
             seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
         if let Some(buffer) = self.lookup_ipc_buffer(false) {
@@ -630,7 +628,11 @@ impl tcb_t {
                 let cptr = buffer.get_extra_cptr(i as usize);
                 let lu_ret = self.lookup_slot(cptr);
                 if unlikely(lu_ret.status != exception_t::EXCEPTION_NONE) {
-                    return Err(seL4_Fault_CapFault::new(cptr as u64, false as u64).unsplay());
+                    unsafe {
+                        current_fault =
+                            seL4_Fault_CapFault::new(cptr as u64, false as u64).unsplay();
+                    }
+                    return lu_ret.status;
                 }
                 res[i as usize] = lu_ret.slot as usize;
                 i += 1;
@@ -638,8 +640,10 @@ impl tcb_t {
             if i < seL4_MsgMaxExtraCaps as u64 {
                 res[i as usize] = 0;
             }
+        } else {
+            res[0] = 0;
         }
-        Ok(())
+        exception_t::EXCEPTION_NONE
     }
 
     /// Look up the extra caps of the TCB with IPC buffer

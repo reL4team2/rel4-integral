@@ -5,7 +5,7 @@ use std::path;
 
 use rust_sel4_pbf_parser::parser::pbf_parser;
 fn main() {
-	println!("cargo:rerun-if-changed=src/structure_gen.rs");
+    println!("cargo:rerun-if-changed=src/structure_gen.rs");
     let out_dir = env::var("OUT_DIR").unwrap();
     let dir_path = path::Path::new(&out_dir).join("pbf");
     if dir_path.exists() && dir_path.is_dir() {
