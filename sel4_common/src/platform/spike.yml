@@ -1,0 +1,13 @@
+# cpu arch
+cpu:
+  arch: riscv
+  freq: 10000000
+
+# memory layout
+memory:
+  vmem_offset: 0xFFFFFFFF00000000
+  pmem_start: 0x80000000
+  kernel_start: 0x84000000
+  avail_mem_zone:
+    - {start: 0x80200000, end: 0x17ff00000}
+  stack_bits: 12 # 2^12 4K
