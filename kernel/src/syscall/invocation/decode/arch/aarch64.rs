@@ -1183,7 +1183,7 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
             "mov x6, {6} \n",
             "mov x7, {7} \n",
 
-            "smc #0 \n",
+            "hvc #0 \n",
             "mov {0}, x0 \n",
             "mov {1}, x1 \n",
             "mov {2}, x2 \n",
