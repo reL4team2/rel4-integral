@@ -182,7 +182,7 @@ jobs:
           rustflags:
           target: aarch64-unknown-none-softfloat
       - name: Install qemu
-        run: apt update && apt -y install wget && wget https://download.qemu.org/qemu-9.2.2.tar.xz && tar xvf qemu-9.2.2.tar.xz && cd qemu-9.2.2 && ./configure --target-list=aarch64-softmmu --enable-capstone --enable-slirp && make
+        run: apt update && apt -y install wget && pip3 install tomli && wget https://download.qemu.org/qemu-9.2.2.tar.xz && tar xf qemu-9.2.2.tar.xz && cd qemu-9.2.2 && ./configure --target-list=aarch64-softmmu --enable-capstone --enable-slirp && make
       - name: Clone Menifest && Sync repositories
         run: | 
           repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
