@@ -235,7 +235,7 @@ jobs:
       - name: Clone auto-build
         run: | 
           git clone https://github.com/reL4team2/rel4-kernel-autobuild.git -b rel4-integrate
-      - run: ./build-bin.sh > log.txt
+      - run: cd rel4-kernel-autobuild && ./build-bin.sh > log.txt
         timeout-minutes: 2
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
