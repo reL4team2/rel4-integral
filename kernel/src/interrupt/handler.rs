@@ -58,7 +58,7 @@ pub fn handleInterrupt(irq: usize) {
                 let nf = convert_to_mut_type_ref::<notification>(
                     cap::cap_notification_cap(handler_cap).get_capNtfnPtr() as usize,
                 );
-                nf.send_signal(cap::cap_notification_cap(handler_cap).get_capNtfnPtr() as usize);
+                nf.send_signal(cap::cap_notification_cap(handler_cap).get_capNtfnBadge() as usize);
             }
         }
         IRQState::IRQTimer => {
