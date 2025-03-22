@@ -95,6 +95,8 @@ if __name__ == "__main__":
     os.makedirs(build_dir)
 
     # prebuild rel4_kernel
+    rust_command = rust_env + " " + rust_command
+    print(rust_command)
     if args.baseline == True:
         shell_command = "cd ../kernel && git checkout baseline"
         if not exec_shell(shell_command):

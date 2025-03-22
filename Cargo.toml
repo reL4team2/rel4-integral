@@ -11,6 +11,8 @@ members = [
     "serial-frame",
     "serial-impl/pl011",
     "serial-impl/sbi",
+    "xtask", 
+    "rel4_config",
 ]
 [profile.release]
 lto = true

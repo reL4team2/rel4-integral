@@ -41,3 +41,10 @@ impl seL4_IPCBuffer {
         self.caps_or_badges[i]
     }
 }
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct p_region_t {
+    pub start: usize,
+    pub end: usize,
+}
