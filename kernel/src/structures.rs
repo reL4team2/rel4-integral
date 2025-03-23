@@ -19,12 +19,7 @@ pub struct region_t {
     pub end: usize,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct p_region_t {
-    pub start: usize,
-    pub end: usize,
-}
+pub type p_region_t = sel4_common::structures::p_region_t;
 
 #[repr(C)]
 #[derive(Copy, Clone)]

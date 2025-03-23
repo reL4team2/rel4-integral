@@ -37,7 +37,7 @@ jobs:
           cd rel4_kernel
           cargo update -p home --precise 0.5.5
       - name: Make rel4_kernel
-        run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} run
+        run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} MCS=${{ matrix.mcs }} run
       - name: Build kernel
         run: cd kernel && cmake cmake -DCROSS_COMPILER_PREFIX=${{ matrix.arch }}-linux-gnu- -DMCS=${{matrix.mcs}} -C kernel-settings-${{ matrix.arch }}.cmake -G Ninja -S . -B build
       - name: Build Kernel
@@ -88,7 +88,7 @@ jobs:
         run: |
           echo $ARCH
           echo $PLATFORM
-          cd rel4_kernel && ./build.py -p $PLATFORM -m off --bin
+          cd rel4_kernel && cargo xtask build -p $PLATFORM -m off --bin
       - name: simulate
         env:
           ARCH: ${{ matrix.arch  }}
@@ -145,7 +145,7 @@ jobs:
         run: |
           echo $ARCH
           echo $PLATFORM
-          cd rel4_kernel && ./build.py -p $PLATFORM -m on --bin
+          cd rel4_kernel && cargo xtask build -p $PLATFORM -m on --bin
       - name: simulate
         env:
           ARCH: ${{ matrix.arch  }}
@@ -202,7 +202,7 @@ jobs:
         run: |
           echo $ARCH
           echo $PLATFORM
-          cd rel4_kernel && ./build.py -p $PLATFORM -m $MCS -s on --bin
+          cd rel4_kernel && cargo xtask build -p $PLATFORM -m $MCS -s on --bin
       - name: simulate
         env:
           ARCH: ${{ matrix.arch  }}

@@ -14,6 +14,9 @@ pub mod spike;
 pub use spike::*;
 use time_def::ticks_t;
 
+#[cfg(feature = "BUILD_BINARY")]
+include!(concat!(env!("OUT_DIR"), "/platform_gen.rs"));
+
 pub trait Timer_func {
     fn initTimer(self);
     fn getCurrentTime(self) -> ticks_t;

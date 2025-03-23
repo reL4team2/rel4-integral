@@ -31,11 +31,12 @@ driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", bran
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+rel4_config = { path = "../rel4_config" }
 
 [features]
 ENABLE_SMP = ["sel4_common/ENABLE_SMP", "sel4_task/ENABLE_SMP", "sel4_vspace/ENABLE_SMP"]
-KERNEL_MCS = ["sel4_common/KERNEL_MCS", "sel4_task/KERNEL_MCS", "sel4_cspace/KERNEL_MCS"]
+KERNEL_MCS = ["sel4_common/KERNEL_MCS", "sel4_task/KERNEL_MCS", "sel4_cspace/KERNEL_MCS", "sel4_ipc/KERNEL_MCS"]
 ENABLE_SMC = ["sel4_common/ENABLE_SMC", "sel4_cspace/ENABLE_SMC"]
-BUILD_BINARY = []
+BUILD_BINARY = ["sel4_common/BUILD_BINARY"]
 ENABLE_ARM_PCNT = []
 ENABLE_ARM_PTMR = []

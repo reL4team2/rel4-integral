@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 
-[build]
+# [build]
 # target = "riscv64imac-unknown-none-elf"
 # target = "riscv64imac-sel4"
-target = "aarch64-unknown-none-softfloat"
+# target = "aarch64-unknown-none-softfloat"
 
 [unstable]
 unstable-options = true
@@ -15,13 +15,13 @@ unstable-options = true
 [target.riscv64imac-unknown-none-elf]
 rustflags = [
     "-Ztls-model=local-exec",
-    "-Clink-arg=-Tkernel/src/arch/riscv/linker_gen.ld"
-]
-
-[target.aarch64-unknown-none-softfloat]
-rustflags = [
-    "-Clink-arg=-Tkernel/src/arch/aarch64/linker_gen.ld"
 ]
 
 [env]
 RUST_TARGET_PATH = { value = "support/targets", relative = true }
+
+[alias]
+xtask = "run --target=x86_64-unknown-linux-gnu --package xtask --release --"
+xrun = "xtask run"
+xbuild = "xtask build"
+xrelease = "xtask release"

@@ -12,8 +12,10 @@ driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", bran
 
 [build-dependencies]
 rust_sel4_pbf_parser= { git = "https://github.com/reL4team2/rust_sel4_pbf_parser/", branch = "master" }
+rel4_config = { path = "../rel4_config" }
 
 [features]
 ENABLE_SMP = []
 KERNEL_MCS = []
 ENABLE_SMC = []
+BUILD_BINARY = []

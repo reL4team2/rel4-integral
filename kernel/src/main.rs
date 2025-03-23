@@ -24,7 +24,6 @@ mod interrupt;
 mod kernel;
 mod lang_items;
 mod object;
-mod platform;
 mod structures;
 mod syscall;
 mod utils;
@@ -35,7 +34,6 @@ mod interfaces_impl;
 
 use boot::interface::rust_try_init_kernel;
 pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
-use sel4_cspace::interface::cte_t;
 use sel4_task::{activateThread, schedule};
 use structures::p_region_t;
 
@@ -68,7 +66,7 @@ pub fn init_kernel(
     dtb_addr_p: usize,
     dtb_size: usize,
 ) {
-    use crate::platform::dev_gen::avail_p_regs;
+    use sel4_common::platform::avail_p_regs;
     // sel4_common::println!("Now we use rel4 kernel binary");
     log::set_max_level(log::LevelFilter::Trace);
     boot::interface::pRegsToR(

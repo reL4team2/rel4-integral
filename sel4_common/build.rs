@@ -105,4 +105,7 @@ fn main() {
         eprintln!("Failed to copy file: {}", e);
         std::process::exit(1);
     }
+
+    let platform = std::env::var("PLATFORM").unwrap();
+    rel4_config::generator::platform_gen(&platform);
 }
