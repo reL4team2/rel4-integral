@@ -1,4 +1,5 @@
 ARCH := riscv64
+MCS := off
 
 ifeq ($(ARCH), riscv64)
 TARGET := riscv64imac-unknown-none-elf
@@ -16,7 +17,7 @@ env:
 	rustup target add riscv64imac-unknown-none-elf
 	rustup component add rust-src
 build:
-	cargo build --release --target $(TARGET)
+	cargo xtask build -p ${PLATFORM} -m $(MCS)
 run:
-	cargo build --release --target $(TARGET)
+	cargo xtask build -p ${PLATFORM} -m $(MCS)
 .PHONY: all build env run

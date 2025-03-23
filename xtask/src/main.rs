@@ -1,4 +1,5 @@
 mod kernel;
+mod cmake;
 use clap::Parser;
 
 #[derive(Debug, Parser)]

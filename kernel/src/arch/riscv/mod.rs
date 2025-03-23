@@ -10,11 +10,6 @@ pub use platform::{init_cpu, init_freemem};
 
 pub use exception::handleUnknownSyscall;
 
-// #[cfg(feature = "BUILD_BINARY")]
-// core::arch::global_asm!(include_str!("gen/head.S"));
-// #[cfg(feature = "BUILD_BINARY")]
-// core::arch::global_asm!(include_str!("gen/traps.S"));
-
 pub fn read_stval() -> usize {
     let temp: usize;
     unsafe {

@@ -9,27 +9,8 @@ endif()
 
 set(KERNEL_ELF_PATH ${PROJECT_SOURCE_DIR}/target/${RUST_TARGET}/release/rel4_kernel)
 
-set(PYTHON_DEFINE_ARGS "")
-
-set(BUILD_COMMAND cargo xtask build -p ${PLATFORM})
-if(KernelIsMCS)
-    set(BUILD_COMMAND ${BUILD_COMMAND} -m)
-    list(APPEND PYTHON_DEFINE_ARGS "--define" "CONFIG_KERNEL_MCS")
-endif()
-if(KernelAllowSMCCalls)
-    set(BUILD_COMMAND ${BUILD_COMMAND} -s)
-endif()
-
-# if (KernelHaveFPU)
-#     list(APPEND PYTHON_DEFINE_ARGS "--define" "CONFIG_HAVE_FPU")
-# endif()
-
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/reL4/kernel.elf
-    COMMAND cargo clean
-    # COMMAND python3 kernel/generator.py -p ${PLATFORM} ${PYTHON_DEFINE_ARGS}
-    COMMAND cargo update -p home --precise 0.5.5
-    COMMAND ${BUILD_COMMAND} 
     COMMAND ${CMAKE_OBJCOPY} --remove-section=.riscv.attributes ${KERNEL_ELF_PATH} ${CMAKE_BINARY_DIR}/reL4/kernel.elf
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Build and prepare reL4 kernel.elf"
