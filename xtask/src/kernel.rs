@@ -28,7 +28,7 @@ pub struct BuildOptions {
     #[clap(long)]
     pub arm_ptmr: bool,
     #[clap(long)]
-    pub nosel4test: bool,
+    pub rust_only: bool,
     #[clap(long, short = 'B')]
     pub bin: bool,
 }
@@ -43,7 +43,7 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
 
     let mut args = vec![
         command.to_string(),
-        target,
+        target.clone(),
         "--release".into(),
     ];
 
@@ -76,15 +76,15 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         marcos.push("-DCONFIG_KERNEL_MCS=ON".to_string());
     }
 
-    if opts.smc.unwrap_or(false) {
+    if opts.smc.unwrap_or(false) && target.contains("aarch64") {
         append_features(&mut args, "ENABLE_SMC".to_string());
     }
 
-    if opts.arm_pcnt {
+    if opts.arm_pcnt && target.contains("aarch64") {
         append_features(&mut args, "ENABLE_ARM_PCNT".to_string());
     }
 
-    if opts.arm_ptmr {
+    if opts.arm_ptmr && target.contains("aarch64") {
         append_features(&mut args, "ENABLE_ARM_PTMR".to_string());
     }
 
@@ -104,7 +104,7 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
     let kernel = PathBuf::from(&current_dir).join("../kernel");
     cargo("build", kernel.to_str().unwrap(),  opts)?;
 
-    if !opts.nosel4test {
+    if !opts.rust_only {
         // TODO: add more defines and support lib mode
         let mut define: Vec<String> = vec![];
         if opts.bin {

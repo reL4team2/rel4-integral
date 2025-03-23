@@ -17,7 +17,7 @@ env:
 	rustup target add riscv64imac-unknown-none-elf
 	rustup component add rust-src
 build:
-	cargo xtask build -p ${PLATFORM} -m $(MCS)
+	cargo xtask build -p ${PLATFORM} -m $(MCS) --rust-only
 run:
-	cargo xtask build -p ${PLATFORM} -m $(MCS)
+	cargo xtask build -p ${PLATFORM} -m $(MCS) --rust-only
 .PHONY: all build env run
