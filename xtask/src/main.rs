@@ -1,5 +1,6 @@
 mod kernel;
 mod cmake;
+mod install;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -24,6 +25,7 @@ struct ReleaseOptions {
 enum Command {
     // Build eBPF and userland code
     Build(kernel::BuildOptions),
+    Install(install::InstallOptions),
 }
 
 fn main() -> Result<(), anyhow::Error> {
@@ -32,6 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
     use Command::*;
     match opts.command {
         Build(opts) => kernel::build(&opts)?,
+        Install(mut opts) => install::install(&mut opts)?,
     }
 
     Ok(())

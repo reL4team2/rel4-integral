@@ -33,7 +33,7 @@ pub struct BuildOptions {
     pub bin: bool,
 }
 
-fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
+fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<String, anyhow::Error> {
     let dir = PathBuf::from(dir);
     let target: String = match opts.platform.as_str() {
         "spike" => {"--target=riscv64imac-unknown-none-elf".to_string()},
@@ -95,7 +95,14 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         args(&args).status().expect("failed to build userspace");
     
     assert!(status.success());
-    Ok(())
+
+    let target: String = match opts.platform.as_str() {
+        "spike" => {"riscv64imac-unknown-none-elf".to_string()},
+        "qemu-arm-virt" => {"aarch64-unknown-none-softfloat".to_string()},
+        _ => return Err(anyhow::anyhow!("Unsupported platform")),
+    };
+
+    Ok(target)
 }
 
 /// Build the project
@@ -125,6 +132,20 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
         crate::cmake::sel4test_build(&opts.platform, &define.join(" "))?;
     }
     println!("Building complete, enjoy rel4!");
+    Ok(())
+}
+
+pub fn install(opts: &BuildOptions, dir: &str) -> Result<(), anyhow::Error> {
+    let current_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+    let kernel = PathBuf::from(&current_dir).join("../kernel");
+    let target = cargo("build", kernel.to_str().unwrap(),  opts)?;
+    let kernel_path = PathBuf::from(&current_dir).join(format!("../target/{}/release/rel4_kernel", target));
+    let install_path = PathBuf::from(dir).join("kernel.elf");
+    println!("{}", kernel_path.display());
+    std::fs::create_dir_all(dir)?;
+    std::fs::copy(&kernel_path, &install_path)?;
+    println!("Kernel installed to {}", install_path.display());
+
     Ok(())
 }
 
