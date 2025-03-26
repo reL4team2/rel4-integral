@@ -7,6 +7,6 @@
 	remote = git@github.com:reL4team2/driver-collect.git
 	branch = master
 	commit = f8a1808d83777a4abcce3a155e4b949be9eef977
- 	parent = 53cc9bd24b6068b2bcb6e79b834b86a2a057a9e5
+ 	parent = d288252fba5e6af25bfab2e0170a8268815d2518
 	method = merge
 	cmdver = 0.4.9
