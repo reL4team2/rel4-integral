@@ -1,10 +1,10 @@
 #![allow(unused)]
 
+use serde_yaml::Value;
 use std::env::VarError;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use serde_yaml::Value;
 
 pub fn vec_rustflags() -> Result<Vec<String>, anyhow::Error> {
     match std::env::var("RUSTFLAGS") {
@@ -19,7 +19,8 @@ pub fn vec_rustflags() -> Result<Vec<String>, anyhow::Error> {
 pub(crate) fn get_value_from_yaml(file_path: &str, key: &str) -> Option<String> {
     let mut file = File::open(file_path).expect("Unable to open file");
     let mut contents = String::new();
-    file.read_to_string(&mut contents).expect("Unable to read file");
+    file.read_to_string(&mut contents)
+        .expect("Unable to read file");
 
     let yaml: Value = serde_yaml::from_str(&contents).expect("Unable to parse YAML");
     let keys = key.split('.');
@@ -35,7 +36,8 @@ pub(crate) fn get_value_from_yaml(file_path: &str, key: &str) -> Option<String> 
 pub(crate) fn get_int_from_yaml(file_path: &str, key: &str) -> Option<usize> {
     let mut file = File::open(file_path).expect(file_path);
     let mut contents = String::new();
-    file.read_to_string(&mut contents).expect("Unable to read file");
+    file.read_to_string(&mut contents)
+        .expect("Unable to read file");
 
     let yaml: Value = serde_yaml::from_str(&contents).expect("Unable to parse YAML");
     let keys = key.split('.');
@@ -57,7 +59,8 @@ pub struct MemZone {
 pub(crate) fn get_zone_from_yaml(file_path: &str, key: &str) -> Option<Vec<MemZone>> {
     let mut file = File::open(file_path).expect("Unable to open file");
     let mut contents = String::new();
-    file.read_to_string(&mut contents).expect("Unable to read file");
+    file.read_to_string(&mut contents)
+        .expect("Unable to read file");
 
     let yaml: Value = serde_yaml::from_str(&contents).expect("Unable to parse YAML");
     let keys = key.split('.');

@@ -22,6 +22,6 @@ pub(crate) fn sel4test_build(platform: &str, define: &str) -> Result<(), anyhow:
         .expect("failed to execute cmake command");
 
     assert!(status.success());
-    
+
     Ok(())
 }

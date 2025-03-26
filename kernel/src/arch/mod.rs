@@ -11,4 +11,4 @@ pub use riscv::*;
 #[cfg(feature = "BUILD_BINARY")]
 core::arch::global_asm!(include_str!(concat!(env!("OUT_DIR"), "/head.S")));
 #[cfg(feature = "BUILD_BINARY")]
-core::arch::global_asm!(include_str!(concat!(env!("OUT_DIR"),"/traps.S")));
+core::arch::global_asm!(include_str!(concat!(env!("OUT_DIR"), "/traps.S")));

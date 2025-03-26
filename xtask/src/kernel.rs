@@ -1,9 +1,6 @@
-use std::{
-    process::Command, 
-    path::PathBuf
-};
 use clap::Parser;
 use rel4_config::utils::vec_rustflags;
+use std::{path::PathBuf, process::Command};
 
 fn parse_bool(s: &str) -> Result<bool, String> {
     match s.to_lowercase().as_str() {
@@ -36,16 +33,12 @@ pub struct BuildOptions {
 fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
     let dir = PathBuf::from(dir);
     let target: String = match opts.platform.as_str() {
-        "spike" => {"--target=riscv64imac-unknown-none-elf".to_string()},
-        "qemu-arm-virt" => {"--target=aarch64-unknown-none-softfloat".to_string()},
+        "spike" => "--target=riscv64imac-unknown-none-elf".to_string(),
+        "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat".to_string(),
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
 
-    let mut args = vec![
-        command.to_string(),
-        target.clone(),
-        "--release".into(),
-    ];
+    let mut args = vec![command.to_string(), target.clone(), "--release".into()];
 
     if opts.bin {
         args.push("--bin".into());
@@ -63,9 +56,10 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
     let mut marcos = vec![
         format!("-DPLATFOMR={}", &opts.platform),
         format!(
-            "-DCONFIG_KERNEL_STACK_BITS={}", 
-            rel4_config::get_int_from_cfg(&opts.platform, "memory.stack_bits").unwrap())
-        ];
+            "-DCONFIG_KERNEL_STACK_BITS={}",
+            rel4_config::get_int_from_cfg(&opts.platform, "memory.stack_bits").unwrap()
+        ),
+    ];
 
     if !opts.nofastpath {
         marcos.push("-DCONFIG_FASTPATH=ON".to_string());
@@ -88,12 +82,15 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         append_features(&mut args, "ENABLE_ARM_PTMR".to_string());
     }
 
-    let status = cmd.current_dir(dir).
-        env("PLATFORM", opts.platform.as_str()).
-        env("MARCOS", marcos.join(" ")).
-        env("RUSTFLAGS", rustflags.join(" ")).
-        args(&args).status().expect("failed to build userspace");
-    
+    let status = cmd
+        .current_dir(dir)
+        .env("PLATFORM", opts.platform.as_str())
+        .env("MARCOS", marcos.join(" "))
+        .env("RUSTFLAGS", rustflags.join(" "))
+        .args(&args)
+        .status()
+        .expect("failed to build userspace");
+
     assert!(status.success());
     Ok(())
 }
@@ -102,7 +99,7 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
 pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
     let current_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let kernel = PathBuf::from(&current_dir).join("../kernel");
-    cargo("build", kernel.to_str().unwrap(),  opts)?;
+    cargo("build", kernel.to_str().unwrap(), opts)?;
 
     if !opts.rust_only {
         // TODO: add more defines and support lib mode

@@ -1,3 +1,4 @@
+use crate::interrupt::mask_interrupt;
 use log::debug;
 use sel4_common::structures_gen::{cap_Splayed, cap_tag};
 use sel4_common::{
@@ -74,7 +75,7 @@ pub fn decode_irq_handler_invocation(label: MessageLabel, irq: usize) -> excepti
     return match label {
         MessageLabel::IRQAckIRQ => {
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-			mask_interrupt(false, irq);
+            mask_interrupt(false, irq);
             exception_t::EXCEPTION_NONE
         }
 
