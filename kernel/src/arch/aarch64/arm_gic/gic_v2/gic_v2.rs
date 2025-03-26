@@ -93,7 +93,7 @@ pub fn dist_init() {
     }
 
     for i in (64..nirqs).step_by(32) {
-        GIC_DIST.regs().config[i >> 5].set(0xffffffff);
+        GIC_DIST.regs().config[i >> 5].set(0x55555555);
     }
 
     for i in (0..nirqs).step_by(32) {

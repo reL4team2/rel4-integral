@@ -60,6 +60,10 @@ pub fn handleInterrupt(irq: usize) {
                 );
                 nf.send_signal(cap::cap_notification_cap(handler_cap).get_capNtfnBadge() as usize);
             }
+			#[cfg(not(target_arch="riscv64"))]
+			{
+				mask_interrupt(true, irq);
+			}
         }
         IRQState::IRQTimer => {
             #[cfg(feature = "KERNEL_MCS")]
