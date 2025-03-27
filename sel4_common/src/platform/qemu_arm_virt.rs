@@ -71,7 +71,7 @@ impl Timer_func for timer {
             SYSTEM_WRITE_WORD(CNT_CTL, BIT(0));
         */
         // TODO: Set a proper timer clock
-        CNTV_TVAL_EL0.set(TIMER_CLOCK_HZ as u64 / 1000 * 10);
+        CNTV_TVAL_EL0.set(TIMER_CLOCK_HZ as u64 / 1000 * 2);
         CNTV_CTL_EL0.set(1);
     }
     fn ackDeadlineIRQ(self) {
