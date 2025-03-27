@@ -17,12 +17,14 @@ pub fn install(opts: &mut InstallOptions) -> Result<(), anyhow::Error> {
     let bin_dir = PathBuf::from(&opts.sel4_prefix).join("bin");
     super::kernel::install(&opts.build_options, bin_dir.to_str().unwrap())?;
 
-    clone_and_build_project()?;
-    rust_sel4_install(opts)?;
+    install_libsel4(opts)?;
+    install_sel4_kernel_loader_add_payload(opts)?;
+    install_sel4_kernel_loade(opts)?;
+    
     Ok(())
 }
 
-fn clone_and_build_project() -> Result<(), anyhow::Error> {
+fn install_libsel4(opts: &mut InstallOptions) -> Result<(), anyhow::Error> {
     let build_dir = "/tmp/seL4_c_impl";
     if std::fs::remove_dir_all(build_dir).is_err() {
         // Do nothing if the directory does not exist
@@ -38,7 +40,7 @@ fn clone_and_build_project() -> Result<(), anyhow::Error> {
     let status = Command::new("cmake")
         .args(&[
             "-DCROSS_COMPILER_PREFIX=aarch64-linux-gnu-",
-            "-DCMAKE_INSTALL_PREFIX=/tmp/rust-seL4",
+            format!("-DCMAKE_INSTALL_PREFIX={}", opts.sel4_prefix).as_str(),
             "-DKernelAllowSMCCalls=ON",
             "-DREL4_KERNEL=TRUE",
             "-DKernelArmExportPCNTUser=ON",
@@ -76,23 +78,49 @@ fn clone_and_build_project() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn rust_sel4_install(opts: &mut InstallOptions) -> Result<(), anyhow::Error> {
+fn install_sel4_kernel_loader_add_payload(opts: &mut InstallOptions) -> Result<(), anyhow::Error> {
     let mut cmd = Command::new("rustup");
-    let mut args: Vec<String> = vec![
+    let url: String = "https://github.com/reL4team2/rust-sel4.git".into();
+    let rev: String = "642b58d807c5e5fc22f0c15d1467d6bec328faa9".into();
+
+    let args: Vec<String> = vec![
         "run".into(),
         "nightly-2024-08-01".into(),
         "cargo".into(),
         "install".into(),
-        "--git".into(),
-        "https://github.com/reL4team2/rust-sel4.git".into(),
-        "--rev".into(),
-        "642b58d807c5e5fc22f0c15d1467d6bec328faa9".into(),
-        "--root".into(),
-        "/tmp/rust-sel4".into(),
+        "--git".into(), url.clone(),
+        "--rev".into(), rev.clone(),
+        "--root".into(), opts.sel4_prefix.clone(),
         "sel4-kernel-loader-add-payload".into(),
     ];
 
-    cmd.env_remove("RUSTUP_TOOLCHAIN").env_remove("CARGO").args(&args).status().expect("failed install rust-sel4");
+    cmd.env_remove("RUSTUP_TOOLCHAIN").env_remove("CARGO").args(&args).status().expect("failed install sel4-kernel-loader-add-payload");
+    
+    Ok(())
+}
+
+fn install_sel4_kernel_loade(opts: &mut InstallOptions) -> Result<(), anyhow::Error> {
+    let mut cmd = Command::new("rustup");
+    let args: Vec<String>  = vec![
+        "run".into(),
+        "nightly-2024-08-01".into(),
+        "cargo".into(),
+        "install".into(),
+        "-Z".into(), "build-std=core,compiler_builtins".into(),
+        "-Z".into(), "build-std-features=compiler-builtins-mem".into(),
+        "--target".into(), "aarch64-unknown-none".into(),
+        "--git".into(), "https://github.com/reL4team2/rust-sel4.git".into(),
+        "--rev".into(), "642b58d807c5e5fc22f0c15d1467d6bec328faa9".into(),
+        "--root".into(), opts.sel4_prefix.clone(),
+        "sel4-kernel-loader".into(),
+    ];
+
+    cmd.env_remove("RUSTUP_TOOLCHAIN")
+        .env_remove("CARGO")
+        .env("SEL4_PREFIX", opts.sel4_prefix.clone())
+        .env("CC_aarch64_unknown_none", "aarch64-linux-gnu-gcc")
+        .args(&args)
+        .status().expect("failed install sel4-kernel-loader");
     
     Ok(())
 }
