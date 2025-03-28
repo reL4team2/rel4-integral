@@ -7,7 +7,7 @@ use clap::Parser;
 pub struct InstallOptions {
     #[clap(flatten)]
     build_options: super::kernel::BuildOptions,
-    #[clap(long, default_value = "/opt/rel4")]
+    #[clap(long, default_value = "/workspace/.seL4")]
     sel4_prefix: String,
 }
 
