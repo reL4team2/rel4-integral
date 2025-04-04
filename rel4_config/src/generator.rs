@@ -99,13 +99,15 @@ pub fn config_gen(platform: &str, custom_defs: &Vec<String>) {
         let key = split.next().unwrap();
         let value = split.next();
         if let Some(v) = value {
-            defs.entry(key.to_string())
-            .and_modify(|e| *e = Some(v.to_string()))
-            .or_insert(Some(v.to_string()));
-        } else if value.is_none() {
-            defs.entry(key.to_string())
-            .and_modify(|e| *e = Some(String::new()))
-            .or_insert(Some(String::new()));
+            if v == "true" {
+                defs.entry(key.to_string())
+                .and_modify(|e| *e = Some(String::new()))
+                .or_insert(Some(String::new()));
+            } else {
+                defs.entry(key.to_string())
+                .and_modify(|e| *e = Some(v.to_string()))
+                .or_insert(Some(v.to_string()));
+            }
         } else {
             defs.entry(key.to_string())
             .and_modify(|e| *e = None)
