@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use serde_yaml::Value;
+use std::collections::BTreeMap;
 use std::env::VarError;
 use std::fs::File;
 use std::io::Read;
@@ -75,6 +76,29 @@ pub(crate) fn get_zone_from_yaml(file_path: &str, key: &str) -> Option<Vec<MemZo
             .filter_map(|v| serde_yaml::from_value(v.clone()).ok())
             .collect()
     })
+}
+
+pub(crate) fn get_all_defs(file_path: &str) -> BTreeMap<String, Option<String>> {
+    let mut map = BTreeMap::new();
+    let mut file = File::open(file_path).expect("Unable to open file");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect("Unable to read file");
+
+    let yaml: Value = serde_yaml::from_str(&contents).expect("Unable to parse YAML");
+    if let Some(definitions) = yaml.get("definitions").and_then(|v| v.as_mapping()) {
+        for (key, value) in definitions {
+            if let Some(key_str) = key.as_str() {
+                let entry = match value.as_bool() {
+                    Some(true) => Some("".to_string()),
+                    Some(false) => None,
+                    None => value.as_str().map(|s| s.to_string()),
+                };
+                map.insert(key_str.to_string(), entry);
+            }
+        }
+    }
+    return map;
 }
 
 pub(crate) fn get_root() -> PathBuf {
