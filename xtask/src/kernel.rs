@@ -72,6 +72,7 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
 
     if opts.smc.unwrap_or(false) && target.contains("aarch64") {
         append_features(&mut args, "ENABLE_SMC".to_string());
+        marcos.push("-DCONFIG_ALLOW_SMC_CALLS=ON".to_string());
     }
 
     if opts.arm_pcnt && target.contains("aarch64") {
