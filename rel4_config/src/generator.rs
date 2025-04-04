@@ -60,13 +60,19 @@ pub fn platform_gen(platform: &str) -> PathBuf {
         .expect("Unable to get absolute path")
 }
 
-pub fn asm_gen(dir: &str, name: &str, inc_dir: &str, defs: &Vec<String>) {
+pub fn asm_gen(dir: &str, name: &str, inc_dir: Vec<&str>, defs: &Vec<String>, out: Option<&str>) {
     let src = format!("{}/{}", dir, name);
-    let out_dir = std::env::var("OUT_DIR").unwrap();
-    let out = format!("{}/{}", out_dir, name);
-    let inc_param = format!("-I{}", inc_dir);
-
-    let mut build_args = vec!["-E", &inc_param, &src];
+    let out = if let Some(o) = out {
+        o.to_string()
+    } else {
+        format!("{}/{}", std::env::var("OUT_DIR").unwrap(), name)
+    };
+    let mut build_args = vec!["-E", "-P"];
+    for i in inc_dir {
+        build_args.push("-I");
+        build_args.push(i);
+    }
+    build_args.push(&src);
 
     for d in defs.iter() {
         build_args.push(d);
@@ -75,11 +81,11 @@ pub fn asm_gen(dir: &str, name: &str, inc_dir: &str, defs: &Vec<String>) {
     build_args.push("-o");
     build_args.push(&out);
 
-    let status = std::process::Command::new("gcc").args(&build_args).status();
+    let status = std::process::Command::new("cpp").args(&build_args).status();
 
     match status {
         Ok(s) if s.success() => println!("Successfully preprocessed assembly: {}", name),
-        Ok(s) => eprintln!("gcc returned a non-zero status: {}", s),
-        Err(e) => eprintln!("Failed to preprocess assembly: {}", e),
+        Ok(s) => panic!("gcc returned a non-zero status: {}", s),
+        Err(e) => panic!("Failed to preprocess assembly: {}", e),
     }
 }
