@@ -89,3 +89,42 @@ pub fn asm_gen(dir: &str, name: &str, inc_dir: Vec<&str>, defs: &Vec<String>, ou
         Err(e) => panic!("Failed to preprocess assembly: {}", e),
     }
 }
+
+// generate config.h and config.rs
+pub fn config_gen(platform: &str, custom_defs: &Vec<String>) {
+    let yaml_cfg = crate::utils::get_root().join(format!("cfg/platform/{}.yml", platform));
+    let mut defs = crate::utils::get_all_defs(yaml_cfg.to_str().unwrap());
+    for d in custom_defs {
+        let mut split = d.split('=');
+        let key = split.next().unwrap();
+        let value = split.next();
+        if let Some(v) = value {
+            defs.entry(key.to_string())
+            .and_modify(|e| *e = Some(v.to_string()))
+            .or_insert(Some(v.to_string()));
+        } else if value.is_none() {
+            defs.entry(key.to_string())
+            .and_modify(|e| *e = Some(String::new()))
+            .or_insert(Some(String::new()));
+        } else {
+            defs.entry(key.to_string())
+            .and_modify(|e| *e = None)
+            .or_insert(None);
+        }
+    }
+    // TODO: replace definitions from defs
+    // write defs into .h
+    let src_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap_or_else(|_| "target".into()));
+    let header_file = src_dir.join("config.h");
+    let mut file = File::create(&header_file).expect("Unable to create file");
+    writeln!(file, "// This file is auto generated").expect("Unable to write to file");
+
+    for (key, value) in defs {
+        if let Some(val) = value {
+            writeln!(file, "#define CONFIG_{} {}", key, val).expect("Unable to write to file");
+        } else {
+            writeln!(file, "// CONFIG_{} not set", key).expect("Unable to write to file");
+        }
+    }
+
+}

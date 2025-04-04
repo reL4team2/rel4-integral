@@ -54,25 +54,24 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
 
     // build gcc marcos, we must add macros add xtask
     let mut marcos = vec![
-        format!("-DPLATFOMR={}", &opts.platform),
         format!(
-            "-DCONFIG_KERNEL_STACK_BITS={}",
+            "KERNEL_STACK_BITS={}",
             rel4_config::get_int_from_cfg(&opts.platform, "memory.stack_bits").unwrap()
         ),
     ];
 
     if !opts.nofastpath {
-        marcos.push("-DCONFIG_FASTPATH=ON".to_string());
+        marcos.push("FASTPATH=true".to_string());
     }
 
     if opts.mcs.unwrap_or(false) {
         append_features(&mut args, "KERNEL_MCS".to_string());
-        marcos.push("-DCONFIG_KERNEL_MCS=ON".to_string());
+        marcos.push("KERNEL_MCS=true".to_string());
     }
 
     if opts.smc.unwrap_or(false) && target.contains("aarch64") {
         append_features(&mut args, "ENABLE_SMC".to_string());
-        marcos.push("-DCONFIG_ALLOW_SMC_CALLS=ON".to_string());
+        marcos.push("ALLOW_SMC_CALLS=true".to_string());
     }
 
     if opts.arm_pcnt && target.contains("aarch64") {

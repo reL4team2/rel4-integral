@@ -6,7 +6,7 @@
 --
 
 -- TODO: migrate autoconf
--- #include <config.h>
+#include <config.h>
 
 ---- Default base size: uint64_t
 #if (CONFIG_PT_LEVELS == 3)
