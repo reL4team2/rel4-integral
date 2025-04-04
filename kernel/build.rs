@@ -11,8 +11,8 @@ fn asm_gen(defs: &mut Vec<String>) {
     }
     let inc_dir = format!("{}/include", src_dir);
 
-    rel4_config::generator::asm_gen(&dir, "head.S", &inc_dir, defs);
-    rel4_config::generator::asm_gen(&dir, "traps.S", &inc_dir, defs);
+    rel4_config::generator::asm_gen(&dir, "head.S", vec![&inc_dir], defs, None);
+    rel4_config::generator::asm_gen(&dir, "traps.S", vec![&inc_dir], defs, None);
 }
 
 fn main() {
