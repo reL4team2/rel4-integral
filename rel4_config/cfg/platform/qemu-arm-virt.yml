@@ -90,7 +90,7 @@ definitions:
   FPU_MAX_RESTORES_SINCE_SWITCH: "64"
   VERIFICATION_BUILD: false
   BINARY_VERIFICATION_BUILD: false
-  DEBUG_BUILD: true # KernelDebugBuild=ON
+  DEBUG_BUILD: false # KernelDebugBuild=ON
   HARDWARE_DEBUG_API: false
   PRINTING: true # KernelPrinting=ON
   KERNEL_INVOCATION_REPORT_ERROR_IPC: false
