@@ -72,7 +72,7 @@ definitions:
   VTIMER_UPDATE_VOFFSET: true # KernelArmVtimerUpdateVOffset=ON
   HAVE_FPU: true # KernelHaveFPU=ON
   PADDR_USER_DEVICE_TOP: "1099511627776"
-  ROOT_CNODE_SIZE_BITS: "13"
+  ROOT_CNODE_SIZE_BITS: "12"
   TIMER_TICK_MS: "2"
   TIME_SLICE: "5"
   RETYPE_FAN_OUT_LIMIT: "256"
@@ -125,3 +125,5 @@ definitions:
   CTZ_NO_BUILTIN: false
   GET_CLOCK: true # KernelGetClock=ON
   LINUX_APP_SUPPORT: false
+  KERNEL_WCET_SCALE: "1"
+  BOOT_THREAD_TIME_SLICE: "5"

@@ -121,9 +121,34 @@ pub fn config_gen(platform: &str, custom_defs: &Vec<String>) {
     let mut file = File::create(&header_file).expect("Unable to create file");
     writeln!(file, "// This file is auto generated").expect("Unable to write to file");
 
-    for (key, value) in defs {
+    for (key, value) in defs.clone() {
         if let Some(val) = value {
             writeln!(file, "#define CONFIG_{} {}", key, val).expect("Unable to write to file");
+        } else {
+            writeln!(file, "// CONFIG_{} not set", key).expect("Unable to write to file");
+        }
+    }
+
+    // write defs into config.rs
+    let src_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap_or_else(|_| "target".into()));
+    let config_file = src_dir.join("config.rs");
+    let mut file = File::create(&config_file).expect("Unable to create file");
+    writeln!(file, "// This file is auto generated").expect("Unable to write to file");
+    for (key, value) in defs {
+        if let Some(val) = value {
+            if val.is_empty() {
+                writeln!(file, "pub const CONFIG_{}: bool = true;", key)
+                    .expect("Unable to write to file");
+            } else if let Ok(num) = usize::from_str_radix(val.trim_start_matches("0x"), 16) {
+                writeln!(file, "pub const CONFIG_{}: usize = {};", key, num)
+                    .expect("Unable to write to file");
+            } else if let Ok(num) = val.parse::<usize>() {
+                writeln!(file, "pub const CONFIG_{}: usize = {};", key, num)
+                    .expect("Unable to write to file");
+            } else {
+                writeln!(file, "pub const CONFIG_{}: &str = \"{}\";", key, val)
+                    .expect("Unable to write to file");
+            }
         } else {
             writeln!(file, "// CONFIG_{} not set", key).expect("Unable to write to file");
         }
