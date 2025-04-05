@@ -29,10 +29,10 @@ pub const tcbCNodeEntries: usize = 5;
 
 // FIXME:this constant is generated , maybe need to transfer from C code
 // Write the generated code in the build.rs file
-#[cfg(target_arch = "riscv64")]
-pub const CONFIG_PADDR_USER_DEVICE_TOP: usize = 549755813888;
-#[cfg(target_arch = "aarch64")]
-pub const CONFIG_PADDR_USER_DEVICE_TOP: usize = 17592186044416;
+// #[cfg(target_arch = "riscv64")]
+// pub const CONFIG_PADDR_USER_DEVICE_TOP: usize = 549755813888;
+// #[cfg(target_arch = "aarch64")]
+// pub const CONFIG_PADDR_USER_DEVICE_TOP: usize = 17592186044416;
 
 pub const MAX_NUM_FREEMEM_REG: usize = 16;
 pub const NUM_RESERVED_REGIONS: usize = 3;
