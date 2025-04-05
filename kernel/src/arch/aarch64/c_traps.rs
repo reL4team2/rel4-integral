@@ -12,6 +12,7 @@ use crate::{
 use sel4_common::utils::cpu_id;
 use sel4_task::get_currenct_thread;
 
+#[cfg(target_arch = "aarch64")]
 use crate::arch::fpu::lazyFPURestore;
 
 #[no_mangle]
@@ -35,6 +36,7 @@ pub fn restore_user_context() {
     //     lazyFPURestore(NODE_STATE(ksCurThread));
     // #endif /* CONFIG_HAVE_FPU */
     unsafe {
+		#[cfg(target_arch = "aarch64")]
 		lazyFPURestore(get_currenct_thread());
         asm!(
                 "mov     sp, {}                     \n",

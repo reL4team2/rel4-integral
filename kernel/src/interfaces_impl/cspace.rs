@@ -23,6 +23,7 @@ use sel4_task::{
     isCurDomainExpired, ksConsumed, ksCurSC, reply::reply_t, sched_context::sched_context_t,
     updateTimestamp, ThreadState,
 };
+#[cfg(target_arch="aarch64")]
 use crate::arch::fpu::fpuThreadDelete;
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;
