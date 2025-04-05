@@ -7,7 +7,7 @@ fn asm_gen(platform: &str, defs: &mut Vec<String>) {
     if target.contains("aarch64") {
         // TODO: enable fpu fault handler if build aarch64, maybe need provide by build command
         dir = format!("{}/src/arch/aarch64", src_dir);
-        defs.push("-DCONFIG_HAVE_FPU".to_string());
+        // defs.push("-DCONFIG_HAVE_FPU".to_string());
     }
     let inc_dir = format!("{}/include", src_dir);
     rel4_config::generator::config_gen(&platform, &defs);
