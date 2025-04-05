@@ -139,10 +139,10 @@ pub fn config_gen(platform: &str, custom_defs: &Vec<String>) {
             if val.is_empty() {
                 writeln!(file, "pub const CONFIG_{}: bool = true;", key)
                     .expect("Unable to write to file");
-            } else if let Ok(num) = usize::from_str_radix(val.trim_start_matches("0x"), 16) {
+            } else if let Ok(num) = val.parse::<usize>() {
                 writeln!(file, "pub const CONFIG_{}: usize = {};", key, num)
                     .expect("Unable to write to file");
-            } else if let Ok(num) = val.parse::<usize>() {
+            } else if let Ok(num) = usize::from_str_radix(val.trim_start_matches("0x"), 16) {
                 writeln!(file, "pub const CONFIG_{}: usize = {};", key, num)
                     .expect("Unable to write to file");
             } else {
