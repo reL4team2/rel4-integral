@@ -1,5 +1,7 @@
 //! Constants used in ReL4
 #![allow(dead_code)]
+// include generated config constants
+include!(concat!(env!("OUT_DIR"), "/config.rs"));
 
 pub const USER_STACK_SIZE: usize = 4096 * 2;
 pub const KERNEL_STACK_SIZE: usize = 4096 * 10;
@@ -36,7 +38,7 @@ pub const MAX_NUM_FREEMEM_REG: usize = 16;
 pub const NUM_RESERVED_REGIONS: usize = 3;
 pub const MAX_NUM_RESV_REG: usize = MAX_NUM_FREEMEM_REG + NUM_RESERVED_REGIONS;
 
-pub const CONFIG_ROOT_CNODE_SIZE_BITS: usize = 12;
+// pub const CONFIG_ROOT_CNODE_SIZE_BITS: usize = 12;
 pub const seL4_PML4Bits: usize = 12;
 pub const seL4_VSpaceBits: usize = seL4_PML4Bits;
 pub const BI_FRAME_SIZE_BITS: usize = 12;
@@ -141,16 +143,16 @@ pub const irqInvalid: usize = 0;
 
 pub const SEL4_BOOTINFO_HEADER_FDT: usize = 6;
 pub const SEL4_BOOTINFO_HEADER_PADDING: usize = 0;
-pub const CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS: usize = 230;
+// pub const CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS: usize = 230;
 
 pub const seL4_MaxPrio: usize = 255;
 
 pub const seL4_MinPrio: usize = 0;
 
-pub const CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION: usize = 100;
-pub const CONFIG_RETYPE_FAN_OUT_LIMIT: usize = 256;
+// pub const CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION: usize = 100;
+// pub const CONFIG_RETYPE_FAN_OUT_LIMIT: usize = 256;
 
 #[cfg(feature = "ENABLE_SMC")]
 pub const NUM_SMC_REGS: usize = 8;
 
-pub const CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH: usize = 64;
+// pub const CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH: usize = 64;
