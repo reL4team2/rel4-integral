@@ -32,7 +32,6 @@ pub mod structures_gen {
     include!(concat!(env!("OUT_DIR"), "/pbf/structures.bf.rs"));
 }
 
-
 /// The ffi_call macro, It declares the function and call it
 ///
 /// Usage:

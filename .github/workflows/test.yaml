@@ -238,7 +238,7 @@ jobs:
       - run: cd rel4-kernel-autobuild && ./build-bin.sh > log.txt
         timeout-minutes: 2
         continue-on-error: true
-      - run: cat rel4_kernel/build/1.log
+      - run: cat rel4-kernel-autobuild/log.txt
       - name: Check Result
-        run: rel4_kernel/.github/workflows/parse.py rel4_kernel/build/1.log
+        run: rel4_kernel/.github/workflows/parse_linux_kit.py rel4-kernel-autobuild/log.txt
 

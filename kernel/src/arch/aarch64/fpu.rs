@@ -21,8 +21,8 @@ static mut isFPUEnabledCached: bool = false;
 
 core::arch::global_asm!(include_str!("fpu.S"));
 extern "C" {
-	pub fn save_fpu_state(dest : usize);
-	pub fn load_fpu_state(src: usize);
+    pub fn save_fpu_state(dest: usize);
+    pub fn load_fpu_state(src: usize);
 }
 
 #[inline]

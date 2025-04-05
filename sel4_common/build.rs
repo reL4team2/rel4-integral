@@ -9,7 +9,6 @@ fn main() {
         "aarch64-unknown-none-softfloat" => "aarch64",
         "riscv64imac-unknown-none-elf" => "riscv64",
         _ => panic!("Unsupported target"),
-        
     };
     println!("cargo:rerun-if-changed=pbf/{}/structure_gen.rs", arch);
     let out_dir = path::Path::new(env::var("OUT_DIR").unwrap().as_str()).join("pbf");
@@ -51,18 +50,31 @@ fn main() {
     // TODO: pt levels should config by config file
     common_defs.push("-DCONFIG_PT_LEVELS=3".to_string());
     rel4_config::generator::asm_gen(
-        src_dir.join(arch).to_str().unwrap(), 
-        "structures.bf", 
-        vec![common_include.to_str().unwrap(), arch_include.to_str().unwrap()], 
-        &common_defs, Some(out_dir.join("structures.bf.pbf").to_str().unwrap()));
-    
+        src_dir.join(arch).to_str().unwrap(),
+        "structures.bf",
+        vec![
+            common_include.to_str().unwrap(),
+            arch_include.to_str().unwrap(),
+        ],
+        &common_defs,
+        Some(out_dir.join("structures.bf.pbf").to_str().unwrap()),
+    );
+
     rel4_config::generator::asm_gen(
-        src_dir.join(arch).to_str().unwrap(), 
-        "shared_types.bf", 
-        vec![common_include.to_str().unwrap(), arch_include.to_str().unwrap()], 
-        &common_defs, Some(out_dir.join("shared_types.bf.pbf").to_str().unwrap()));
-    
-    pbf_parser(out_dir.to_str().unwrap().to_string(), out_dir.to_str().unwrap().to_string());
+        src_dir.join(arch).to_str().unwrap(),
+        "shared_types.bf",
+        vec![
+            common_include.to_str().unwrap(),
+            arch_include.to_str().unwrap(),
+        ],
+        &common_defs,
+        Some(out_dir.join("shared_types.bf.pbf").to_str().unwrap()),
+    );
+
+    pbf_parser(
+        out_dir.to_str().unwrap().to_string(),
+        out_dir.to_str().unwrap().to_string(),
+    );
 
     let platform = std::env::var("PLATFORM").unwrap();
     rel4_config::generator::platform_gen(&platform);

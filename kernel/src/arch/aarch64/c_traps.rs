@@ -36,8 +36,8 @@ pub fn restore_user_context() {
     //     lazyFPURestore(NODE_STATE(ksCurThread));
     // #endif /* CONFIG_HAVE_FPU */
     unsafe {
-		#[cfg(target_arch = "aarch64")]
-		lazyFPURestore(get_currenct_thread());
+        #[cfg(target_arch = "aarch64")]
+        lazyFPURestore(get_currenct_thread());
         asm!(
                 "mov     sp, {}                     \n",
 

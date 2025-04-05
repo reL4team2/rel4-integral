@@ -147,11 +147,11 @@ pub fn fastpath_copy_mrs(length: usize, src: &mut tcb_t, dest: &mut tcb_t) {
 #[no_mangle]
 #[cfg(target_arch = "aarch64")]
 pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) {
+    use crate::arch::fpu::lazyFPURestore;
     use core::arch::asm;
-	use crate::arch::fpu::lazyFPURestore;
     unsafe {
         (*cur_thread).tcbArch.load_thread_local();
-		lazyFPURestore(get_currenct_thread());
+        lazyFPURestore(get_currenct_thread());
         asm!(
             "mov     sp, {}                     \n",
             /* Restore thread's SPSR, LR, and SP */

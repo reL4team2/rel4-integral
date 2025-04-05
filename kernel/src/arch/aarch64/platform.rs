@@ -1,3 +1,4 @@
+use crate::arch::aarch64::fpu::disableFpu;
 use aarch64_cpu::registers::TPIDR_EL1;
 use aarch64_cpu::registers::{Writeable, CNTKCTL_EL1};
 use core::arch::asm;
@@ -7,7 +8,6 @@ use sel4_common::ffi_addr;
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::{wordBits, CONFIG_KERNEL_STACK_BITS};
 use sel4_common::structures::p_region_t;
-use crate::arch::aarch64::fpu::disableFpu;
 
 use crate::boot::{
     avail_p_regs_addr, avail_p_regs_size, paddr_to_pptr_reg, res_reg, reserve_region,
@@ -43,10 +43,12 @@ pub fn init_cpu() -> bool {
     TPIDR_EL1.set(stack_top);
 
     let haveHWFPU = fpsimd_HWCapTest();
-	
-	if haveHWFPU {
-		unsafe{disableFpu();}
-	}
+
+    if haveHWFPU {
+        unsafe {
+            disableFpu();
+        }
+    }
 
     // initLocalIRQController
     cpu_initLocalIRQController();
