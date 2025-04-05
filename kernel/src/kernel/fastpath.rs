@@ -20,6 +20,8 @@ use sel4_common::{
     sel4_config::*,
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
 };
+
+use crate::arch::fpu::lazyFPURestore;
 use sel4_cspace::interface::*;
 use sel4_ipc::*;
 #[cfg(feature = "KERNEL_MCS")]
@@ -150,6 +152,7 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
     use core::arch::asm;
     unsafe {
         (*cur_thread).tcbArch.load_thread_local();
+		lazyFPURestore(get_currenct_thread());
         asm!(
             "mov     sp, {}                     \n",
             /* Restore thread's SPSR, LR, and SP */

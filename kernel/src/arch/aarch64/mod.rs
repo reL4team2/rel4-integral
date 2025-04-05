@@ -6,8 +6,7 @@ pub(self) mod instruction;
 mod pg;
 mod platform;
 
-#[cfg(feature = "BUILD_BINARY")]
-mod fpu;
+pub mod fpu;
 
 pub mod arm_gic;
 

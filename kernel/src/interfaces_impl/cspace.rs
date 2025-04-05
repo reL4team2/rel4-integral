@@ -23,6 +23,7 @@ use sel4_task::{
     isCurDomainExpired, ksConsumed, ksCurSC, reply::reply_t, sched_context::sched_context_t,
     updateTimestamp, ThreadState,
 };
+use crate::arch::fpu::fpuThreadDelete;
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;
 #[cfg(target_arch = "aarch64")]
@@ -290,6 +291,8 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
                 }
                 tcb.cancel_ipc();
                 tcb.suspend();
+				#[cfg(target_arch = "aarch64")]
+				fpuThreadDelete(tcb);
                 // #[cfg(feature="DEBUG_BUILD")]
                 // unsafe {
                 //     tcbDebugRemove(tcb as *mut tcb_t);

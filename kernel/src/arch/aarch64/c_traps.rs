@@ -12,6 +12,8 @@ use crate::{
 use sel4_common::utils::cpu_id;
 use sel4_task::get_currenct_thread;
 
+use crate::arch::fpu::lazyFPURestore;
+
 #[no_mangle]
 pub fn restore_user_context() {
     // NODE_UNLOCK_IF_HELD;
@@ -33,6 +35,7 @@ pub fn restore_user_context() {
     //     lazyFPURestore(NODE_STATE(ksCurThread));
     // #endif /* CONFIG_HAVE_FPU */
     unsafe {
+		lazyFPURestore(get_currenct_thread());
         asm!(
                 "mov     sp, {}                     \n",
 
@@ -162,7 +165,6 @@ pub fn c_handle_undefined_instruction() -> ! {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
 pub fn c_handle_enfp() -> ! {
     use super::fpu::handleFPUFault;
     entry_hook();
