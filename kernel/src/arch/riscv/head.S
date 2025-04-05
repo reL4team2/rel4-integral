@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
+#include <config.h>
 #include <assembler.h>
 
 .section .boot.text, "ax"
