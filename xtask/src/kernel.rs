@@ -76,10 +76,12 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
 
     if opts.arm_pcnt && target.contains("aarch64") {
         append_features(&mut args, "ENABLE_ARM_PCNT".to_string());
+        marcos.push("EXPORT_PCNT_USER=true".to_string());
     }
 
     if opts.arm_ptmr && target.contains("aarch64") {
         append_features(&mut args, "ENABLE_ARM_PTMR".to_string());
+        marcos.push("EXPORT_PTMR_USER=true".to_string());
     }
 
     let status = cmd
