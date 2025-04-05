@@ -126,3 +126,5 @@ definitions:
   CTZ_NO_BUILTIN: false
   GET_CLOCK: true # KernelGetClock=ON
   LINUX_APP_SUPPORT: false
+  TIME_SLICE: "5"
+  TIMER_TICK_MS: "2"
