@@ -1,6 +1,9 @@
 //! This module contains the configuration settings for sel4_common.
 use crate::BIT;
 
+// include generated config constants
+include!(concat!(env!("OUT_DIR"), "/config.rs"));
+
 pub const UINT64_MAX: usize = 0xFFFFFFFFFFFFFFFF;
 pub const wordRadix: usize = 6;
 pub const wordBits: usize = BIT!(wordRadix);
@@ -40,7 +43,7 @@ pub const PD_INDEX_BITS: usize = 9;
 pub const UPUD_INDEX_BITS: usize = 9;
 pub const PUD_INDEX_BITS: usize = 9;
 pub const PGD_INDEX_BITS: usize = 9;
-pub const CONFIG_PT_LEVELS: usize = 3;
+// pub const CONFIG_PT_LEVELS: usize = 3;
 pub const seL4_PageBits: usize = 12;
 pub const seL4_PageTableBits: usize = 12;
 pub const seL4_PageDirBits: usize = 12;
@@ -68,14 +71,14 @@ pub const seL4_ASIDPoolBits: usize = 12;
 pub const IT_ASID: usize = 1;
 
 // Cache relevant
-pub const L1_CACHE_LINE_SIZE_BITS: usize = 6;
+// pub const L1_CACHE_LINE_SIZE_BITS: usize = 6;
 
 // scheduler relevant
-pub const CONFIG_NUM_DOMAINS: usize = 1;
-pub const CONFIG_NUM_PRIORITIES: usize = 256;
+// pub const CONFIG_NUM_DOMAINS: usize = 1;
+// pub const CONFIG_NUM_PRIORITIES: usize = 256;
 pub const L2_BITMAP_SIZE: usize = (CONFIG_NUM_PRIORITIES + wordBits - 1) / wordBits;
 pub const NUM_READY_QUEUES: usize = CONFIG_NUM_DOMAINS * CONFIG_NUM_PRIORITIES;
-pub const CONFIG_TIME_SLICE: usize = 5;
+// pub const CONFIG_TIME_SLICE: usize = 5;
 
 // TCB relevant
 #[cfg(target_arch = "riscv64")]
@@ -103,11 +106,11 @@ pub const tcbBuffer: usize = 4;
 pub const tcbCNodeEntries: usize = 5;
 
 // 多核相关
-#[cfg(not(feature = "ENABLE_SMP"))]
-pub const CONFIG_MAX_NUM_NODES: usize = 1;
+// #[cfg(not(feature = "ENABLE_SMP"))]
+// pub const CONFIG_MAX_NUM_NODES: usize = 1;
 
-#[cfg(feature = "ENABLE_SMP")]
-pub const CONFIG_MAX_NUM_NODES: usize = 4;
+// #[cfg(feature = "ENABLE_SMP")]
+// pub const CONFIG_MAX_NUM_NODES: usize = 4;
 
 // 错误码
 pub const seL4_NoError: usize = 0;
@@ -134,14 +137,14 @@ pub const MessageID_TimeoutReply: usize = 2;
 
 pub const seL4_IPCBufferSizeBits: usize = 10;
 
-pub const CONFIG_RESET_CHUNK_BITS: usize = 8;
+// pub const CONFIG_RESET_CHUNK_BITS: usize = 8;
 
-pub const CONFIG_KERNEL_STACK_BITS: usize = 12;
+// pub const CONFIG_KERNEL_STACK_BITS: usize = 12;
 
 pub const ID_AA64PFR0_EL1_FP: u32 = 16;
 pub const ID_AA64PFR0_EL1_ASIMD: u32 = 20;
-pub const CONFIG_KERNEL_WCET_SCALE: usize = 1;
-pub const CONFIG_BOOT_THREAD_TIME_SLICE: usize = 5;
+// pub const CONFIG_KERNEL_WCET_SCALE: usize = 1;
+// pub const CONFIG_BOOT_THREAD_TIME_SLICE: usize = 5;
 pub const minDom: usize = 0;
 pub const maxDom: usize = CONFIG_NUM_DOMAINS - 1;
 pub const numDomains: usize = CONFIG_NUM_DOMAINS;
