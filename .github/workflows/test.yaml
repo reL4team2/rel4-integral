@@ -9,7 +9,7 @@ jobs:
     # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
     runs-on: ubuntu-latest
     container:
-      image: trustworthysystems/sel4
+      image: croakexciting/rel4_dev:0.0.6
       volumes:
         - .:/code
     strategy:
@@ -54,7 +54,7 @@ jobs:
           - platform: spike
             arch: riscv64
     container:
-      image: yfblock/rel4-dev:1.2
+      image: croakexciting/rel4_dev:0.0.6
       options: --user=root
     defaults:
       run:
@@ -111,7 +111,7 @@ jobs:
           - platform: spike
             arch: riscv64
     container:
-      image: yfblock/rel4-dev:1.2
+      image: croakexciting/rel4_dev:0.0.6
       options: --user=root
     defaults:
       run:
@@ -167,7 +167,7 @@ jobs:
           - platform: qemu-arm-virt
             arch: aarch64
     container:
-      image: yfblock/rel4-dev:1.2
+      image: croakexciting/rel4_dev:0.0.6
       options: --user=root
     defaults:
       run:
@@ -216,7 +216,7 @@ jobs:
   rel4-test-linux:
     runs-on: ubuntu-latest
     container:
-      image: yfblock/rel4-dev:1.2
+      image: croakexciting/rel4_dev:0.0.6
       options: --user=root
     defaults:
       run:
