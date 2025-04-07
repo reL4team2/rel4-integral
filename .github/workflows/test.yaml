@@ -231,11 +231,11 @@ jobs:
           rustflags:
           target: aarch64-unknown-none-softfloat
       - name: Install qemu
-        run: apt update && apt -y install wget make python3 xz-utils python3-venv ninja-build bzip2 meson pkg-config libglib2.0-dev git libslirp-dev && pip3 install tomli && wget https://download.qemu.org/qemu-9.2.2.tar.xz && tar xf qemu-9.2.2.tar.xz && cd qemu-9.2.2 && ./configure --target-list=aarch64-softmmu --enable-slirp && make -j$(nproc) && make install && cargo install --git https://github.com/reL4team2/reL4-cli.git
+        run: apt update && apt -y install wget make python3 xz-utils python3-venv ninja-build bzip2 meson pkg-config libglib2.0-dev git libslirp-dev && pip3 install tomli && wget https://download.qemu.org/qemu-9.2.2.tar.xz && tar xf qemu-9.2.2.tar.xz && cd qemu-9.2.2 && ./configure --target-list=aarch64-softmmu --enable-slirp && make -j$(nproc) && make install
       - name: Clone auto-build
         run: | 
           git clone https://github.com/reL4team2/rel4-kernel-autobuild.git -b rel4-integrate
-      - run: cd rel4-kernel-autobuild && ./build-bin.sh > log.txt
+      - run: cd rel4-kernel-autobuild && cargo install --git https://github.com/reL4team2/reL4-cli.git && ./build-bin.sh > log.txt
         timeout-minutes: 2
         continue-on-error: true
       - run: cat rel4-kernel-autobuild/log.txt
