@@ -235,7 +235,10 @@ jobs:
       - name: Clone auto-build
         run: | 
           git clone https://github.com/reL4team2/rel4-kernel-autobuild.git -b rel4-integrate
-      - run: cd rel4-kernel-autobuild && cargo install --git https://github.com/reL4team2/reL4-cli.git && ./build-bin.sh > log.txt
+      - name : simulate
+        env:
+          REL4_CLI_PATH:/github/home/.cargo/bin/
+        run: cd rel4-kernel-autobuild && cargo install --git https://github.com/reL4team2/reL4-cli.git && ./build-bin.sh > log.txt
         timeout-minutes: 2
         continue-on-error: true
       - run: cat rel4-kernel-autobuild/log.txt
