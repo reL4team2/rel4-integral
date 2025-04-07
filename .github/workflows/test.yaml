@@ -236,13 +236,14 @@ jobs:
         run: | 
           git clone https://github.com/reL4team2/rel4-kernel-autobuild.git -b rel4-integrate
           cargo install --git https://github.com/reL4team2/reL4-cli.git
+          cargo install --git https://github.com/seL4/rust-sel4 --rev 1cd063a0f69b2d2045bfa224a36c9341619f0e9b sel4-kernel-loader-add-payload
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - run: cd rel4-kernel-autobuild && ./build-bin.sh > log.txt
-        timeout-minutes: 7
+        timeout-minutes: 10
         continue-on-error: true
       - run: cat rel4-kernel-autobuild/log.txt
       - name: Check Result
         run: |
           echo "$(pwd)" && ls -la 
-          rel4_kernel/.github/workflows/parse_linux_kit.py rel4-kernel-autobuild/log.txt
+          rel4-kernel-autobuild/parse_linux_kit.py rel4-kernel-autobuild/log.txt
 
