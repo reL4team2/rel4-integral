@@ -55,18 +55,33 @@ fn main() {
     let out_inc_dir = env::var("OUT_DIR").unwrap();
 
     rel4_config::generator::asm_gen(
-        src_dir.join(arch).to_str().unwrap(), 
-        "structures.bf", 
-        vec![common_include.to_str().unwrap(), arch_include.to_str().unwrap(), out_inc_dir.as_str()], 
-        &vec![], Some(out_dir.join("structures.bf.pbf").to_str().unwrap()));
-    
+        src_dir.join(arch).to_str().unwrap(),
+        "structures.bf",
+        vec![
+            common_include.to_str().unwrap(),
+            arch_include.to_str().unwrap(),
+            out_inc_dir.as_str(),
+        ],
+        &vec![],
+        Some(out_dir.join("structures.bf.pbf").to_str().unwrap()),
+    );
+
     rel4_config::generator::asm_gen(
-        src_dir.join(arch).to_str().unwrap(), 
-        "shared_types.bf", 
-        vec![common_include.to_str().unwrap(), arch_include.to_str().unwrap(), out_inc_dir.as_str()], 
-        &vec![], Some(out_dir.join("shared_types.bf.pbf").to_str().unwrap()));
-    
-    pbf_parser(out_dir.to_str().unwrap().to_string(), out_dir.to_str().unwrap().to_string());
+        src_dir.join(arch).to_str().unwrap(),
+        "shared_types.bf",
+        vec![
+            common_include.to_str().unwrap(),
+            arch_include.to_str().unwrap(),
+            out_inc_dir.as_str(),
+        ],
+        &vec![],
+        Some(out_dir.join("shared_types.bf.pbf").to_str().unwrap()),
+    );
+
+    pbf_parser(
+        out_dir.to_str().unwrap().to_string(),
+        out_dir.to_str().unwrap().to_string(),
+    );
 
     rel4_config::generator::platform_gen(&platform);
 }

@@ -21,8 +21,8 @@ static mut isFPUEnabledCached: bool = false;
 
 core::arch::global_asm!(include_str!("fpu.S"));
 extern "C" {
-    pub fn save_fpu_state(dest: usize);
-    pub fn load_fpu_state(src: usize);
+    pub fn save_fpu_state(dest: usize, dest_fpsr: usize);
+    pub fn load_fpu_state(src: usize, src_fpsr: usize);
 }
 
 #[inline]
@@ -64,12 +64,15 @@ unsafe fn switchLocalFpuOwner(new_owner: usize) {
     unsafe {
         enableFpu();
         if ksActiveFPUState != 0 {
-            save_fpu_state(ksActiveFPUState);
+            save_fpu_state(ksActiveFPUState, ksActiveFPUState + 16 * 32);
         }
 
         if new_owner != 0 {
             ksFPURestoresSinceSwitch = 0;
-            load_fpu_state(new_owner as *const FPUState as usize);
+            load_fpu_state(
+                new_owner as *const FPUState as usize,
+                new_owner as *const FPUState as usize + 16 * 32,
+            );
         } else {
             disableFpu();
         }

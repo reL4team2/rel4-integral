@@ -101,17 +101,17 @@ pub fn config_gen(platform: &str, custom_defs: &Vec<String>) {
         if let Some(v) = value {
             if v == "true" {
                 defs.entry(key.to_string())
-                .and_modify(|e| *e = Some(String::new()))
-                .or_insert(Some(String::new()));
+                    .and_modify(|e| *e = Some(String::new()))
+                    .or_insert(Some(String::new()));
             } else {
                 defs.entry(key.to_string())
-                .and_modify(|e| *e = Some(v.to_string()))
-                .or_insert(Some(v.to_string()));
+                    .and_modify(|e| *e = Some(v.to_string()))
+                    .or_insert(Some(v.to_string()));
             }
         } else {
             defs.entry(key.to_string())
-            .and_modify(|e| *e = None)
-            .or_insert(None);
+                .and_modify(|e| *e = None)
+                .or_insert(None);
         }
     }
     // TODO: replace definitions from defs
@@ -153,5 +153,4 @@ pub fn config_gen(platform: &str, custom_defs: &Vec<String>) {
             writeln!(file, "// CONFIG_{} not set", key).expect("Unable to write to file");
         }
     }
-
 }

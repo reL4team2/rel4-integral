@@ -53,12 +53,10 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
     let mut cmd = Command::new("cargo");
 
     // build gcc marcos, we must add macros add xtask
-    let mut marcos = vec![
-        format!(
-            "KERNEL_STACK_BITS={}",
-            rel4_config::get_int_from_cfg(&opts.platform, "memory.stack_bits").unwrap()
-        ),
-    ];
+    let mut marcos = vec![format!(
+        "KERNEL_STACK_BITS={}",
+        rel4_config::get_int_from_cfg(&opts.platform, "memory.stack_bits").unwrap()
+    )];
 
     if !opts.nofastpath {
         marcos.push("FASTPATH=true".to_string());
