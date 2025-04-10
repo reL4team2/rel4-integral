@@ -36,7 +36,7 @@ use sel4_common::structures_gen::{
 use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_cspace::interface::*;
 
-use crate::config::*;
+use sel4_common::config::*;
 use crate::utils::clear_memory;
 
 use sel4_task::*;

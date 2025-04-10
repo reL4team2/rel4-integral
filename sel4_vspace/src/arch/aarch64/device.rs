@@ -3,7 +3,8 @@ use crate::{paddr_t, pptr_t, vm_attributes_t};
 use sel4_common::arch::vm_rights_t::VMKernelOnly;
 use sel4_common::{sel4_config::PAGE_BITS, BIT};
 
-pub const KDEV_BASE: usize = 0xFFFFFFFFC0000000;
+// TODO: support hypervisor mode
+pub const KDEV_BASE: usize = 0xffffffffffe00000;
 pub(crate) const NUM_KERNEL_DEVICE_FRAMES: usize = 3;
 pub(crate) const UART_PPTR: usize = KDEV_BASE + 0x0;
 pub(crate) const GIC_V2_DISTRIBUTOR_PPTR: usize = KDEV_BASE + 0x1000;
