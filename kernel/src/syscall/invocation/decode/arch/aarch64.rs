@@ -40,7 +40,7 @@ use sel4_vspace::{
 };
 
 #[cfg(feature = "ENABLE_SMC")]
-use crate::config::NUM_SMC_REGS;
+use sel4_common::config::NUM_SMC_REGS;
 use crate::syscall::invocation::invoke_mmu_op::{
     invoke_page_get_address, invoke_page_map, invoke_page_table_unmap, invoke_page_unmap,
 };
