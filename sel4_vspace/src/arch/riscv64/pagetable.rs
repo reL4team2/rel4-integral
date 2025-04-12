@@ -1,5 +1,5 @@
 use crate::{
-    asid_t, find_vspace_for_asid, paddr_t, pptr_t, pptr_to_paddr, sfence, vptr_t, PageTable, PTE,
+    asid_t, find_vspace_for_asid, pptr_to_paddr, sfence, vptr_t, PageTable, PTE,
 };
 use sel4_common::{
     arch::config::{
@@ -7,7 +7,7 @@ use sel4_common::{
         PPTR_TOP,
     },
     sel4_config::{seL4_PageBits, PT_INDEX_BITS},
-    structures::exception_t,
+    structures::{exception_t, pptr_t, paddr_t},
     structures_gen::lookup_fault,
     utils::pageBitsForSize,
     BIT, ROUND_DOWN,

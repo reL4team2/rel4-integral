@@ -1,4 +1,4 @@
-use crate::config::{irqInvalid, maxIRQ};
+use sel4_common::platform::{irqInvalid, maxIRQ};
 use crate::interrupt::*;
 use core::intrinsics::unlikely;
 use log::debug;

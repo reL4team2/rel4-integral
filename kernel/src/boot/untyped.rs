@@ -1,8 +1,5 @@
 use super::{ndks_boot, utils::*};
-use crate::{
-    config::*,
-    structures::{p_region_t, region_t, seL4_SlotPos, seL4_SlotRegion, seL4_UntypedDesc},
-};
+use crate::structures::{p_region_t, region_t, seL4_SlotPos, seL4_SlotRegion, seL4_UntypedDesc};
 
 use crate::{BIT, IS_ALIGNED, MASK};
 use log::debug;
@@ -13,6 +10,7 @@ use sel4_common::{
 };
 
 use sel4_vspace::*;
+use sel4_common::sel4_config::*;
 
 pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: region_t) -> bool {
     unsafe {

@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+use tera::{Context, Tera};
+
 pub fn linker_gen(platform: &str) -> PathBuf {
     let yaml_cfg = crate::utils::get_root().join(format!("cfg/platform/{}.yml", platform));
     let kstart =
@@ -29,33 +31,47 @@ pub fn linker_gen(platform: &str) -> PathBuf {
 
 pub fn platform_gen(platform: &str) -> PathBuf {
     let yaml_cfg = crate::utils::get_root().join(format!("cfg/platform/{}.yml", platform));
-    let avail_mem_zones =
-        crate::utils::get_zone_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.avail_mem_zone")
-            .expect("memory.avail not set");
+    let mem_zones: Vec<crate::utils::MemZone> =
+        crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.avail_mem_zone")
+        .expect("memory.avail_mem_zone not set");
+    let device_regions: Vec<crate::utils::DeviceRegion> =
+        crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "device.device_region")
+        .expect("device.device_region not set");
+    let irqs: Vec<crate::utils::Irq> =
+        crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "device.irqs")
+        .expect("device.irqs not set");
+    let phys_base = crate::utils::get_int_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.pmem_start")
+        .expect("memory.pmem_start not set");
+    let timer_settings: Vec<crate::utils::Timer> = crate::utils::get_array_from_yaml(
+        &yaml_cfg.to_str().unwrap(),
+        "timer",
+    ).expect("timer not set");
+    let freq = crate::utils::get_int_from_yaml(&yaml_cfg.to_str().unwrap(), "cpu.freq")
+        .expect("cpu.freq not set");
+    let arch = crate::utils::get_value_from_yaml(&yaml_cfg.to_str().unwrap(), "cpu.arch")
+        .expect("cpu.arch not set");
+    let template_path = crate::utils::get_root().join("template/*.rs");
+    let mut tera = Tera::new(template_path.to_str().unwrap()).expect("Failed to initialize Tera");
+    tera.register_filter("hex", crate::template::format_hex);
 
+    let mut context = Context::new();
+    context.insert("avail_mem_zones", &mem_zones);
+    context.insert("device_regions", &device_regions);
+    context.insert("kernel_irqs", &irqs);
+    context.insert("physBase", &phys_base);
+    context.insert("timer_settings", &timer_settings);
+    context.insert("freq", &freq);
+    context.insert("arch", &arch);
+
+    let rendered = tera.render("platform_gen.rs", &context).expect("Failed to render template");
     let src_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap_or_else(|_| "target".into()));
-    let dev_file = src_dir.join("platform_gen.rs");
-    let mut file = File::create(&dev_file).expect("Unable to create file");
-    writeln!(file, "// This file is auto generated").expect("Unable to write to file");
-    writeln!(file, "use crate::structures::p_region_t;").expect("Unable to write to file");
-    writeln!(file, "#[link_section = \".boot.bss\"]").expect("Unable to write to file");
-    writeln!(
-        file,
-        "pub static avail_p_regs: [p_region_t; {}] = [",
-        avail_mem_zones.len()
-    )
-    .expect("Unable to write to file");
+    let output_file = src_dir.join("platform_gen.rs");
 
-    for zone in avail_mem_zones {
-        writeln!(file, "    p_region_t {{").expect("Unable to write to file");
-        writeln!(file, "       start: {:#x},", zone.start).expect("Unable to write to file");
-        writeln!(file, "       end: {:#x}", zone.end).expect("Unable to write to file");
-        writeln!(file, "    }},").expect("Unable to write to file");
-    }
+    let mut file = File::create(&output_file).expect("Unable to create file");
+    file.write_all(rendered.as_bytes())
+        .expect("Unable to write to file");
 
-    writeln!(file, "];").expect("Unable to write to file");
-
-    dev_file
+    output_file
         .canonicalize()
         .expect("Unable to get absolute path")
 }

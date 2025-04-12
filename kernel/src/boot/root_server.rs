@@ -36,7 +36,8 @@ use sel4_common::structures_gen::{
 use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_cspace::interface::*;
 
-use sel4_common::config::*;
+use sel4_common::sel4_config::*;
+use sel4_common::platform::{maxIRQ, irqInvalid, KERNEL_TIMER_IRQ};
 use crate::utils::clear_memory;
 
 use sel4_task::*;
@@ -724,10 +725,11 @@ unsafe fn rust_create_it_address_space(
         vspace_cap.clone().unsplay(),
     );
 
-    // Create any PUDs needed for the user land image, should config `PGD_INDEX_OFFSET`, `PUD_INDEX_OFFSET`...
-    let PGD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 3;
-    let PUD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 2;
-    let PD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS;
+    // lxy: use these constants defined in sel4_config
+    // // Create any PUDs needed for the user land image, should config `PGD_INDEX_OFFSET`, `PUD_INDEX_OFFSET`...
+    // let PGD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 3;
+    // let PUD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 2;
+    // let PD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS;
     let mut vptr = ROUND_DOWN!(it_v_reg.start, PGD_INDEX_OFFSET);
     while vptr < it_v_reg.end {
         if !provide_cap(

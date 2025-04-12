@@ -6,14 +6,13 @@ use sel4_common::arch::config::{KERNEL_ELF_BASE, PADDR_TOP};
 use sel4_common::ffi::kernel_stack_alloc;
 use sel4_common::ffi_addr;
 use sel4_common::platform::{timer, Timer_func};
-use sel4_common::sel4_config::{wordBits, CONFIG_KERNEL_STACK_BITS};
+use sel4_common::sel4_config::*;
 use sel4_common::structures::p_region_t;
 
 use crate::boot::{
     avail_p_regs_addr, avail_p_regs_size, paddr_to_pptr_reg, res_reg, reserve_region,
     rust_init_freemem,
 };
-use crate::config::*;
 use crate::structures::*;
 use crate::utils::{fpsimd_HWCapTest, setVTable};
 use log::debug;

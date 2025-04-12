@@ -12,11 +12,10 @@ use log::debug;
 use sel4_common::arch::config::PADDR_TOP;
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::platform::{timer, Timer_func};
-use sel4_common::sel4_config::seL4_PageBits;
+use sel4_common::sel4_config::*;
 use spin::Mutex;
 
 pub use crate::boot::utils::paddr_to_pptr_reg;
-use crate::config::*;
 use crate::structures::{
     ndks_boot_t, p_region_t, region_t, seL4_BootInfo, seL4_BootInfoHeader, seL4_SlotRegion,
 };

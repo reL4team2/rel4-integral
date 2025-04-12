@@ -1,4 +1,6 @@
-use crate::{paddr_t, PTE};
+use crate::PTE;
+use sel4_common::structures::paddr_t;
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct PageTable(pub(crate) paddr_t);

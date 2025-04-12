@@ -1,6 +1,6 @@
 use super::read_stval;
 use crate::compatibility::lookupIPCBuffer;
-use crate::config::*;
+use sel4_common::sel4_config::*;
 use crate::halt;
 use crate::object::lookupCapAndSlot;
 use crate::strnlen;
@@ -16,7 +16,6 @@ use sel4_common::arch::ArchReg::*;
 use sel4_common::ffi::current_fault;
 use sel4_common::platform::read_time;
 use sel4_common::print;
-use sel4_common::sel4_config::seL4_MsgMaxLength;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::cap_tag;
 use sel4_common::structures_gen::seL4_Fault_UnknownSyscall;

@@ -48,3 +48,68 @@ pub struct p_region_t {
     pub start: usize,
     pub end: usize,
 }
+
+use crate::arch::config::PPTR_BASE;
+use core::{ffi::CStr, fmt::{Debug, Display}};
+pub type pptr_t = usize;
+
+#[derive(Copy, Clone)]
+pub struct kernel_frame_t {
+    pub paddr: paddr_t,
+    pub pptr: pptr_t,
+    pub armExecuteNever: isize,
+    pub userAvailable: isize,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct paddr_t(pub usize);
+impl From<usize> for paddr_t {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+impl paddr_t {
+    #[inline]
+    pub fn addr(&self) -> usize {
+        self.0
+    }
+
+    #[inline]
+    pub fn get_ptr<T>(&self) -> *const T {
+        (self.0 | PPTR_BASE) as *const T
+    }
+
+    #[inline]
+    pub const fn get_mut_ptr<T>(&self) -> *mut T {
+        (self.0 | PPTR_BASE) as *mut T
+    }
+
+    #[inline]
+    pub fn slice_with_len<T>(&self, len: usize) -> &'static [T] {
+        unsafe { core::slice::from_raw_parts(self.get_ptr(), len) }
+    }
+
+    #[inline]
+    pub fn slice_mut_with_len<T>(&self, len: usize) -> &'static mut [T] {
+        unsafe { core::slice::from_raw_parts_mut(self.get_mut_ptr(), len) }
+    }
+
+    #[inline]
+    pub fn get_cstr(&self) -> &CStr {
+        unsafe { CStr::from_ptr(self.get_ptr::<i8>()) }
+    }
+}
+
+impl Debug for paddr_t {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("{:#x}", self.0))
+    }
+}
+
+impl Display for paddr_t {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("{:#x}", self.0))
+    }
+}

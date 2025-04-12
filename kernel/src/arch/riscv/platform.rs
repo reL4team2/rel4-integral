@@ -2,12 +2,9 @@ use crate::arch::fpu::{init_fpu, set_fs_off};
 use crate::boot::paddr_to_pptr_reg;
 use crate::boot::rust_init_freemem;
 use crate::boot::{avail_p_regs_addr, avail_p_regs_size, res_reg};
-use crate::config::*;
+use sel4_common::sel4_config::*;
 use crate::structures::*;
-use crate::{
-    config::{SIE_SEIE, SIE_STIE},
-    interrupt::set_sie_mask,
-};
+use crate::interrupt::set_sie_mask;
 use log::debug;
 use riscv::register::{stvec, utvec::TrapMode};
 use sel4_common::arch::config::RESET_CYCLES;

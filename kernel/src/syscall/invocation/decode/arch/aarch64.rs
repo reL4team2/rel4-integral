@@ -1,5 +1,4 @@
 use crate::arch::set_vm_root_for_flush;
-use crate::config::{seL4_ASIDPoolBits, USER_TOP};
 use crate::kernel::boot::{current_extra_caps, get_extra_cap_by_index};
 use crate::syscall::invocation::decode::current_syscall_error;
 use crate::syscall::ThreadState;
@@ -10,8 +9,9 @@ use sel4_common::arch::maskVMRights;
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::{
     asidInvalid, asidLowBits, nASIDPools, seL4_AlignmentError, seL4_FailedLookup, seL4_PageBits,
-    seL4_RangeError,
+    seL4_RangeError, seL4_ASIDPoolBits, USER_TOP
 };
+use sel4_common::platform::maxIRQ;
 use sel4_common::sel4_config::{seL4_DeleteFirst, seL4_InvalidArgument};
 use sel4_common::sel4_config::{
     seL4_IllegalOperation, seL4_InvalidCapability, seL4_RevokeFirst, seL4_TruncatedMessage,
@@ -45,7 +45,6 @@ use crate::syscall::invocation::invoke_mmu_op::{
     invoke_page_get_address, invoke_page_map, invoke_page_table_unmap, invoke_page_unmap,
 };
 use crate::{
-    config::maxIRQ,
     interrupt::is_irq_active,
     syscall::{invocation::invoke_irq::invoke_irq_control, lookupSlotForCNodeOp},
 };

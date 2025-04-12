@@ -1,5 +1,4 @@
-use crate::config::{CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS, MAX_NUM_FREEMEM_REG, MAX_NUM_RESV_REG};
-use sel4_common::sel4_config::seL4_MsgMaxExtraCaps;
+use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap};
 use sel4_cspace::interface::cte_t;

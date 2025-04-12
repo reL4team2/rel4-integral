@@ -5,12 +5,12 @@ use crate::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
-    config::{BI_FRAME_SIZE_BITS, USER_TOP},
     structures::{p_region_t, seL4_SlotRegion, v_region_t},
 };
 use log::debug;
 use sel4_common::println;
 use sel4_common::{arch::config::KERNEL_ELF_BASE, sel4_config::PAGE_BITS, BIT};
+use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 use sel4_task::create_idle_thread;
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 

@@ -1,7 +1,27 @@
 # cpu arch
 cpu:
   arch: aarch64
-  freq: 10000000
+  freq: 62500000
+
+# timer settings
+timer:
+  - {label: "CLK_MAGIC", value: 4611686019}
+  - {label: "CLK_SHIFT", value: 58}
+  - {label: "TIMER_PRECISION", value: 0}  
+  - {label: "TIMER_OVERHEAD_TICKS", value: 0}
+  - {label: "CONFIGURE_KERNEL_WCET", value: 10}
+
+# device messages
+device:
+  device_region:
+    - {paddr: 0x9000000, pptr_offset: 0x0, arm_execute_never: 1, user_available: 1, desc: "uart"}
+    - {paddr: 0x8000000, pptr_offset: 0x1000, arm_execute_never: 1, user_available: 0, desc: "gicv2_distributor"}
+    - {paddr: 0x8010000, pptr_offset: 0x2000, arm_execute_never: 1, user_available: 0, desc: "gicv2_controller"}
+  irqs:
+    - {label: "INTERRUPT_VTIMER_EVENT", number: 27}
+    - {label: "KERNEL_TIMER_IRQ", number: 27}
+    - {label: "maxIRQ", number: 159}
+    - {label: "irqInvalid", number: 0}
 
 # memory layout
 memory:

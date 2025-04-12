@@ -1,9 +1,6 @@
-use core::{
-    ffi::CStr,
-    fmt::{Debug, Display},
-};
+use core::fmt::Debug;
 
-use sel4_common::{arch::config::PPTR_BASE, structures::exception_t, structures_gen::lookup_fault};
+use sel4_common::{structures::exception_t, structures_gen::lookup_fault};
 
 use crate::PTE;
 
@@ -63,58 +60,5 @@ impl vm_attributes_t {
 
     pub fn get_page_cacheable(&self) -> usize {
         self.0 & 0x1
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct paddr_t(pub(crate) usize);
-impl From<usize> for paddr_t {
-    fn from(value: usize) -> Self {
-        Self(value)
-    }
-}
-
-impl paddr_t {
-    #[inline]
-    pub fn addr(&self) -> usize {
-        self.0
-    }
-
-    #[inline]
-    pub fn get_ptr<T>(&self) -> *const T {
-        (self.0 | PPTR_BASE) as *const T
-    }
-
-    #[inline]
-    pub const fn get_mut_ptr<T>(&self) -> *mut T {
-        (self.0 | PPTR_BASE) as *mut T
-    }
-
-    #[inline]
-    pub fn slice_with_len<T>(&self, len: usize) -> &'static [T] {
-        unsafe { core::slice::from_raw_parts(self.get_ptr(), len) }
-    }
-
-    #[inline]
-    pub fn slice_mut_with_len<T>(&self, len: usize) -> &'static mut [T] {
-        unsafe { core::slice::from_raw_parts_mut(self.get_mut_ptr(), len) }
-    }
-
-    #[inline]
-    pub fn get_cstr(&self) -> &CStr {
-        unsafe { CStr::from_ptr(self.get_ptr::<i8>()) }
-    }
-}
-
-impl Debug for paddr_t {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("{:#x}", self.0))
-    }
-}
-
-impl Display for paddr_t {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("{:#x}", self.0))
     }
 }

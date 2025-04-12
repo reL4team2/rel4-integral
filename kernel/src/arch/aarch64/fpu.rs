@@ -8,7 +8,7 @@ use core::{
 use sel4_common::arch::arch_tcb::FPUState;
 use sel4_task::{get_currenct_thread, tcb_t};
 
-use crate::config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
+use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
 
 #[no_mangle]
 pub static mut ksActiveFPUState: usize = 0;

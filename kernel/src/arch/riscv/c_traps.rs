@@ -1,12 +1,11 @@
 use core::arch::asm;
 
 use super::read_scause;
-use crate::{
-    config::{
-        RISCVInstructionAccessFault, RISCVInstructionPageFault, RISCVLoadAccessFault,
-        RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
-    },
-    syscall::slowpath,
+use crate::syscall::slowpath;
+
+use sel4_common::sel4_config::{
+    RISCVInstructionAccessFault, RISCVInstructionPageFault, RISCVLoadAccessFault,
+    RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
 };
 
 use crate::arch::fpu::{handleFPUFault, isFpuEnable, lazyFPURestore, set_tcb_fs_state};
