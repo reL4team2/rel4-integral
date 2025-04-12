@@ -7,7 +7,7 @@ use rust_sel4_pbf_parser::parser::pbf_parser;
 fn main() {
     let arch = match env::var("TARGET").expect("TARGET not set").as_str() {
         "aarch64-unknown-none-softfloat" => "aarch64",
-        "riscv64imac-unknown-none-elf" => "riscv64",
+        "riscv64gc-unknown-none-elf" => "riscv64",
         _ => panic!("Unsupported target"),
     };
     let platform = std::env::var("PLATFORM").unwrap();

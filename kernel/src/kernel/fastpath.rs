@@ -1,3 +1,4 @@
+use crate::arch::fpu::lazyFPURestore;
 use crate::MASK;
 use crate::{
     config::seL4_MsgLengthBits,
@@ -147,7 +148,6 @@ pub fn fastpath_copy_mrs(length: usize, src: &mut tcb_t, dest: &mut tcb_t) {
 #[no_mangle]
 #[cfg(target_arch = "aarch64")]
 pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) {
-    use crate::arch::fpu::lazyFPURestore;
     use core::arch::asm;
     unsafe {
         (*cur_thread).tcbArch.load_thread_local();
@@ -195,6 +195,14 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
 pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) {
     #[cfg(feature = "ENABLE_SMP")]
     {}
+    #[cfg(feature = "HAVE_FPU")]
+    {
+        use crate::arch::fpu::{isFpuEnable, set_tcb_fs_state};
+        unsafe {
+            lazyFPURestore(get_currenct_thread());
+            set_tcb_fs_state(get_currenct_thread(), isFpuEnable());
+        }
+    }
     extern "C" {
         pub fn __fastpath_restore(badge: usize, msgInfo: usize, cur_thread_reg: usize);
     }

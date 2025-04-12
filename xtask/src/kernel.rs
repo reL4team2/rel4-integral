@@ -33,7 +33,7 @@ pub struct BuildOptions {
 fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
     let dir = PathBuf::from(dir);
     let target: String = match opts.platform.as_str() {
-        "spike" => "--target=riscv64imac-unknown-none-elf".to_string(),
+        "spike" => "--target=riscv64gc-unknown-none-elf".to_string(),
         "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat".to_string(),
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
@@ -81,6 +81,19 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         append_features(&mut args, "ENABLE_ARM_PTMR".to_string());
         marcos.push("EXPORT_PTMR_USER=true".to_string());
     }
+
+    //TODO: add fpu config according the opts
+    //we think it's default open this option
+    append_features(&mut args, "HAVE_FPU".to_string());
+    marcos.push("HAVE_FPU=true".to_string());
+    match opts.platform.as_str() {
+        "spike" => {
+            append_features(&mut args, "RISCV_EXT_D".to_string());
+            marcos.push("RISCV_EXT_D=true".to_string())
+        }
+        "qemu-arm-virt" => {}
+        _ => return Err(anyhow::anyhow!("Unsupported platform")),
+    };
 
     let status = cmd
         .current_dir(dir)

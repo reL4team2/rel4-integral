@@ -70,6 +70,8 @@ pub enum ArchReg {
     Reply,
     #[cfg(feature = "KERNEL_MCS")]
     nbsRecvDest,
+    #[cfg(target_arch = "riscv64")]
+    SSTATUS,
 }
 
 #[cfg(feature = "KERNEL_MCS")]

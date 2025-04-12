@@ -9,6 +9,9 @@ use crate::{
     syscall::slowpath,
 };
 
+use crate::arch::fpu::{handleFPUFault, isFpuEnable, lazyFPURestore, set_tcb_fs_state};
+use sel4_common::arch::ArchReg;
+
 use sel4_task::*;
 
 use super::exception::{handleUserLevelFault, handleVMFaultEvent};
@@ -41,6 +44,13 @@ pub fn restore_user_context() {
             );
             // debug!("cur_sp: {:#x}", cur_sp);
             *((cur_sp - 8) as *mut usize) = cur_thread_reg;
+        }
+        #[cfg(feature = "HAVE_FPU")]
+        {
+            unsafe {
+                lazyFPURestore(get_currenct_thread());
+                set_tcb_fs_state(get_currenct_thread(), isFpuEnable());
+            }
         }
         // debug!("restore_user_context3");
         asm!("mv t0, {0}      \n",
@@ -133,6 +143,23 @@ pub fn c_handle_exception() {
             handleVMFaultEvent(cause);
         }
         _ => {
+            // #ifdef CONFIG_HAVE_FPU
+            //         if (!isFpuEnable()) {
+            //             /* we assume the illegal instruction is caused by FPU first */
+            //             handleFPUFault();
+            //             setNextPC(NODE_STATE(ksCurThread), getRestartPC(NODE_STATE(ksCurThread)));
+            //             break;
+            //         }
+            // #endif
+            unsafe {
+                if !isFpuEnable() {
+                    handleFPUFault();
+                    let pc = get_currenct_thread().tcbArch.get_register(ArchReg::FaultIP);
+                    get_currenct_thread()
+                        .tcbArch
+                        .set_register(ArchReg::NextIP, pc);
+                }
+            }
             handleUserLevelFault(cause, 0);
         }
     }

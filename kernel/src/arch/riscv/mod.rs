@@ -3,6 +3,7 @@ mod c_traps;
 mod exception;
 mod platform;
 
+pub mod fpu;
 pub use boot::try_init_kernel;
 pub use c_traps::restore_user_context;
 use core::arch::asm;

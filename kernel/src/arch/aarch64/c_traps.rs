@@ -12,7 +12,6 @@ use crate::{
 use sel4_common::utils::cpu_id;
 use sel4_task::get_currenct_thread;
 
-#[cfg(target_arch = "aarch64")]
 use crate::arch::fpu::lazyFPURestore;
 
 #[no_mangle]

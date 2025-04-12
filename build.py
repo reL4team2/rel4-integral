@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # generator_defs = ["CONFIG_HAVE_FPU", "CONFIG_FASTPATH"]
 
     if args.platform == "spike":
-        rust_command += " --target riscv64imac-unknown-none-elf"
+        rust_command += " --target riscv64gc-unknown-none-elf"
     elif args.platform == "qemu-arm-virt":
         rust_command += " --target aarch64-unknown-none-softfloat"
         if args.smc == "on":

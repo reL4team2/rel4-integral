@@ -2,7 +2,6 @@ use core::usize;
 
 use crate::config::CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION;
 // use crate::ffi::tcbDebugRemove;
-#[cfg(target_arch = "aarch64")]
 use crate::arch::fpu::fpuThreadDelete;
 use crate::interrupt::{deletingIRQHandler, isIRQPending, setIRQState, IRQState};
 use crate::kernel::boot::current_lookup_fault;
@@ -292,7 +291,6 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
                 }
                 tcb.cancel_ipc();
                 tcb.suspend();
-                #[cfg(target_arch = "aarch64")]
                 fpuThreadDelete(tcb);
                 // #[cfg(feature="DEBUG_BUILD")]
                 // unsafe {

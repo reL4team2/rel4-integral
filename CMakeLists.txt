@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7.2)
 project(ReL4Kernel)
 
 if(KernelArchRiscV)
-    set(RUST_TARGET riscv64imac-unknown-none-elf)
+    set(RUST_TARGET riscv64gc-unknown-none-elf)
 elseif(KernelSel4ArchAarch64)
     set(RUST_TARGET aarch64-unknown-none-softfloat)
 endif()

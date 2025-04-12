@@ -81,8 +81,10 @@ pub const NUM_READY_QUEUES: usize = CONFIG_NUM_DOMAINS * CONFIG_NUM_PRIORITIES;
 // pub const CONFIG_TIME_SLICE: usize = 5;
 
 // TCB relevant
-#[cfg(target_arch = "riscv64")]
+#[cfg(all(target_arch = "riscv64", feature = "HAVE_FPU"))]
 pub const seL4_TCBBits: usize = 10;
+#[cfg(all(target_arch = "riscv64", not(feature = "HAVE_FPU")))]
+pub const seL4_TCBBits: usize = 11;
 #[cfg(any(target_arch = "aarch64", test))]
 pub const seL4_TCBBits: usize = 11;
 #[cfg(feature = "KERNEL_MCS")]

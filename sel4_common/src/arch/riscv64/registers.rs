@@ -117,6 +117,7 @@ impl ArchReg {
             ArchReg::Reply => replyRegister,
             #[cfg(feature = "KERNEL_MCS")]
             ArchReg::nbsRecvDest => nbsendRecvDest,
+            ArchReg::SSTATUS => SSTATUS,
         }
     }
 }

@@ -55,7 +55,7 @@ pub(crate) unsafe fn disableFpu() {
 
 #[inline]
 #[allow(unused)]
-pub(crate) unsafe fn isFpuEnable() -> bool {
+pub unsafe fn isFpuEnable() -> bool {
     return isFPUEnabledCached;
 }
 

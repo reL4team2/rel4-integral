@@ -1,3 +1,4 @@
+use crate::arch::fpu::{init_fpu, set_fs_off};
 use crate::boot::paddr_to_pptr_reg;
 use crate::boot::rust_init_freemem;
 use crate::boot::{avail_p_regs_addr, avail_p_regs_size, res_reg};
@@ -34,6 +35,12 @@ pub fn init_cpu() {
         set_sie_mask(BIT!(SIE_SEIE) | BIT!(SIE_STIE));
     }
     set_timer(get_time() + RESET_CYCLES);
+
+    unsafe {
+        set_fs_off();
+    }
+    #[cfg(feature = "HAVE_FPU")]
+    init_fpu();
 }
 
 pub fn init_freemem(ui_reg: region_t, dtb_p_reg: p_region_t) -> bool {

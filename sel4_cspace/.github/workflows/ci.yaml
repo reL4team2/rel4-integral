@@ -38,4 +38,4 @@ jobs:
         with:
           single-commit: true
           branch: gh-pages
-          folder: target/riscv64gc-unknown-none-elf/doc
+          folder: target/riscv64gcriscv64gc-unknown-none-elf/doc
