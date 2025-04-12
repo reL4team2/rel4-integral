@@ -1,6 +1,6 @@
 # cpu arch
 cpu:
-  arch: riscv64
+  arch: riscv
   freq: 10000000
 
 # timer settings

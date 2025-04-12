@@ -11,7 +11,7 @@ pub const {{ param.label }}: usize = {{ param.value }};
 {% endfor %}
 
 /* riscv interrupts, fixed */
-{% if arch == "riscv64" %}
+{% if arch == "riscv" %}
 #[cfg(feature = "ENABLE_SMP")]
 pub const PLIC_IRQ_OFFSET: usize = 0;
 pub const PLIC_MAX_IRQ: usize = 0;
