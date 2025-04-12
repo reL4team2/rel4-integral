@@ -21,7 +21,7 @@ use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
 
 #[cfg(feature = "KERNEL_MCS")]
-use crate::config::{
+use sel4_common::sel4_config::{
     thread_control_caps_update_fault, thread_control_caps_update_ipc_buffer,
     thread_control_caps_update_space,
 };
@@ -952,7 +952,7 @@ fn decode_unbind_notification(capability: &cap_thread_cap) -> exception_t {
 }
 #[cfg(feature = "KERNEL_MCS")]
 pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t) -> exception_t {
-    use crate::config::thread_control_caps_update_timeout;
+    use sel4_common::sel4_config::thread_control_caps_update_timeout;
 
     if get_extra_cap_by_index(0).is_none() {
         debug!("TCB SetSchedParams: Truncated message.");
