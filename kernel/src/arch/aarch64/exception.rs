@@ -1,6 +1,7 @@
 #[cfg(feature = "KERNEL_MCS")]
 use core::intrinsics::likely;
 
+#[cfg(feature = "BUILD_BINARY")]
 use crate::arch::aarch64::c_traps::entry_hook;
 use crate::arch::aarch64::consts::*;
 use crate::compatibility::lookupIPCBuffer;

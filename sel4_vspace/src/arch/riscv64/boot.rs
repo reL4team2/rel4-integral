@@ -1,9 +1,10 @@
-use super::{device::KDEV_BASE, utils::RISCV_GET_LVL_PGSIZE_BITS};
+use super::utils::RISCV_GET_LVL_PGSIZE_BITS;
 use crate::arch::riscv64::pagetable::{KERNEL_LEVEL2_PAGE_TABLE, KERNEL_ROOT_PAGE_TABLE};
 use crate::{pptr_t, pptr_to_paddr, sfence, PTEFlags, PTE, RISCV_GET_PT_INDEX};
 use sel4_common::structures_gen::{cap_frame_cap, cap_page_table_cap};
 use sel4_common::{
     arch::vm_rights_t,
+    arch::config::KDEV_BASE,
     sel4_config::{seL4_PageBits, RISCVMegaPageBits, RISCVPageBits},
     utils::convert_to_mut_type_ref,
     ROUND_DOWN,

@@ -5,8 +5,9 @@ use crate::boot::utils::ceiling_kernel_window;
 use crate::boot::utils::is_reg_empty;
 use crate::boot::utils::paddr_to_pptr_reg;
 use crate::boot::utils::pptr_to_paddr_reg;
-use crate::config::*;
 use crate::structures::*;
+
+use sel4_common::sel4_config::*;
 
 #[link_section = ".boot.bss"]
 static mut avail_reg: [region_t; MAX_NUM_FREEMEM_REG] =

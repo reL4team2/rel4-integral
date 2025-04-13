@@ -3,6 +3,9 @@ cpu:
   arch: riscv
   freq: 10000000
 
+# timer settings
+timer: []
+
 # memory layout
 memory:
   vmem_offset: 0xFFFFFFFF00000000
@@ -11,6 +14,11 @@ memory:
   avail_mem_zone:
     - {start: 0x80200000, end: 0x17ff00000}
   stack_bits: 12 # 2^12 4K
+
+# device messages
+device:
+  device_region: []
+  irqs: []
 
 definitions:
   USER_TOP: "0xa0000000"

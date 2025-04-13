@@ -16,7 +16,6 @@
 
 extern crate core;
 use sel4_common::arch::shutdown;
-mod config;
 // mod console;
 mod arch;
 mod boot;

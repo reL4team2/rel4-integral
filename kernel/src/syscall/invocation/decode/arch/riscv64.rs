@@ -24,7 +24,6 @@ use sel4_vspace::{
 };
 
 use crate::{
-    config::{seL4_ASIDPoolBits, USER_TOP},
     kernel::boot::{current_lookup_fault, current_syscall_error, get_extra_cap_by_index},
     syscall::{
         get_syscall_arg,
@@ -36,10 +35,13 @@ use crate::{
     },
 };
 
-use sel4_common::sel4_config::seL4_RangeError;
+use sel4_common::sel4_config::{
+    seL4_RangeError, seL4_ASIDPoolBits, USER_TOP
+};
+
+use sel4_common::platform::{irqInvalid, maxIRQ};
 
 use crate::{
-    config::{irqInvalid, maxIRQ},
     interrupt::is_irq_active,
     syscall::{invocation::invoke_irq::invoke_irq_control, lookupSlotForCNodeOp},
 };

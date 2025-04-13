@@ -4,14 +4,13 @@ pub mod handler;
 use crate::BIT;
 #[cfg(target_arch = "riscv64")]
 use core::arch::asm;
-use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
+use sel4_common::sel4_config::*;
+use sel4_common::platform::*;
 #[cfg(target_arch = "aarch64")]
 use sel4_common::utils::global_ops;
 use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
 use sel4_cspace::interface::cte_t;
 use sel4_vspace::pptr_t;
-
-use crate::config::*;
 
 #[cfg(target_arch = "riscv64")]
 use crate::arch::read_sip;

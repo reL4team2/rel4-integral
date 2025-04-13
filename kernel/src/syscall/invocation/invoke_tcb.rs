@@ -238,11 +238,9 @@ pub fn invoke_tcb_thread_control_caps(
     vroot_src_slot: Option<&mut cte_t>,
     updateFlags: usize,
 ) -> exception_t {
-    use sel4_common::sel4_config::{tcbFaultHandler, tcbTimeoutHandler};
-
-    use crate::config::{
+    use sel4_common::sel4_config::{
         thread_control_caps_update_fault, thread_control_caps_update_space,
-        thread_control_caps_update_timeout,
+        thread_control_caps_update_timeout, tcbFaultHandler, tcbTimeoutHandler
     };
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
     if updateFlags & thread_control_caps_update_fault != 0 {

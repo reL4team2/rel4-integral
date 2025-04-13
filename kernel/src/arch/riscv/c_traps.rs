@@ -1,12 +1,11 @@
 use core::arch::asm;
 
 use super::read_scause;
-use crate::{
-    config::{
-        RISCVInstructionAccessFault, RISCVInstructionPageFault, RISCVLoadAccessFault,
-        RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
-    },
-    syscall::slowpath,
+use crate::syscall::slowpath;
+
+use sel4_common::sel4_config::{
+    RISCVInstructionAccessFault, RISCVInstructionPageFault, RISCVLoadAccessFault,
+    RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
 };
 
 use crate::arch::fpu::{handleFPUFault, isFpuEnable, lazyFPURestore, set_tcb_fs_state};
@@ -110,7 +109,7 @@ pub fn c_handle_interrupt() {
     // }
     #[cfg(feature = "ENABLE_SMP")]
     {
-        use crate::config::INTERRUPT_IPI_0;
+        use sel4_common::sel4_config::INTERRUPT_IPI_0;
         if getActiveIRQ() != INTERRUPT_IPI_0 {
             unsafe {
                 clh_lock_acquire(cpu_id(), true);

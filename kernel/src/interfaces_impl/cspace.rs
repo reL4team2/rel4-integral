@@ -1,12 +1,11 @@
 use core::usize;
 
-use crate::config::CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION;
 // use crate::ffi::tcbDebugRemove;
 use crate::arch::fpu::fpuThreadDelete;
 use crate::interrupt::{deletingIRQHandler, isIRQPending, setIRQState, IRQState};
 use crate::kernel::boot::current_lookup_fault;
 use crate::syscall::safe_unbind_notification;
-use sel4_common::sel4_config::{tcbCNodeEntries, tcbCTable, tcbVTable};
+use sel4_common::sel4_config::{tcbCNodeEntries, tcbCTable, tcbVTable, CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION};
 use sel4_common::structures::exception_t;
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::structures_gen::call_stack;

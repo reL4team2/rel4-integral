@@ -13,9 +13,10 @@ use crate::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
-    config::{BI_FRAME_SIZE_BITS, USER_TOP},
     structures::{p_region_t, seL4_SlotRegion, v_region_t},
 };
+
+use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 
 use super::platform::initIRQController;
 use crate::interrupt::intStateIRQNodeToR;

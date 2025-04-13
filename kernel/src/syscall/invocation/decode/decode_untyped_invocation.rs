@@ -17,7 +17,6 @@ use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use crate::syscall::{alignUp, FREE_INDEX_TO_OFFSET, GET_FREE_REF};
 use crate::{
-    config::CONFIG_RETYPE_FAN_OUT_LIMIT,
     kernel::boot::{current_lookup_fault, current_syscall_error, get_extra_cap_by_index},
     syscall::{
         get_syscall_arg, invocation::invoke_untyped::invoke_untyped_retype,

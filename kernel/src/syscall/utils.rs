@@ -2,7 +2,6 @@ use core::intrinsics::unlikely;
 
 use crate::kernel::boot::current_extra_caps;
 use crate::{
-    config::seL4_MinPrio,
     kernel::boot::{current_lookup_fault, current_syscall_error},
     BIT, IS_ALIGNED, MASK,
 };
