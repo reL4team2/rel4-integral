@@ -11,12 +11,24 @@ fn parse_bool(s: &str) -> Result<bool, String> {
 }
 
 #[derive(Debug, Parser, Clone)]
+/// Options for building the kernel.
+///
+/// # Fields
+/// 
+/// * `platform` - Specifies the target platform for the build. Defaults to "spike".
+/// * `mcs` - Enables or disables MCS (Mixed Criticality Systems) support. Defaults to `false`.
+/// * `smc` - Enables or disables SMC (Secure Monitor Call) support. Defaults to `false`.
+/// * `nofastpath` - Disables fastpath optimizations in the kernel.
+/// * `arm_pcnt` - Enables ARM performance counter support.
+/// * `arm_ptmr` - Enables ARM physical timer support.
+/// * `rust_only` - Builds the kernel using only Rust code, excluding any external dependencies.
+/// * `bin` - Generates a binary output for the kernel. Can be specified with `-B` or `--bin`.
 pub struct BuildOptions {
-    #[clap(default_value = "spike", short, long)]
+    #[clap(default_value = "spike", short, long, help = "support spike and qemu-arm-virt")]
     pub platform: String,
-    #[clap(short, long, value_parser = parse_bool, default_value = "false")]
+    #[clap(short, long, value_parser = parse_bool, default_value = "false", help = "Enable MCS support if set to true or on")]
     pub mcs: Option<bool>,
-    #[clap(short, long, value_parser = parse_bool, default_value = "false")]
+    #[clap(short, long, value_parser = parse_bool, default_value = "false", help = "Enable SMC support if set to true or on")]
     pub smc: Option<bool>,
     #[clap(long)]
     pub nofastpath: bool,
@@ -24,9 +36,9 @@ pub struct BuildOptions {
     pub arm_pcnt: bool,
     #[clap(long)]
     pub arm_ptmr: bool,
-    #[clap(long)]
+    #[clap(long, help = "Only build the reL4 rust kernel")]
     pub rust_only: bool,
-    #[clap(long, short = 'B')]
+    #[clap(long, short = 'B', help = "Build kernel in binary mode", default_value_if("rust_only", "true", Some("true")))]
     pub bin: bool,
 }
 
