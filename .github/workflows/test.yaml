@@ -14,7 +14,12 @@ jobs:
         - .:/code
     strategy:
       matrix:
-        arch: [riscv64, aarch64]
+        platform: [spike, qemu-arm-virt]
+        include:
+          - platform: qemu-arm-virt
+            arch: aarch64
+          - platform: spike
+            arch: riscv64
         mcs: [OFF, ON]
     steps:
       - uses: actions/checkout@v4
@@ -37,11 +42,10 @@ jobs:
           cd rel4_kernel
           cargo update -p home --precise 0.5.5
       - name: Make rel4_kernel
-        run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} MCS=${{ matrix.mcs }} run
-      - name: Build kernel
-        run: cd kernel && cmake cmake -DCROSS_COMPILER_PREFIX=${{ matrix.arch }}-linux-gnu- -DMCS=${{matrix.mcs}} -C kernel-settings-${{ matrix.arch }}.cmake -G Ninja -S . -B build
-      - name: Build Kernel
-        run: cd kernel && ninja -C build
+        run: |
+          echo $ARCH
+          echo $PLATFORM
+          cd rel4_kernel && cargo xtask build -p ${{ matrix.platform }} -m ${{ matrix.mcs }}
   sel4-test:
     # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
     runs-on: ubuntu-latest
