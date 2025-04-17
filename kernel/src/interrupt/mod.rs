@@ -197,7 +197,7 @@ pub fn getActiveIRQ() -> usize {
     let sip = read_sip();
     #[cfg(feature = "ENABLE_SMP")]
     {
-        use sel4_common::sbi::clear_ipi;
+        use sel4_common::arch::riscv64::clear_ipi;
         if (sip & BIT!(SIP_SEIP)) != 0 {
             irq = 0;
         } else if (sip & BIT!(SIP_SSIP)) != 0 {

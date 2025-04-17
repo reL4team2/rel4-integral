@@ -44,48 +44,48 @@ pub const CopyRegisters_transferFrame: usize = 2;
 pub const CopyRegisters_transferInteger: usize = 3;
 pub const ReadRegisters_suspend: usize = 0;
 
-#[cfg(feature = "ENABLE_SMP")]
-#[no_mangle]
-pub fn decode_tcb_invocation(
-    invLabel: MessageLabel,
-    length: usize,
-    cap: &cap_t,
-    slot: &mut cte_t,
-    call: bool,
-    buffer: &seL4_IPCBuffer,
-) -> exception_t {
-    unsafe {
-        remoteTCBStall(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()));
-    }
-    match invLabel {
-        MessageLabel::TCBReadRegisters => decode_read_registers(cap, length, call, buffer),
-        MessageLabel::TCBWriteRegisters => decode_write_registers(cap, length, buffer),
-        MessageLabel::TCBCopyRegisters => decode_copy_registers(cap, length, buffer),
-        MessageLabel::TCBSuspend => {
-            set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            invoke_tcb_suspend(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
-        }
-        MessageLabel::TCBResume => {
-            set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            invoke_tcb_resume(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
-        }
-        MessageLabel::TCBConfigure => decode_tcb_configure(cap, length, slot, buffer),
-        MessageLabel::TCBSetPriority => decode_set_priority(cap, length, buffer),
-        MessageLabel::TCBSetMCPriority => decode_set_mc_priority(cap, length, buffer),
-        MessageLabel::TCBSetSchedParams => decode_set_sched_params(cap, length, buffer),
-        MessageLabel::TCBSetIPCBuffer => decode_set_ipc_buffer(cap, length, slot, buffer),
-        MessageLabel::TCBSetSpace => decode_set_space(cap, length, slot, buffer),
-        MessageLabel::TCBBindNotification => decode_bind_notification(cap),
-        MessageLabel::TCBUnbindNotification => decode_unbind_notification(cap),
-        MessageLabel::TCBSetAffinity => decode_set_affinity(cap, length, buffer),
-        MessageLabel::TCBSetTLSBase => decode_set_tls_base(cap, length, buffer),
-        _ => unsafe {
-            debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
-            current_syscall_error._type = seL4_IllegalOperation;
-            exception_t::EXCEPTION_SYSCALL_ERROR
-        },
-    }
-}
+// #[cfg(feature = "ENABLE_SMP")]
+// #[no_mangle]
+// pub fn decode_tcb_invocation(
+//     invLabel: MessageLabel,
+//     length: usize,
+//     cap: &cap_t,
+//     slot: &mut cte_t,
+//     call: bool,
+//     buffer: &seL4_IPCBuffer,
+// ) -> exception_t {
+//     unsafe {
+//         remoteTCBStall(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()));
+//     }
+//     match invLabel {
+//         MessageLabel::TCBReadRegisters => decode_read_registers(cap, length, call, buffer),
+//         MessageLabel::TCBWriteRegisters => decode_write_registers(cap, length, buffer),
+//         MessageLabel::TCBCopyRegisters => decode_copy_registers(cap, length, buffer),
+//         MessageLabel::TCBSuspend => {
+//             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+//             invoke_tcb_suspend(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
+//         }
+//         MessageLabel::TCBResume => {
+//             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+//             invoke_tcb_resume(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
+//         }
+//         MessageLabel::TCBConfigure => decode_tcb_configure(cap, length, slot, buffer),
+//         MessageLabel::TCBSetPriority => decode_set_priority(cap, length, buffer),
+//         MessageLabel::TCBSetMCPriority => decode_set_mc_priority(cap, length, buffer),
+//         MessageLabel::TCBSetSchedParams => decode_set_sched_params(cap, length, buffer),
+//         MessageLabel::TCBSetIPCBuffer => decode_set_ipc_buffer(cap, length, slot, buffer),
+//         MessageLabel::TCBSetSpace => decode_set_space(cap, length, slot, buffer),
+//         MessageLabel::TCBBindNotification => decode_bind_notification(cap),
+//         MessageLabel::TCBUnbindNotification => decode_unbind_notification(cap),
+//         MessageLabel::TCBSetAffinity => decode_set_affinity(cap, length, buffer),
+//         MessageLabel::TCBSetTLSBase => decode_set_tls_base(cap, length, buffer),
+//         _ => unsafe {
+//             debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
+//             current_syscall_error._type = seL4_IllegalOperation;
+//             exception_t::EXCEPTION_SYSCALL_ERROR
+//         },
+//     }
+// }
 
 #[cfg(not(feature = "ENABLE_SMP"))]
 #[no_mangle]
@@ -130,6 +130,8 @@ pub fn decode_tcb_invocation(
         #[cfg(feature = "KERNEL_MCS")]
         MessageLabel::TCBSetTimeoutEndpoint => decode_set_timeout_endpoint(capability, slot),
         MessageLabel::TCBSetTLSBase => decode_set_tls_base(capability, length, buffer),
+        #[cfg(feature = "ENABLE_SMP")]
+        MessageLabel::TCBSetAffinity => decode_set_affinity(capability, length, buffer),
         _ => unsafe {
             debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
             current_syscall_error._type = seL4_IllegalOperation;

@@ -18,7 +18,7 @@ use crate::interrupt::handler::handleInterruptEntry;
 
 #[cfg(feature = "ENABLE_SMP")]
 use crate::{
-    deps::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
+    ffi::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
     interrupt::getActiveIRQ,
 };
 
@@ -109,7 +109,7 @@ pub fn c_handle_interrupt() {
     // }
     #[cfg(feature = "ENABLE_SMP")]
     {
-        use sel4_common::sel4_config::INTERRUPT_IPI_0;
+        use sel4_common::platform::INTERRUPT_IPI_0;
         if getActiveIRQ() != INTERRUPT_IPI_0 {
             unsafe {
                 clh_lock_acquire(cpu_id(), true);

@@ -5,7 +5,9 @@
 //! new threads to run, managing ready queues, and handling domain scheduling.
 //!
 #[cfg(feature = "ENABLE_SMP")]
-use crate::deps::{doMaskReschedule, kernel_stack_alloc, ksIdleThreadTCB};
+use crate::deps::doMaskReschedule;
+#[cfg(feature = "ENABLE_SMP")]
+use sel4_common::ffi::kernel_stack_alloc;
 use core::arch::asm;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
@@ -946,6 +948,8 @@ pub fn create_idle_thread() {
 /// Create the idle thread.
 pub fn create_idle_thread() {
     use log::debug;
+    use sel4_common::arch::riscv64::{SSTATUS_SPP, SSTATUS_SPIE};
+    use sel4_common::sel4_config::CONFIG_KERNEL_STACK_BITS;
     unsafe {
         for i in 0..CONFIG_MAX_NUM_NODES {
             let pptr = (unsafe { &mut ksIdleThreadTCB.data[0][0] as *mut u8 } as usize
@@ -954,11 +958,11 @@ pub fn create_idle_thread() {
             ksSMP[i].ksIdleThread = pptr.add(TCB_OFFSET) as usize;
             debug!("ksIdleThread: {:#x}", ksSMP[i].ksIdleThread);
             let tcb = convert_to_mut_type_ref::<tcb_t>(ksSMP[i].ksIdleThread);
-            tcb.tcbArch.set_register(NextIP, idle_thread as usize);
+            tcb.tcbArch.set_register(ArchReg::NextIP, idle_thread as usize);
             tcb.tcbArch
-                .set_register(SSTATUS, SSTATUS_SPP | SSTATUS_SPIE);
+                .set_register(ArchReg::SSTATUS, SSTATUS_SPP | SSTATUS_SPIE);
             tcb.tcbArch.set_register(
-                sp,
+                ArchReg::Frame(2),
                 unsafe { &kernel_stack_alloc.data[0][0] as *const u8 } as usize
                     + (i + 1) * BIT!(CONFIG_KERNEL_STACK_BITS),
             );

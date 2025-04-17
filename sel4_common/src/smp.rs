@@ -1,5 +1,5 @@
 use super::sel4_config::{CONFIG_KERNEL_STACK_BITS, CONFIG_MAX_NUM_NODES};
-use crate::deps::{coreMap, kernel_stack_alloc};
+use crate::ffi::{kernel_stack_alloc, coreMap};
 use crate::BIT;
 use core::arch::asm;
 
