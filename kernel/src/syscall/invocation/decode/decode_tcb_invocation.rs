@@ -20,14 +20,14 @@ use sel4_cspace::capability::cap_func;
 use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, tcb_t, ThreadState};
 
+use crate::{
+    kernel::boot::{current_syscall_error, get_extra_cap_by_index},
+    syscall::utils::{check_ipc_buffer_vaild, check_prio, get_syscall_arg},
+};
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::sel4_config::{
     thread_control_caps_update_fault, thread_control_caps_update_ipc_buffer,
     thread_control_caps_update_space,
-};
-use crate::{
-    kernel::boot::{current_syscall_error, get_extra_cap_by_index},
-    syscall::utils::{check_ipc_buffer_vaild, check_prio, get_syscall_arg},
 };
 
 #[cfg(target_arch = "riscv64")]

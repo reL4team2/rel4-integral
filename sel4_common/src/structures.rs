@@ -50,7 +50,10 @@ pub struct p_region_t {
 }
 
 use crate::arch::config::PPTR_BASE;
-use core::{ffi::CStr, fmt::{Debug, Display}};
+use core::{
+    ffi::CStr,
+    fmt::{Debug, Display},
+};
 pub type pptr_t = usize;
 
 #[derive(Copy, Clone)]

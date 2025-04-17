@@ -35,9 +35,7 @@ use crate::{
     },
 };
 
-use sel4_common::sel4_config::{
-    seL4_RangeError, seL4_ASIDPoolBits, USER_TOP
-};
+use sel4_common::sel4_config::{seL4_ASIDPoolBits, seL4_RangeError, USER_TOP};
 
 use sel4_common::platform::{irqInvalid, maxIRQ};
 

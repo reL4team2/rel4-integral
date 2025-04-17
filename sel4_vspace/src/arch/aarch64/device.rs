@@ -1,9 +1,9 @@
 use super::boot::map_kernel_frame;
 use crate::vm_attributes_t;
-use sel4_common::structures::p_region_t;
 use sel4_common::arch::vm_rights_t::VMKernelOnly;
-use sel4_common::{sel4_config::PAGE_BITS, BIT};
 use sel4_common::platform::kernel_device_frames;
+use sel4_common::structures::p_region_t;
+use sel4_common::{sel4_config::PAGE_BITS, BIT};
 
 extern "C" {
     pub(self) fn reserve_region(reg: p_region_t) -> bool;

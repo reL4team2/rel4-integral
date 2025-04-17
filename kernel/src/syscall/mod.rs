@@ -83,9 +83,9 @@ use sel4_task::{chargeBudget, get_current_sc, ksConsumed, mcs_preemption_point};
 pub use utils::*;
 
 use crate::arch::restore_user_context;
+use crate::interrupt::getActiveIRQ;
 use crate::interrupt::handler::handleInterrupt;
 use crate::kernel::boot::current_lookup_fault;
-use crate::interrupt::getActiveIRQ;
 use sel4_common::ffi::current_fault;
 use sel4_common::platform::irqInvalid;
 

@@ -36,9 +36,9 @@ use sel4_common::structures_gen::{
 use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_cspace::interface::*;
 
-use sel4_common::sel4_config::*;
-use sel4_common::platform::{maxIRQ, irqInvalid, KERNEL_TIMER_IRQ};
 use crate::utils::clear_memory;
+use sel4_common::platform::{irqInvalid, maxIRQ, KERNEL_TIMER_IRQ};
+use sel4_common::sel4_config::*;
 
 use sel4_task::*;
 use sel4_vspace::*;

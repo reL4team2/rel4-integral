@@ -1,13 +1,11 @@
-use crate::{
-    asid_t, find_vspace_for_asid, pptr_to_paddr, sfence, vptr_t, PageTable, PTE,
-};
+use crate::{asid_t, find_vspace_for_asid, pptr_to_paddr, sfence, vptr_t, PageTable, PTE};
 use sel4_common::{
     arch::config::{
         KERNEL_ELF_BASE, KERNEL_ELF_PADDR_BASE, PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_BASE_OFFSET,
         PPTR_TOP,
     },
     sel4_config::{seL4_PageBits, PT_INDEX_BITS},
-    structures::{exception_t, pptr_t, paddr_t},
+    structures::{exception_t, paddr_t, pptr_t},
     structures_gen::lookup_fault,
     utils::pageBitsForSize,
     BIT, ROUND_DOWN,

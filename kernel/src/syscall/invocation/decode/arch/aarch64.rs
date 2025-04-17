@@ -6,12 +6,12 @@ use crate::syscall::{current_lookup_fault, get_syscall_arg, set_thread_state, un
 use crate::syscall::{ensure_empty_slot, get_currenct_thread, lookup_slot_for_cnode_op};
 use log::debug;
 use sel4_common::arch::maskVMRights;
+use sel4_common::platform::maxIRQ;
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::{
-    asidInvalid, asidLowBits, nASIDPools, seL4_AlignmentError, seL4_FailedLookup, seL4_PageBits,
-    seL4_RangeError, seL4_ASIDPoolBits, USER_TOP
+    asidInvalid, asidLowBits, nASIDPools, seL4_ASIDPoolBits, seL4_AlignmentError,
+    seL4_FailedLookup, seL4_PageBits, seL4_RangeError, USER_TOP,
 };
-use sel4_common::platform::maxIRQ;
 use sel4_common::sel4_config::{seL4_DeleteFirst, seL4_InvalidArgument};
 use sel4_common::sel4_config::{
     seL4_IllegalOperation, seL4_InvalidCapability, seL4_RevokeFirst, seL4_TruncatedMessage,
@@ -39,8 +39,6 @@ use sel4_vspace::{
     pptr_to_paddr, pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
 };
 
-#[cfg(feature = "ENABLE_SMC")]
-use sel4_common::sel4_config::NUM_SMC_REGS;
 use crate::syscall::invocation::invoke_mmu_op::{
     invoke_page_get_address, invoke_page_map, invoke_page_table_unmap, invoke_page_unmap,
 };
@@ -48,6 +46,8 @@ use crate::{
     interrupt::is_irq_active,
     syscall::{invocation::invoke_irq::invoke_irq_control, lookupSlotForCNodeOp},
 };
+#[cfg(feature = "ENABLE_SMC")]
+use sel4_common::sel4_config::NUM_SMC_REGS;
 #[cfg(feature = "ENABLE_SMC")]
 use sel4_common::{
     arch::msgRegisterNum, arch::ArchReg, arch::MessageLabel::ARMSMCCall,

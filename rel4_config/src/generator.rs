@@ -33,19 +33,19 @@ pub fn platform_gen(platform: &str) -> PathBuf {
     let yaml_cfg = crate::utils::get_root().join(format!("cfg/platform/{}.yml", platform));
     let mem_zones: Vec<crate::utils::MemZone> =
         crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.avail_mem_zone")
-        .expect("memory.avail_mem_zone not set");
+            .expect("memory.avail_mem_zone not set");
     let device_regions: Vec<crate::utils::DeviceRegion> =
         crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "device.device_region")
-        .expect("device.device_region not set");
+            .expect("device.device_region not set");
     let irqs: Vec<crate::utils::Irq> =
         crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "device.irqs")
-        .expect("device.irqs not set");
-    let phys_base = crate::utils::get_int_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.pmem_start")
-        .expect("memory.pmem_start not set");
-    let timer_settings: Vec<crate::utils::Timer> = crate::utils::get_array_from_yaml(
-        &yaml_cfg.to_str().unwrap(),
-        "timer",
-    ).expect("timer not set");
+            .expect("device.irqs not set");
+    let phys_base =
+        crate::utils::get_int_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.pmem_start")
+            .expect("memory.pmem_start not set");
+    let timer_settings: Vec<crate::utils::Timer> =
+        crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "timer")
+            .expect("timer not set");
     let freq = crate::utils::get_int_from_yaml(&yaml_cfg.to_str().unwrap(), "cpu.freq")
         .expect("cpu.freq not set");
     let arch = crate::utils::get_value_from_yaml(&yaml_cfg.to_str().unwrap(), "cpu.arch")
@@ -63,7 +63,9 @@ pub fn platform_gen(platform: &str) -> PathBuf {
     context.insert("freq", &freq);
     context.insert("arch", &arch);
 
-    let rendered = tera.render("platform_gen.rs", &context).expect("Failed to render template");
+    let rendered = tera
+        .render("platform_gen.rs", &context)
+        .expect("Failed to render template");
     let src_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap_or_else(|_| "target".into()));
     let output_file = src_dir.join("platform_gen.rs");
 

@@ -3,8 +3,8 @@ use crate::arch::riscv64::pagetable::{KERNEL_LEVEL2_PAGE_TABLE, KERNEL_ROOT_PAGE
 use crate::{pptr_t, pptr_to_paddr, sfence, PTEFlags, PTE, RISCV_GET_PT_INDEX};
 use sel4_common::structures_gen::{cap_frame_cap, cap_page_table_cap};
 use sel4_common::{
-    arch::vm_rights_t,
     arch::config::KDEV_BASE,
+    arch::vm_rights_t,
     sel4_config::{seL4_PageBits, RISCVMegaPageBits, RISCVPageBits},
     utils::convert_to_mut_type_ref,
     ROUND_DOWN,

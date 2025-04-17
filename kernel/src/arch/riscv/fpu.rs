@@ -8,8 +8,8 @@ use core::{
 use sel4_common::arch::arch_tcb::FPUState;
 use sel4_task::{get_currenct_thread, tcb_t};
 
-use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
 use sel4_common::arch::ArchReg;
+use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
 const SSTATUS_FS: usize = 0x00006000;
 const SSTATUS_FS_CLEAN: u32 = 0x00004000;
 const SSTATUS_FS_INITIAL: u32 = 0x00004000;

@@ -264,5 +264,5 @@ pub const thread_control_update_fault: usize = 0x20;
 pub const thread_control_update_timeout: usize = 0x40;
 
 /// kernel/include/bootinfo.h
-pub const BI_FRAME_SIZE_BITS: usize = PAGE_BITS; 
+pub const BI_FRAME_SIZE_BITS: usize = PAGE_BITS;
 pub const PAGE_SIZE_BITS: usize = PAGE_BITS;

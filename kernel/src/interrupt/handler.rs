@@ -1,7 +1,7 @@
-use sel4_common::platform::{irqInvalid, maxIRQ};
 use crate::interrupt::*;
 use core::intrinsics::unlikely;
 use log::debug;
+use sel4_common::platform::{irqInvalid, maxIRQ};
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};

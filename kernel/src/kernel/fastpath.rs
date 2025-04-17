@@ -1,6 +1,6 @@
 use crate::arch::fpu::lazyFPURestore;
-use crate::MASK;
 use crate::syscall::{slowpath, SysCall, SysReplyRecv};
+use crate::MASK;
 use core::intrinsics::{likely, unlikely};
 #[cfg(feature = "KERNEL_MCS")]
 use sched_context::sched_context_t;
