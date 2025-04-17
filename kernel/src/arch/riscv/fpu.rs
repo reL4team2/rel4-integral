@@ -12,8 +12,8 @@ use sel4_common::arch::ArchReg;
 use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
 const SSTATUS_FS: usize = 0x00006000;
 const SSTATUS_FS_CLEAN: u32 = 0x00004000;
-const SSTATUS_FS_INITIAL: u32 = 0x00004000;
-const SSTATUS_FS_DIRTY: u32 = 0x00004000;
+const SSTATUS_FS_INITIAL: u32 = 0x00002000;
+const SSTATUS_FS_DIRTY: u32 = 0x00006000;
 
 #[no_mangle]
 pub static mut ksActiveFPUState: usize = 0;
@@ -21,6 +21,10 @@ pub static mut ksActiveFPUState: usize = 0;
 #[no_mangle]
 pub static mut ksFPURestoresSinceSwitch: usize = 0;
 
+// extern "C" {
+//     pub fn saveFpuState(dest: usize);
+//     pub fn loadFpuState(src: usize);
+// }
 // TODO: support smp
 static mut isFPUEnabledCached: bool = false;
 
@@ -208,7 +212,7 @@ pub(crate) fn read_fcsr() -> u32 {
 #[inline]
 pub(crate) fn write_fcsr(value: u32) {
     unsafe {
-        asm!("csrr {0}, fcsr", in(reg) value);
+        asm!("csrw fcsr, {0}", in(reg) value);
     }
 }
 #[inline]
@@ -225,7 +229,7 @@ pub unsafe fn set_fs_dirty() {
 }
 #[inline]
 pub unsafe fn set_fs_off() {
-    asm!("csrs sstatus, {0}", in(reg) SSTATUS_FS);
+    asm!("csrc sstatus, {0}", in(reg) SSTATUS_FS);
 }
 
 #[inline]

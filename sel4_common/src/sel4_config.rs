@@ -155,9 +155,9 @@ pub const seL4_NumASIDPoolsBits: usize = 7;
 pub const seL4_ASIDPoolIndexBits: usize = 9;
 pub const seL4_ASIDPoolBits: usize = 12;
 #[cfg(all(target_arch = "riscv64", feature = "HAVE_FPU"))]
-pub const seL4_TCBBits: usize = 10;
-#[cfg(all(target_arch = "riscv64", not(feature = "HAVE_FPU")))]
 pub const seL4_TCBBits: usize = 11;
+#[cfg(all(target_arch = "riscv64", not(feature = "HAVE_FPU")))]
+pub const seL4_TCBBits: usize = 10;
 #[cfg(any(target_arch = "aarch64", test))]
 pub const seL4_TCBBits: usize = 11;
 pub const seL4_EndpointBits: usize = 4;
