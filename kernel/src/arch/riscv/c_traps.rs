@@ -157,9 +157,10 @@ pub fn c_handle_exception() {
                     get_currenct_thread()
                         .tcbArch
                         .set_register(ArchReg::NextIP, pc);
-                }
+                }else{
+					handleUserLevelFault(cause, 0);
+				}
             }
-            handleUserLevelFault(cause, 0);
         }
     }
     restore_user_context();
