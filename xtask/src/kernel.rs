@@ -47,7 +47,6 @@ pub struct BuildOptions {
         long,
         short = 'B',
         help = "Build kernel in binary mode",
-        default_value_if("rust_only", "true", Some("true"))
     )]
     pub bin: bool,
 }

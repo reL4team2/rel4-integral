@@ -38,7 +38,6 @@ mod tests {
         cap_page_table_cap,
     };
     use sel4_common::{arch::shutdown, println, utils::convert_to_mut_type_ref};
-    global_asm!(include_str!("entry.asm"));
 
     use super::*;
 

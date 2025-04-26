@@ -11,7 +11,7 @@ use crate::{
     arch::init_freemem,
     boot::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
-        ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
+        ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
     structures::{p_region_t, seL4_SlotRegion, v_region_t},
 };
@@ -117,7 +117,6 @@ pub fn try_init_kernel(
         cleanInvalidateL1Caches();
         invalidateLocalTLB();
         // debug!("release_secondary_cores start");
-        *ksNumCPUs.lock() = 1;
         #[cfg(feature = "ENABLE_SMP")]
         {
             unsafe {
