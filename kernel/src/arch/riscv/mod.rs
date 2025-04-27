@@ -5,7 +5,7 @@ mod platform;
 
 pub mod fpu;
 pub use boot::try_init_kernel;
-pub use c_traps::restore_user_context;
+pub use c_traps::{restore_user_context, fastpath_restore};
 use core::arch::asm;
 pub use platform::{init_cpu, init_freemem};
 

@@ -18,7 +18,7 @@ use crate::interrupt::handler::handleInterruptEntry;
 
 #[cfg(feature = "ENABLE_SMP")]
 use crate::{
-    deps::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
+    ffi::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
     interrupt::getActiveIRQ,
 };
 
@@ -101,6 +101,87 @@ pub fn restore_user_context() {
     }
 }
 
+#[inline]
+#[no_mangle]
+pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) {
+    unsafe {
+        let cur_thread_reg = (*cur_thread).tcbArch.raw_ptr() as usize;
+        #[cfg(feature = "ENABLE_SMP")]
+        {
+            if clh_is_self_in_queue() {
+                clh_lock_release(cpu_id());
+            }
+            use core::arch::asm;
+            let mut sp: usize;
+            asm!(
+                "csrr {0}, sscratch",
+                out(reg) sp,
+            );
+            sp -= core::mem::size_of::<usize>();
+            let ptr = sp as *mut usize;
+            *ptr = (*cur_thread).tcbArch.raw_ptr();
+        }
+        #[cfg(feature = "HAVE_FPU")]
+        {
+            use crate::arch::fpu::{isFpuEnable, set_tcb_fs_state};
+            unsafe {
+                lazyFPURestore(get_currenct_thread());
+                set_tcb_fs_state(get_currenct_thread(), isFpuEnable());
+            }
+        }
+
+        asm!("mv a0, {0}      \n",
+        "mv  a1, {1} \n",
+        "mv  t0, {2} \n",
+        "ld  ra, (0*8)(t0)  \n",
+        "ld  sp, (1*8)(t0)  \n",
+        "ld  gp, (2*8)(t0)  \n",
+        "ld  t2, (6*8)(t0)  \n",
+        "ld  s0, (7*8)(t0)  \n",
+        "ld  s1, (8*8)(t0)  \n",
+        "ld  a2, (11*8)(t0) \n",
+        "ld  a3, (12*8)(t0) \n",
+        "ld  a4, (13*8)(t0) \n",
+        "ld  a5, (14*8)(t0) \n",
+        "ld  a6, (15*8)(t0) \n",
+        "ld  a7, (16*8)(t0) \n",
+        "ld  s2, (17*8)(t0) \n",
+        "ld  s3, (18*8)(t0) \n",
+        "ld  s4, (19*8)(t0) \n",
+        "ld  s5, (20*8)(t0) \n",
+        "ld  s6, (21*8)(t0) \n",
+        "ld  s7, (22*8)(t0) \n",
+        "ld  s8, (23*8)(t0) \n",
+        "ld  s9, (24*8)(t0) \n",
+        "ld  s10, (25*8)(t0)\n",
+        "ld  s11, (26*8)(t0)\n",
+        "ld  t3, (27*8)(t0) \n",
+        "ld  t4, (28*8)(t0) \n",
+        "ld  t5, (29*8)(t0) \n",
+        "ld  t6, (30*8)(t0) \n",
+        "ld  t1, (3*8)(t0)  \n",
+        "add tp, t1, x0  \n",
+        "ld  t1, (34*8)(t0)\n",
+        "csrw sepc, t1",
+        in(reg) _badge,
+        in(reg) _msgInfo,
+        in(reg) cur_thread_reg);
+
+        #[cfg(not(feature = "ENABLE_SMP"))]
+        {
+            asm!("csrw sscratch, t0")
+        }
+        asm!(
+            "ld  t1, (32*8)(t0) \n",
+            "csrw sstatus, t1\n",
+            "ld  t1, (5*8)(t0) \n",
+            "ld  t0, (4*8)(t0) \n",
+            "sret"
+        );
+    }
+    panic!("unreachable")
+}
+
 #[no_mangle]
 pub fn c_handle_interrupt() {
     // debug!("c_handle_interrupt");
@@ -109,7 +190,7 @@ pub fn c_handle_interrupt() {
     // }
     #[cfg(feature = "ENABLE_SMP")]
     {
-        use sel4_common::sel4_config::INTERRUPT_IPI_0;
+        use sel4_common::platform::INTERRUPT_IPI_0;
         if getActiveIRQ() != INTERRUPT_IPI_0 {
             unsafe {
                 clh_lock_acquire(cpu_id(), true);

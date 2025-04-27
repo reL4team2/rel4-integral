@@ -50,6 +50,13 @@ pub struct BuildOptions {
         default_value_if("rust_only", "true", Some("true"))
     )]
     pub bin: bool,
+    #[clap(
+        long,
+        short = 'N',
+        help = "Number of nodes in the system, if > 1, enable smp",
+        default_value = "1"
+    )]
+    pub num_nodes: usize,
 }
 
 fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
@@ -104,6 +111,11 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         marcos.push("EXPORT_PTMR_USER=true".to_string());
     }
 
+    if opts.num_nodes > 1 {
+        append_features(&mut args, "ENABLE_SMP".to_string());
+        marcos.push(format!("MAX_NUM_NODES={}", opts.num_nodes));
+    }
+
     //TODO: add fpu config according the opts
     //we think it's default open this option
     append_features(&mut args, "HAVE_FPU".to_string());
@@ -153,6 +165,10 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
         }
         if opts.arm_ptmr {
             define.push("-DKernelArmExportPTMRUser=ON".to_string());
+        }
+        if opts.num_nodes > 1 {
+            define.push(format!("-DSMP=TRUE"));
+            define.push(format!("-DNUM_NODES={}", opts.num_nodes));
         }
         match opts.platform.as_str() {
             "spike" => {

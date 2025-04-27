@@ -4,14 +4,14 @@ use sel4_common::{
 };
 use sel4_cspace::interface::{cte_insert, cte_t};
 
-use crate::interrupt::{get_irq_handler_slot, set_irq_state, IRQState};
+use crate::interrupt::{get_irq_handler_slot, setIRQState, IRQState};
 
 pub fn invoke_irq_control(
     irq: usize,
     handler_slot: &mut cte_t,
     control_slot: &mut cte_t,
 ) -> exception_t {
-    set_irq_state(IRQState::IRQSignal, irq);
+    setIRQState(IRQState::IRQSignal, irq);
     cte_insert(
         &cap_irq_handler_cap::new(irq as u64).unsplay(),
         control_slot,

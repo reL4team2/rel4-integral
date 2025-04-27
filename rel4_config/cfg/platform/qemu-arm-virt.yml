@@ -22,6 +22,8 @@ device:
     - {label: "KERNEL_TIMER_IRQ", number: 27}
     - {label: "maxIRQ", number: 159}
     - {label: "irqInvalid", number: 0}
+    - {label: "NUM_PPI", number: 32}
+    - {label: "NUM_PPI_MINUS_ONE", number: 31}
 
 # memory layout
 memory:

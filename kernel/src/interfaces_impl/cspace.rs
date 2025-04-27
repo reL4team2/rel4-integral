@@ -360,6 +360,7 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
 pub fn post_cap_deletion(capability: &cap) {
     if capability.get_tag() == cap_tag::cap_irq_handler_cap {
         let irq = cap::cap_irq_handler_cap(capability).get_capIRQ() as usize;
+        // deletedIRQHandler
         setIRQState(IRQState::IRQInactive, irq);
     }
 }

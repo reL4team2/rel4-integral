@@ -116,3 +116,14 @@ impl Display for paddr_t {
         f.write_fmt(format_args!("{:#x}", self.0))
     }
 }
+
+cfg_if::cfg_if! {
+    if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+        pub struct irq_t {
+            pub irq: usize,
+            pub core: usize,
+        }
+    } else if #[cfg(target_arch = "riscv64")] {
+        pub type irq_t = usize;
+    }
+}

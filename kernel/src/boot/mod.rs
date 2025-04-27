@@ -188,7 +188,7 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     use core::ops::AddAssign;
     while node_boot_lock.lock().eq(&0) {}
     // debug!("start try_init_kernel_secondary_core");
-    init_cpu();
+    crate::arch::init_cpu();
     debug!("init cpu compl");
     unsafe { clh_lock_acquire(cpu_id(), false) }
     ksNumCPUs.lock().add_assign(1);
@@ -202,7 +202,7 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
 }
 
 #[cfg(feature = "ENABLE_SMP")]
-fn release_secondary_cores() {
+pub(crate) fn release_secondary_cores() {
     use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
     *node_boot_lock.lock() = 1;
     unsafe {

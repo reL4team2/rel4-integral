@@ -101,9 +101,11 @@ pub fn try_init_kernel(
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "ENABLE_SMP")]
         {
+            use sel4_common::utils::cpu_id;
+            use crate::ffi::{clh_lock_init, clh_lock_acquire};
             unsafe {
                 clh_lock_init();
-                release_secondary_cores();
+                crate::boot::release_secondary_cores();
                 clh_lock_acquire(cpu_id(), false);
             }
         }

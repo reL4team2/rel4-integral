@@ -5,7 +5,9 @@
 //! new threads to run, managing ready queues, and handling domain scheduling.
 //!
 #[cfg(feature = "ENABLE_SMP")]
-use crate::deps::{doMaskReschedule, kernel_stack_alloc, ksIdleThreadTCB};
+use crate::deps::doMaskReschedule;
+#[cfg(feature = "ENABLE_SMP")]
+use sel4_common::ffi::kernel_stack_alloc;
 use core::arch::asm;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
@@ -58,6 +60,10 @@ pub struct SmpStateData {
     /// Action to be taken by the scheduler.
     pub ksSchedulerAction: usize,
     /// Number of debug TCBs (Thread Control Blocks).
+    pub fpu1: usize,
+    // TODO: Cache Line 对齐
+    pub fpu2: usize,
+    // TODO: Cache Line 对齐
     pub ksDebugTCBs: usize,
     // TODO: Cache Line 对齐
 }
@@ -72,6 +78,8 @@ pub static mut ksSMP: [SmpStateData; CONFIG_MAX_NUM_NODES] = [SmpStateData {
     ksCurThread: 0,
     ksIdleThread: 0,
     ksSchedulerAction: 1,
+    fpu1: 0,
+    fpu2: 0,
     ksDebugTCBs: 0,
 }; CONFIG_MAX_NUM_NODES];
 
@@ -926,7 +934,7 @@ pub fn create_idle_thread() {
         // let tcb = convert_to_mut_type_ref::<tcb_t>(ksIdleThread as usize);
         let tcb = get_idle_thread();
         // Arch_configureIdleThread(tcb.tcbArch);
-        tcb.tcbArch.config_idle_thread(idle_thread as usize);
+        tcb.tcbArch.config_idle_thread(idle_thread as usize, 0);
         set_thread_state(tcb, ThreadState::ThreadStateIdleThreadState);
         #[cfg(feature = "KERNEL_MCS")]
         {
@@ -944,27 +952,17 @@ pub fn create_idle_thread() {
 }
 
 #[cfg(feature = "ENABLE_SMP")]
-/// Create the idle thread.
 pub fn create_idle_thread() {
-    use log::debug;
     unsafe {
         for i in 0..CONFIG_MAX_NUM_NODES {
-            let pptr = (unsafe { &mut ksIdleThreadTCB.data[0][0] as *mut u8 } as usize
-                + i * BIT!(seL4_TCBBits)) as *mut usize;
-            // let pptr = (ksIdleThreadTCB as usize + i * BIT!(seL4_TCBBits)) as *mut usize;
-            ksSMP[i].ksIdleThread = ptr_to_usize_add(pptr, TCB_OFFSET);
             debug!("ksIdleThread: {:#x}", ksSMP[i].ksIdleThread);
+            let pptr =  &mut ksIdleThreadTCB.data[i] as *mut u8 as *mut usize;
+            ksSMP[i].ksIdleThread = ptr_to_usize_add(pptr, TCB_OFFSET);
             let tcb = convert_to_mut_type_ref::<tcb_t>(ksSMP[i].ksIdleThread);
-            tcb.tcbArch.set_register(NextIP, idle_thread as usize);
-            tcb.tcbArch
-                .set_register(SSTATUS, SSTATUS_SPP | SSTATUS_SPIE);
-            tcb.tcbArch.set_register(
-                sp,
-                unsafe { &kernel_stack_alloc.data[0][0] as *const u8 } as usize
-                    + (i + 1) * BIT!(CONFIG_KERNEL_STACK_BITS),
-            );
+            tcb.tcbArch.config_idle_thread(idle_thread as usize, i);
             set_thread_state(tcb, ThreadState::ThreadStateIdleThreadState);
             tcb.tcbAffinity = i;
+            // TODO mcs support
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::transfer::Transfer;
-use sel4_common::arch::ArchReg;
+use sel4_common::{arch::ArchReg, println};
 use sel4_common::structures_gen::endpoint;
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::structures_gen::seL4_Fault_tag::seL4_Fault_NullFault;

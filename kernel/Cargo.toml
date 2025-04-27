@@ -20,6 +20,7 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 aarch64-cpu = "9.4.0"
 log = "0.4"
 tock-registers = "0.8"
+cfg-if = "1.0"
 spin = { version = "0.9", features = ["use_ticket_mutex"] }
 sel4_common = { git = "https://github.com/reL4team2/sel4_common.git", branch = "master" }
 sel4_cspace = { git = "https://github.com/reL4team2/sel4_cspace.git", branch = "master" }

@@ -120,6 +120,9 @@ pub fn try_init_kernel(
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "ENABLE_SMP")]
         {
+            use crate::ffi::{clh_lock_init, clh_lock_acquire};
+            use sel4_common::utils::cpu_id;
+            use crate::boot::release_secondary_cores;
             unsafe {
                 clh_lock_init();
                 release_secondary_cores();
