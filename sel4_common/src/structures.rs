@@ -123,7 +123,7 @@ cfg_if::cfg_if! {
             pub irq: usize,
             pub core: usize,
         }
-    } else if #[cfg(target_arch = "riscv64")] {
+    } else {
         pub type irq_t = usize;
     }
 }

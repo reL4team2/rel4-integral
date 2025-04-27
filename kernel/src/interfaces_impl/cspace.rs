@@ -2,7 +2,7 @@ use core::usize;
 
 // use crate::ffi::tcbDebugRemove;
 use crate::arch::fpu::fpuThreadDelete;
-use crate::interrupt::{deletingIRQHandler, isIRQPending, setIRQState, IRQState};
+use crate::interrupt::{deletingIRQHandler, isIRQPending, setIRQStateByIndex, IRQState};
 use crate::kernel::boot::current_lookup_fault;
 use crate::syscall::safe_unbind_notification;
 use sel4_common::sel4_config::{
@@ -361,7 +361,7 @@ pub fn post_cap_deletion(capability: &cap) {
     if capability.get_tag() == cap_tag::cap_irq_handler_cap {
         let irq = cap::cap_irq_handler_cap(capability).get_capIRQ() as usize;
         // deletedIRQHandler
-        setIRQState(IRQState::IRQInactive, irq);
+        setIRQStateByIndex(IRQState::IRQInactive, irq);
     }
 }
 

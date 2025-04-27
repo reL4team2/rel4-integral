@@ -60,6 +60,7 @@ pub unsafe fn isFpuEnable() -> bool {
 }
 
 #[inline]
+#[no_mangle]
 unsafe fn switchLocalFpuOwner(new_owner: usize) {
     unsafe {
         enableFpu();

@@ -40,8 +40,9 @@ pub fn rust_try_init_kernel(
 
 #[cfg(feature = "ENABLE_SMP")]
 #[no_mangle]
+#[link_section = ".boot.text"]
 pub fn rust_try_init_kernel_secondary_core(hart_id: usize, core_id: usize) -> bool {
-    use super::try_init_kernel_secondary_core;
+    use crate::arch::try_init_kernel_secondary_core;
     try_init_kernel_secondary_core(hart_id, core_id)
 }
 

@@ -1,7 +1,7 @@
 use super::calculate_extra_bi_size_bits;
 use super::utils::{arch_get_n_paging, provide_cap, write_slot};
 use super::{ndks_boot, utils::is_reg_empty};
-use crate::interrupt::{setIRQState, IRQState};
+use crate::interrupt::{setIRQStateByIrq, IRQState};
 use crate::structures::{
     create_frames_of_region_ret_t, region_t, rootserver_mem_t, seL4_BootInfo, seL4_SlotRegion,
     v_region_t,
@@ -652,23 +652,23 @@ fn create_domain_cap(root_cnode_cap: &cap_cnode_cap) {
 fn init_irqs(root_cnode_cap: &cap_cnode_cap) {
     for i in 0..maxIRQ + 1 {
         if i != irqInvalid {
-            setIRQState(IRQState::IRQInactive, i);
+            setIRQStateByIrq(IRQState::IRQInactive, i);
         }
     }
-    setIRQState(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
+    setIRQStateByIrq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
     #[cfg(all(feature = "ENABLE_SMP", target_arch = "riscv64"))]
     {
         use sel4_common::platform::{INTERRUPT_IPI_0, INTERRUPT_IPI_1};
-        setIRQState(IRQState::IRQIPI, INTERRUPT_IPI_0);
-        setIRQState(IRQState::IRQIPI, INTERRUPT_IPI_1);
+        setIRQStateByIrq(IRQState::IRQIPI, INTERRUPT_IPI_0);
+        setIRQStateByIrq(IRQState::IRQIPI, INTERRUPT_IPI_1);
     }
     #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))]
     {
         use sel4_common::arch::config::{irq_remote_call_ipi, irq_reschedule_ipi};
         use sel4_common::utils::cpu_id;
         use crate::arch::arm_gic::irq_to_idx;
-        setIRQState(IRQState::IRQIPI, irq_remote_call_ipi);
-        setIRQState(IRQState::IRQIPI, irq_reschedule_ipi);
+        setIRQStateByIrq(IRQState::IRQIPI, irq_remote_call_ipi);
+        setIRQStateByIrq(IRQState::IRQIPI, irq_reschedule_ipi);
     }
 
     unsafe {

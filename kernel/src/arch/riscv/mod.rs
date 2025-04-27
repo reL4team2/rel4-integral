@@ -11,6 +11,9 @@ pub use platform::{init_cpu, init_freemem};
 
 pub use exception::handleUnknownSyscall;
 
+#[cfg(feature = "ENABLE_SMP")]
+pub use boot::try_init_kernel_secondary_core;
+
 pub fn read_stval() -> usize {
     let temp: usize;
     unsafe {
