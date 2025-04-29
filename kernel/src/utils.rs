@@ -2,6 +2,7 @@
 use sel4_common::{
     sel4_config::{ID_AA64PFR0_EL1_ASIMD, ID_AA64PFR0_EL1_FP},
     MASK,
+	utils::ptr_to_usize_add,
 };
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{dsb, isb};
@@ -33,7 +34,7 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
         core::slice::from_raw_parts_mut(ptr, BIT!(bits)).fill(0);
         clean_cache_range_ram(
             ptr as usize,
-            ptr.add(BIT!(bits) - 1) as usize,
+			ptr_to_usize_add(ptr,BIT!(bits) - 1),
             pptr_to_paddr(ptr as usize),
         );
     }

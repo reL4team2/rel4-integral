@@ -130,6 +130,12 @@ pub fn ptr_to_mut<T>(ptr: *mut T) -> &'static mut T {
     unsafe { ptr.as_mut().unwrap() }
 }
 
+/// this is used for a ptr is seem as a usize and add an offset
+#[inline]
+pub fn ptr_to_usize_add<T>(ptr: *mut T,offset:usize) -> usize {
+	unsafe{ (ptr as usize + offset) }
+}
+
 #[inline]
 pub fn cpu_id() -> usize {
     #[cfg(feature = "ENABLE_SMP")]

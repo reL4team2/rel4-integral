@@ -15,7 +15,7 @@ use sel4_common::sel4_config::{
     wordBits, wordRadix, CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE,
     L2_BITMAP_SIZE, NUM_READY_QUEUES, TCB_OFFSET,
 };
-use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe};
+use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe,ptr_to_usize_add};
 use sel4_common::{BIT, MASK};
 
 use crate::deps::ksIdleThreadTCB;
@@ -918,10 +918,11 @@ pub fn configure_sched_context(tcb: &mut tcb_t, sc_pptr: &mut sched_context_t, t
 #[cfg(not(feature = "ENABLE_SMP"))]
 /// Create the idle thread.
 pub fn create_idle_thread() {
+
     unsafe {
         let pptr = &mut ksIdleThreadTCB.data[0][0] as *mut u8 as *mut usize;
         // let pptr = ksIdleThreadTCB as usize as *mut usize;
-        ksIdleThread = pptr.add(TCB_OFFSET) as usize;
+        ksIdleThread = ptr_to_usize_add(pptr, TCB_OFFSET);
         // let tcb = convert_to_mut_type_ref::<tcb_t>(ksIdleThread as usize);
         let tcb = get_idle_thread();
         // Arch_configureIdleThread(tcb.tcbArch);
@@ -951,7 +952,7 @@ pub fn create_idle_thread() {
             let pptr = (unsafe { &mut ksIdleThreadTCB.data[0][0] as *mut u8 } as usize
                 + i * BIT!(seL4_TCBBits)) as *mut usize;
             // let pptr = (ksIdleThreadTCB as usize + i * BIT!(seL4_TCBBits)) as *mut usize;
-            ksSMP[i].ksIdleThread = pptr.add(TCB_OFFSET) as usize;
+            ksSMP[i].ksIdleThread = ptr_to_usize_add(pptr, TCB_OFFSET);
             debug!("ksIdleThread: {:#x}", ksSMP[i].ksIdleThread);
             let tcb = convert_to_mut_type_ref::<tcb_t>(ksSMP[i].ksIdleThread);
             tcb.tcbArch.set_register(NextIP, idle_thread as usize);

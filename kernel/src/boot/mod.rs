@@ -42,7 +42,7 @@ use core::arch::asm;
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::utils::cpu_id;
 
-#[link_section = ".boot.bss"]
+// #[link_section = ".boot.bss"]
 pub static ksNumCPUs: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "ENABLE_SMP")]
 pub static node_boot_lock: Mutex<usize> = Mutex::new(0);
