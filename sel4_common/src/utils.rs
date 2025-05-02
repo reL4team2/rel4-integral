@@ -60,6 +60,10 @@ pub macro global_ops($expr: expr) {
     unsafe { $expr }
 }
 
+pub macro unsafe_ops($expr: expr) {
+    unsafe { $expr }
+}
+
 #[inline]
 pub fn MAX_FREE_INDEX(bits: usize) -> usize {
     BIT!(bits - seL4_MinUntypedBits)

@@ -17,7 +17,11 @@ use sel4_common::sel4_config::{
     wordBits, wordRadix, CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE,
     L2_BITMAP_SIZE, NUM_READY_QUEUES, TCB_OFFSET,
 };
+<<<<<<< HEAD
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe,ptr_to_usize_add};
+=======
+use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe, cpu_id};
+>>>>>>> aarch64 can pass all test
 use sel4_common::{BIT, MASK};
 
 use crate::deps::ksIdleThreadTCB;
@@ -28,8 +32,6 @@ use crate::tcb_queue::tcb_queue_t;
 use crate::thread_state::ThreadState;
 #[cfg(feature = "KERNEL_MCS")]
 use crate::{deps::ksIdleThreadSC, sched_context::refill_budget_check, tcb_Release_Dequeue};
-#[cfg(feature = "ENABLE_SMP")]
-use sel4_common::utils::cpu_id;
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::{
     arch::usToTicks,
@@ -490,7 +492,7 @@ fn chooseThread() {
                     0,
                     kpptr_to_paddr(get_arm_global_user_vspace_base()),
                 ));
-                ksCurThread = ksIdleThread;
+                set_current_thread(get_idle_thread());
             }
             #[cfg(target_arch = "riscv64")]
             get_idle_thread().switch_to_this();

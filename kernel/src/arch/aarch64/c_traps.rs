@@ -88,11 +88,11 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
     use core::arch::asm;
     unsafe {
         #[cfg(feature = "ENABLE_SMP")]
-        clh_lock_release(cpu_id());
+        { clh_lock_release(cpu_id()); }
 
         (*cur_thread).tcbArch.load_thread_local();
         #[cfg(feature = "HAVE_FPU")]
-        lazyFPURestore(get_currenct_thread());
+        { lazyFPURestore(get_currenct_thread()); }
         asm!(
             "mov     x0, {0}                     \n",
             "mov     x1, {1}                     \n",

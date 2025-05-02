@@ -21,7 +21,7 @@ device:
     - {label: "INTERRUPT_VTIMER_EVENT", number: 27}
     - {label: "KERNEL_TIMER_IRQ", number: 27}
     - {label: "maxIRQ", number: 159}
-    - {label: "irqInvalid", number: 0}
+    - {label: "irqInvalid", number: 65535}
     - {label: "NUM_PPI", number: 32}
     - {label: "NUM_PPI_MINUS_ONE", number: 31}
 
