@@ -17,11 +17,7 @@ use sel4_common::sel4_config::{
     wordBits, wordRadix, CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE,
     L2_BITMAP_SIZE, NUM_READY_QUEUES, TCB_OFFSET,
 };
-<<<<<<< HEAD
-use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe,ptr_to_usize_add};
-=======
-use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe, cpu_id};
->>>>>>> aarch64 can pass all test
+use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe,ptr_to_usize_add, cpu_id};
 use sel4_common::{BIT, MASK};
 
 use crate::deps::ksIdleThreadTCB;
@@ -957,7 +953,7 @@ pub fn create_idle_thread() {
 pub fn create_idle_thread() {
     unsafe {
         for i in 0..CONFIG_MAX_NUM_NODES {
-            debug!("ksIdleThread: {:#x}", ksSMP[i].ksIdleThread);
+            // debug!("ksIdleThread: {:#x}", ksSMP[i].ksIdleThread);
             let pptr =  &mut ksIdleThreadTCB.data[i] as *mut u8 as *mut usize;
             ksSMP[i].ksIdleThread = ptr_to_usize_add(pptr, TCB_OFFSET);
             let tcb = convert_to_mut_type_ref::<tcb_t>(ksSMP[i].ksIdleThread);
