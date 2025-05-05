@@ -259,6 +259,7 @@ pub unsafe fn set_tcb_fs_state(tcb: &mut tcb_t, enabled: bool) {
 }
 
 #[inline]
+#[no_mangle]
 unsafe fn switchLocalFpuOwner(new_owner: usize) {
     unsafe {
         enableFpu();

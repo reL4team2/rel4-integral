@@ -11,8 +11,20 @@ use log::debug;
 use sel4_common::println;
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 use sel4_common::{arch::config::KERNEL_ELF_BASE, sel4_config::PAGE_BITS, BIT};
-use sel4_task::create_idle_thread;
+use sel4_task::{create_idle_thread, tcb_t, SchedulerAction_ResumeCurrentThread};
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
+
+#[cfg(feature = "ENABLE_SMP")]
+use core::arch::asm;
+
+#[cfg(feature = "ENABLE_SMP")]
+use crate::ffi::{clh_lock_acquire, clh_lock_init};
+
+#[cfg(feature = "ENABLE_SMP")]
+use sel4_common::utils::cpu_id;
+
+#[cfg(feature = "ENABLE_SMP")]
+use crate::boot::node_boot_lock;
 
 pub fn try_init_kernel(
     ui_p_reg_start: usize,
@@ -101,6 +113,8 @@ pub fn try_init_kernel(
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "ENABLE_SMP")]
         {
+            use sel4_common::utils::cpu_id;
+            use crate::ffi::{clh_lock_init, clh_lock_acquire};
             unsafe {
                 clh_lock_init();
                 release_secondary_cores();
@@ -114,6 +128,35 @@ pub fn try_init_kernel(
         return false;
     }
 
+    true
+}
+
+#[cfg(feature = "ENABLE_SMP")]
+pub(crate) fn release_secondary_cores() {
+    use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
+    *node_boot_lock.lock() = 1;
+    unsafe {
+        asm!("fence rw, rw");
+    }
+    while ksNumCPUs.lock().ne(&CONFIG_MAX_NUM_NODES) {}
+}
+
+#[cfg(feature = "ENABLE_SMP")]
+#[inline(always)]
+pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
+    use core::ops::AddAssign;
+    while node_boot_lock.lock().eq(&0) {}
+    // debug!("start try_init_kernel_secondary_core");
+    crate::arch::init_cpu();
+    debug!("init cpu compl");
+    unsafe { clh_lock_acquire(cpu_id(), false) }
+    ksNumCPUs.lock().add_assign(1);
+    init_core_state(SchedulerAction_ResumeCurrentThread as *mut tcb_t);
+    debug!("init_core_state compl");
+
+    unsafe {
+        asm!("fence.i");
+    }
     true
 }
 

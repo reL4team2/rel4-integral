@@ -38,13 +38,14 @@ impl Default for ArchTCB {
 
 impl ArchTCB {
     /// Config the registers fot the idle thread.
-    pub fn config_idle_thread(&mut self, idle_thread: usize) {
+    pub fn config_idle_thread(&mut self, idle_thread: usize, core: usize) {
         self.registers[NextIP] = idle_thread;
         self.registers[SSTATUS] = SSTATUS_SPP | SSTATUS_SPIE;
         self.registers[sp] =
-            unsafe { &kernel_stack_alloc.data[0][BIT!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8 }
+            unsafe { &kernel_stack_alloc.data[core][BIT!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8 }
                 as usize;
     }
+
     #[inline]
     pub fn fpu_state_ptr(&mut self) -> *const FPUState {
         &self.fpu as *const FPUState

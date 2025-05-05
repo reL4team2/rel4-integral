@@ -8,7 +8,7 @@ use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     msgRegisterNum, n_exceptionMessage, n_syscallMessage, vm_rights_t, ArchReg, ArchTCB,
 };
-use sel4_common::fault::*;
+use sel4_common::{fault::*, println};
 use sel4_common::ffi::current_fault;
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::sel4_config::*;
@@ -262,6 +262,8 @@ impl tcb_t {
 
     /// Enqueue the TCB to the scheduling queue
     pub fn sched_enqueue(&mut self) {
+        // let thread = self as *mut tcb_t as usize; 
+        // sel4_common::println!("{}: sched_enqueue: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
         #[cfg(feature = "KERNEL_MCS")]
         {
             assert!(self.is_schedulable());
@@ -333,6 +335,8 @@ impl tcb_t {
 
     /// Dequeue the TCB from the scheduling queue
     pub fn sched_dequeue(&mut self) {
+        // let thread = self as *mut tcb_t as usize; 
+        // sel4_common::println!("{}: sched_dequeue: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
         if self.tcbState.get_tcbQueued() != 0 {
             let dom = self.domain;
             let prio = self.tcbPriority;
@@ -357,6 +361,8 @@ impl tcb_t {
     /// # Note
     /// This function is as same as `sched_enqueue`, but it is used for the EP queue
     pub fn sched_append(&mut self) {
+        // let thread = self as *mut tcb_t as usize; 
+        // sel4_common::println!("{}: sched_append: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
         #[cfg(feature = "KERNEL_MCS")]
         {
             assert!(self.is_schedulable());
@@ -484,6 +490,7 @@ impl tcb_t {
             );
         }
         // setThreadState(self as *mut Self, ThreadStateInactive);
+        // println!("tcb suspend: {:#x}", self.get_ptr());
         set_thread_state(self, ThreadState::ThreadStateInactive);
         self.sched_dequeue();
         #[cfg(feature = "KERNEL_MCS")]

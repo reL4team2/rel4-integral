@@ -7,8 +7,9 @@ use core::arch::asm;
 use sel4_common::platform::*;
 use sel4_common::sel4_config::*;
 #[cfg(target_arch = "aarch64")]
-use sel4_common::utils::global_ops;
+use sel4_common::utils::{global_ops, unsafe_ops};
 use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
+use sel4_common::structures::irq_t;
 use sel4_cspace::interface::cte_t;
 use sel4_vspace::pptr_t;
 
@@ -18,14 +19,22 @@ use crate::arch::read_sip;
 #[cfg(feature = "ENABLE_SMP")]
 use crate::ffi::{ipi_clear_irq, ipi_get_irq};
 
+cfg_if::cfg_if! {
+    if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+        pub const MAX_IRQ: usize = (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + maxIRQ;
+    } else {
+        pub const MAX_IRQ: usize = maxIRQ;
+    }
+}
+
 #[no_mangle]
-pub static mut intStateIRQTable: [usize; maxIRQ + 1] = [0; maxIRQ + 1];
+pub static mut intStateIRQTable: [usize; MAX_IRQ + 1] = [0; MAX_IRQ + 1];
 
 pub static mut intStateIRQNode_ptr: pptr_t = 0;
 
 #[no_mangle]
 // #[link_section = ".boot.bss"]
-pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [0; CONFIG_MAX_NUM_NODES];
+pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [irqInvalid; CONFIG_MAX_NUM_NODES];
 
 #[cfg(feature = "ENABLE_SMP")]
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -47,11 +56,19 @@ pub enum IRQState {
     IRQReserved = 3,
 }
 
+/// 这部分弄得我头都晕了，目前大概情况是这样的
+/// intStateIRQTable 存储的是全局的 irq index
+/// 当 arm 多核的时候，由于 arm 分为 local 中断号和 global 中断号
+/// 导致 irq 和 index 是不一样的，有一个映射关系，通过 idx_to_irq 和 irq_to_idx 转换
+/// 那么有的 irq 函数是用 index，有的用 irq，需要进一步区分
+
+/// irq 是从 getActiveIRQ 获取的，统一为输入 irq
 #[inline]
 pub fn get_irq_state(irq: usize) -> IRQState {
-    unsafe { core::mem::transmute::<u8, IRQState>(intStateIRQTable[irq] as u8) }
+    unsafe { core::mem::transmute::<u8, IRQState>(intStateIRQTable[irq_to_idx(irq)] as u8) }
 }
 
+/// 和下面的 delete 都是 index，从 cspace 中删除 slot
 #[inline]
 pub fn get_irq_handler_slot(irq: usize) -> &'static mut cte_t {
     unsafe { convert_to_mut_type_ref::<cte_t>(intStateIRQNode_ptr).get_offset_slot(irq) }
@@ -61,20 +78,32 @@ pub fn deletingIRQHandler(irq: usize) {
     get_irq_handler_slot(irq).delete_one()
 }
 
-#[inline]
-pub fn set_irq_state(state: IRQState, irq: usize) {
+#[no_mangle]
+pub fn setIRQState(irq: usize) -> bool {
+    panic!("should not be invoked");
+}
+
+/// 有的是 index，有的是 irq，在 cspace 和 decode_irq_control_invocation 中是 index，考虑增加一个新函数
+pub fn setIRQStateByIrq(state: IRQState, irq: usize) {
     unsafe {
-        intStateIRQTable[irq] = state as usize;
+        intStateIRQTable[irq_to_idx(irq)] = state as usize;
     }
+    // TODO
+    // #if defined ENABLE_SMP_SUPPORT && defined CONFIG_ARCH_ARM
+    //     if (IRQ_IS_PPI(irq) && IRQT_TO_CORE(irq) != getCurrentCPUIndex()) {
+    //         doRemoteMaskPrivateInterrupt(IRQT_TO_CORE(irq), irqState == IRQInactive, IRQT_TO_IDX(irq));
+    //         return;
+    //     }
+    // #endif
     mask_interrupt(state == IRQState::IRQInactive, irq);
 }
 
-#[no_mangle]
-pub fn setIRQState(state: IRQState, irq: usize) {
+pub fn setIRQStateByIndex(state: IRQState, index: usize) {
     unsafe {
-        intStateIRQTable[irq] = state as usize;
+        intStateIRQTable[index] = state as usize;
     }
-    mask_interrupt(state == IRQState::IRQInactive, irq);
+
+    mask_interrupt(state == IRQState::IRQInactive, idx_to_irq(index));
 }
 
 #[repr(align(8192))]
@@ -95,9 +124,10 @@ pub extern "C" fn intStateIRQNodeToR() {
     }
 }
 
+/// 暂时没用，用的话应该和 deletingIRQHandler 一样，都是 index
 #[no_mangle]
-pub fn deletedIRQHandler(irq: usize) {
-    setIRQState(IRQState::IRQInactive, irq);
+pub fn deletedIRQHandler(index: usize) {
+    setIRQStateByIndex(IRQState::IRQInactive, index);
 }
 #[inline]
 #[cfg(target_arch = "riscv64")]
@@ -116,6 +146,7 @@ pub fn clear_sie_mask(_mask_low: usize) {
     }
 }
 
+/// 毫无疑问，应该是 irq
 #[inline]
 pub fn mask_interrupt(disable: bool, irq: usize) {
     #[cfg(target_arch = "riscv64")]
@@ -152,18 +183,12 @@ pub fn isIRQPending() -> bool {
     false
 }
 
+/// 毫无疑问，应该是 irq
+#[cfg(target_arch = "riscv64")]
 #[no_mangle]
 pub fn ackInterrupt(irq: usize) {
     unsafe {
         active_irq[cpu_id()] = irqInvalid;
-    }
-    #[cfg(target_arch = "aarch64")]
-    {
-        if crate::arch::arm_gic::gic_v2::irq_is_edge_triggered(irq) {
-            crate::arch::arm_gic::gic_v2::dist_pending_clr(irq);
-        }
-        crate::arch::arm_gic::gic_v2::gic_v2::ack_irq(irq);
-        global_ops!(active_irq[cpu_id()] = 0);
     }
     #[cfg(feature = "ENABLE_SMP")]
     {
@@ -176,16 +201,30 @@ pub fn ackInterrupt(irq: usize) {
     return;
 }
 
+#[cfg(target_arch = "aarch64")]
+#[no_mangle]
+pub fn ackInterrupt(irq: usize) {
+    if crate::arch::arm_gic::gic_v2::irq_is_edge_triggered(irq) {
+        crate::arch::arm_gic::gic_v2::dist_pending_clr(irq);
+    }
+    crate::arch::arm_gic::gic_v2::gic_v2::ack_irq(irq);
+    global_ops!(active_irq[cpu_id()] = 0);
+    return;
+}
+
+/// 同样的问题，decode_irq_control_invocation 中有用到，应该是 index
 #[inline]
-pub fn is_irq_active(irq: usize) -> bool {
-    get_irq_state(irq) != IRQState::IRQInactive
+pub fn is_irq_active(index: usize) -> bool {
+    let state = unsafe { core::mem::transmute::<u8, IRQState>(intStateIRQTable[index] as u8) };
+    state != IRQState::IRQInactive
 }
 
 #[no_mangle]
-pub fn isIRQActive(_irq: usize) -> bool {
-    panic!("should not be invoked!")
+pub fn isIRQActive(irq: usize) -> bool {
+    panic!("should not be invoked");
 }
 
+/// 看起来 getActiveIRQ 都是获取当前的 irq
 #[cfg(target_arch = "riscv64")]
 #[inline]
 #[no_mangle]
@@ -197,7 +236,7 @@ pub fn getActiveIRQ() -> usize {
     let sip = read_sip();
     #[cfg(feature = "ENABLE_SMP")]
     {
-        use sel4_common::sbi::clear_ipi;
+        use sel4_common::arch::riscv64::clear_ipi;
         if (sip & BIT!(SIP_SEIP)) != 0 {
             irq = 0;
         } else if (sip & BIT!(SIP_SSIP)) != 0 {
@@ -241,18 +280,54 @@ pub fn getActiveIRQ() -> usize {
         }
     */
     use crate::arch::arm_gic::gic_v2::{consts::IRQ_MASK, gic_v2::gic_int_ack};
+    let irq = gic_int_ack();
 
-    if !IS_IRQ_VALID(global_ops!(active_irq[cpu_id()])) {
-        global_ops!(active_irq[cpu_id()] = gic_int_ack());
+    if (irq & IRQ_MASK as usize) < maxIRQ {
+        unsafe_ops!(active_irq[cpu_id()] = irq);
     }
-    let irq = match global_ops!(IS_IRQ_VALID(active_irq[cpu_id()])) {
-        true => global_ops!(active_irq[cpu_id()] & IRQ_MASK as usize),
+
+    let local_irq = unsafe_ops!(active_irq[cpu_id()]) & IRQ_MASK as usize;
+    let irq2 = match local_irq < maxIRQ {
+        true => local_irq,
         false => irqInvalid,
     };
     log::debug!("active irq: {}", irq);
-    irq
+    irq2
 }
 
+/// x 是 irq
+#[inline]
 pub const fn IS_IRQ_VALID(x: usize) -> bool {
-    (x <= maxIRQ) && (x != irqInvalid)
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "aarch64")] {
+            // TODO: not used now
+            panic!("not used in aarch64")
+        } else {
+            (x <= maxIRQ) && (x != irqInvalid)
+        }
+    }
+}
+
+#[inline]
+fn irq_to_idx(irq: usize) -> usize {
+    cfg_if::cfg_if! {
+        if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+            use crate::arch::arm_gic::irq_to_idx;
+            irq_to_idx(irq_t { core: cpu_id(), irq: irq })
+        } else {
+            irq as usize
+        }
+    }
+}
+
+#[inline]
+fn idx_to_irq(idx: usize) -> usize {
+    cfg_if::cfg_if! {
+        if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+            use crate::arch::arm_gic::idx_to_irq;
+            idx_to_irq(idx)
+        } else {
+            idx
+        }
+    }
 }

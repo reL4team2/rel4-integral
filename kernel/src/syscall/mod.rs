@@ -3,7 +3,7 @@ pub mod syscall_reply;
 pub mod utils;
 
 use super::arch::handleUnknownSyscall;
-use core::intrinsics::unlikely;
+use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
 // use sel4_common::ffi_call;
 #[cfg(feature = "KERNEL_MCS")]
@@ -566,8 +566,17 @@ fn handle_yield() {
     }
     #[cfg(not(feature = "KERNEL_MCS"))]
     {
+        // let thread = get_currenct_thread();
+        // let thread_ptr = thread as *mut tcb_t as usize; 
+        // sel4_common::println!("{}: handle_yield: {:#x}, tcb queued: {}, state: {:?}", thread.get_cpu(), thread_ptr, thread.tcbState.get_tcbQueued(), thread.get_state());
         get_currenct_thread().sched_dequeue();
+        #[cfg(feature = "ENABLE_SMP")]
+        if likely(get_currenct_thread().is_runnable()) {
+            get_currenct_thread().sched_append();
+        }
+        #[cfg(not(feature = "ENABLE_SMP"))]
         get_currenct_thread().sched_append();
+        
         rescheduleRequired();
     }
 }

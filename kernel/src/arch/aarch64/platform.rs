@@ -8,6 +8,7 @@ use sel4_common::ffi_addr;
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::*;
 use sel4_common::structures::p_region_t;
+use sel4_common::utils::cpu_id;
 
 use crate::boot::{
     avail_p_regs_addr, avail_p_regs_size, paddr_to_pptr_reg, res_reg, reserve_region,
@@ -31,15 +32,18 @@ pub fn init_cpu() -> bool {
 
     // Setup kernel stack pointer.
     let mut stack_top = unsafe {
-        kernel_stack_alloc.data.as_ptr().add(0) as usize
+        &mut kernel_stack_alloc.data[cpu_id()] as *mut u8 as usize
             + sel4_common::BIT!(CONFIG_KERNEL_STACK_BITS)
-    } as u64;
+    };
+
+    #[cfg(feature = "ENABLE_SMP")]
+    { stack_top |= cpu_id() }
 
     // CPU's exception vector table
     unsafe {
         setVTable(ffi_addr!(arm_vector_table));
     }
-    TPIDR_EL1.set(stack_top);
+    TPIDR_EL1.set(stack_top as u64);
 
     let haveHWFPU = fpsimd_HWCapTest();
 

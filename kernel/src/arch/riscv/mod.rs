@@ -5,11 +5,14 @@ mod platform;
 
 pub mod fpu;
 pub use boot::try_init_kernel;
-pub use c_traps::restore_user_context;
+pub use c_traps::{restore_user_context, fastpath_restore};
 use core::arch::asm;
 pub use platform::{init_cpu, init_freemem};
 
 pub use exception::handleUnknownSyscall;
+
+#[cfg(feature = "ENABLE_SMP")]
+pub use boot::try_init_kernel_secondary_core;
 
 pub fn read_stval() -> usize {
     let temp: usize;

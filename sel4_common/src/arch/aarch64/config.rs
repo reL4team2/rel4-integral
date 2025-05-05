@@ -12,4 +12,9 @@ pub const PPTR_BASE_OFFSET: usize = PPTR_BASE - PADDR_BASE;
 pub const PADDR_TOP: usize = PPTR_TOP - PPTR_BASE_OFFSET;
 pub const KDEV_BASE: usize = 0xffffffffffe00000;
 
+#[cfg(feature = "ENABLE_SMP")]
+pub const irq_remote_call_ipi: usize = 0;
+#[cfg(feature = "ENABLE_SMP")]
+pub const irq_reschedule_ipi: usize = 1;
+
 pub const seL4_MaxUntypedBits: usize = 47;

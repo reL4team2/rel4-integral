@@ -45,6 +45,7 @@ use sel4_common::utils::cpu_id;
 // #[link_section = ".boot.bss"]
 pub static ksNumCPUs: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "ENABLE_SMP")]
+#[link_section = ".boot.bss"]
 pub static node_boot_lock: Mutex<usize> = Mutex::new(0);
 
 #[no_mangle]
@@ -181,32 +182,4 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
         ksReleaseQueue.tail = 0;
         ksCurTime = timer.getCurrentTime();
     }
-}
-
-#[cfg(feature = "ENABLE_SMP")]
-pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
-    use core::ops::AddAssign;
-    while node_boot_lock.lock().eq(&0) {}
-    // debug!("start try_init_kernel_secondary_core");
-    init_cpu();
-    debug!("init cpu compl");
-    unsafe { clh_lock_acquire(cpu_id(), false) }
-    ksNumCPUs.lock().add_assign(1);
-    init_core_state(SchedulerAction_ResumeCurrentThread as *mut tcb_t);
-    debug!("init_core_state compl");
-
-    unsafe {
-        asm!("fence.i");
-    }
-    true
-}
-
-#[cfg(feature = "ENABLE_SMP")]
-fn release_secondary_cores() {
-    use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
-    *node_boot_lock.lock() = 1;
-    unsafe {
-        asm!("fence rw, rw");
-    }
-    while ksNumCPUs.lock().ne(&CONFIG_MAX_NUM_NODES) {}
 }

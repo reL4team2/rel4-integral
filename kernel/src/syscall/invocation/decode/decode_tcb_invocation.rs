@@ -13,7 +13,7 @@ use sel4_common::sel4_config::{
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, cap_thread_cap, notification};
 use sel4_common::utils::convert_to_mut_type_ref;
-use sel4_common::BIT;
+use sel4_common::{println, BIT};
 #[cfg(target_arch = "aarch64")]
 use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::capability::cap_func;
@@ -44,50 +44,50 @@ pub const CopyRegisters_transferFrame: usize = 2;
 pub const CopyRegisters_transferInteger: usize = 3;
 pub const ReadRegisters_suspend: usize = 0;
 
-#[cfg(feature = "ENABLE_SMP")]
-#[no_mangle]
-pub fn decode_tcb_invocation(
-    invLabel: MessageLabel,
-    length: usize,
-    cap: &cap_t,
-    slot: &mut cte_t,
-    call: bool,
-    buffer: &seL4_IPCBuffer,
-) -> exception_t {
-    unsafe {
-        remoteTCBStall(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()));
-    }
-    match invLabel {
-        MessageLabel::TCBReadRegisters => decode_read_registers(cap, length, call, buffer),
-        MessageLabel::TCBWriteRegisters => decode_write_registers(cap, length, buffer),
-        MessageLabel::TCBCopyRegisters => decode_copy_registers(cap, length, buffer),
-        MessageLabel::TCBSuspend => {
-            set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            invoke_tcb_suspend(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
-        }
-        MessageLabel::TCBResume => {
-            set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            invoke_tcb_resume(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
-        }
-        MessageLabel::TCBConfigure => decode_tcb_configure(cap, length, slot, buffer),
-        MessageLabel::TCBSetPriority => decode_set_priority(cap, length, buffer),
-        MessageLabel::TCBSetMCPriority => decode_set_mc_priority(cap, length, buffer),
-        MessageLabel::TCBSetSchedParams => decode_set_sched_params(cap, length, buffer),
-        MessageLabel::TCBSetIPCBuffer => decode_set_ipc_buffer(cap, length, slot, buffer),
-        MessageLabel::TCBSetSpace => decode_set_space(cap, length, slot, buffer),
-        MessageLabel::TCBBindNotification => decode_bind_notification(cap),
-        MessageLabel::TCBUnbindNotification => decode_unbind_notification(cap),
-        MessageLabel::TCBSetAffinity => decode_set_affinity(cap, length, buffer),
-        MessageLabel::TCBSetTLSBase => decode_set_tls_base(cap, length, buffer),
-        _ => unsafe {
-            debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
-            current_syscall_error._type = seL4_IllegalOperation;
-            exception_t::EXCEPTION_SYSCALL_ERROR
-        },
-    }
-}
+// #[cfg(feature = "ENABLE_SMP")]
+// #[no_mangle]
+// pub fn decode_tcb_invocation(
+//     invLabel: MessageLabel,
+//     length: usize,
+//     cap: &cap_t,
+//     slot: &mut cte_t,
+//     call: bool,
+//     buffer: &seL4_IPCBuffer,
+// ) -> exception_t {
+//     unsafe {
+//         remoteTCBStall(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()));
+//     }
+//     match invLabel {
+//         MessageLabel::TCBReadRegisters => decode_read_registers(cap, length, call, buffer),
+//         MessageLabel::TCBWriteRegisters => decode_write_registers(cap, length, buffer),
+//         MessageLabel::TCBCopyRegisters => decode_copy_registers(cap, length, buffer),
+//         MessageLabel::TCBSuspend => {
+//             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+//             invoke_tcb_suspend(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
+//         }
+//         MessageLabel::TCBResume => {
+//             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+//             invoke_tcb_resume(convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr()))
+//         }
+//         MessageLabel::TCBConfigure => decode_tcb_configure(cap, length, slot, buffer),
+//         MessageLabel::TCBSetPriority => decode_set_priority(cap, length, buffer),
+//         MessageLabel::TCBSetMCPriority => decode_set_mc_priority(cap, length, buffer),
+//         MessageLabel::TCBSetSchedParams => decode_set_sched_params(cap, length, buffer),
+//         MessageLabel::TCBSetIPCBuffer => decode_set_ipc_buffer(cap, length, slot, buffer),
+//         MessageLabel::TCBSetSpace => decode_set_space(cap, length, slot, buffer),
+//         MessageLabel::TCBBindNotification => decode_bind_notification(cap),
+//         MessageLabel::TCBUnbindNotification => decode_unbind_notification(cap),
+//         MessageLabel::TCBSetAffinity => decode_set_affinity(cap, length, buffer),
+//         MessageLabel::TCBSetTLSBase => decode_set_tls_base(cap, length, buffer),
+//         _ => unsafe {
+//             debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
+//             current_syscall_error._type = seL4_IllegalOperation;
+//             exception_t::EXCEPTION_SYSCALL_ERROR
+//         },
+//     }
+// }
 
-#[cfg(not(feature = "ENABLE_SMP"))]
+// #[cfg(not(feature = "ENABLE_SMP"))]
 #[no_mangle]
 pub fn decode_tcb_invocation(
     invLabel: MessageLabel,
@@ -130,6 +130,8 @@ pub fn decode_tcb_invocation(
         #[cfg(feature = "KERNEL_MCS")]
         MessageLabel::TCBSetTimeoutEndpoint => decode_set_timeout_endpoint(capability, slot),
         MessageLabel::TCBSetTLSBase => decode_set_tls_base(capability, length, buffer),
+        #[cfg(feature = "ENABLE_SMP")]
+        MessageLabel::TCBSetAffinity => decode_set_affinity(capability, length, buffer),
         _ => unsafe {
             debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
             current_syscall_error._type = seL4_IllegalOperation;
@@ -890,6 +892,7 @@ fn decode_set_space(
 }
 
 fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
+    // println!("decode_bind_notification");
     if get_extra_cap_by_index(0).is_none() {
         debug!("TCB BindNotification: Truncated message.");
         unsafe {
@@ -897,6 +900,8 @@ fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
+
+    // println!("decode_bind_notification1");
 
     let tcb = convert_to_mut_type_ref::<tcb_t>(capability.get_capTCBPtr() as usize);
     if tcb.tcbBoundNotification != 0 {
@@ -907,6 +912,7 @@ fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
+    // println!("decode_bind_notification2");
     let ntfn_cap = cap::cap_notification_cap(&get_extra_cap_by_index(0).unwrap().capability);
     if ntfn_cap.clone().unsplay().get_tag() != cap_tag::cap_notification_cap {
         debug!("TCB BindNotification: Notification is invalid.");
@@ -915,6 +921,8 @@ fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
+
+    // println!("decode_bind_notification3");
 
     let ntfn = convert_to_mut_type_ref::<notification>(ntfn_cap.get_capNtfnPtr() as usize);
 
@@ -926,6 +934,8 @@ fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
+    // println!("decode_bind_notification4");
+
     if ntfn.get_ntfnQueue_head() != 0 || ntfn.get_ntfnQueue_tail() != 0 {
         debug!("TCB BindNotification: Notification cannot be bound.");
         unsafe {
@@ -935,6 +945,7 @@ fn decode_bind_notification(capability: &cap_thread_cap) -> exception_t {
     }
 
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+    // println!("decode_bind_notification5");
     invoke_tcb_bind_notification(tcb, ntfn)
 }
 
@@ -984,7 +995,7 @@ pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t
 }
 
 #[cfg(feature = "ENABLE_SMP")]
-fn decode_set_affinity(cap: &cap_t, length: usize, buffer: &seL4_IPCBuffer) -> exception_t {
+fn decode_set_affinity(capability: &cap_thread_cap, length: usize, buffer: &seL4_IPCBuffer) -> exception_t {
     use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 
     if length < 1 {
@@ -1004,7 +1015,7 @@ fn decode_set_affinity(cap: &cap_t, length: usize, buffer: &seL4_IPCBuffer) -> e
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    let tcb = convert_to_mut_type_ref::<tcb_t>(cap.get_tcb_ptr());
+    let tcb = convert_to_mut_type_ref::<tcb_t>(capability.get_capTCBPtr() as usize);
     invoke_tcb_set_affinity(tcb, affinity)
 }
 
