@@ -1,18 +1,18 @@
-use crate::interrupt::handler::handleInterruptEntry;
-use crate::syscall::slowpath;
+use crate::interrupt::handler::handle_interrupt_entry;
+use crate::syscall::slow_path;
 use core::arch::asm;
 
 #[cfg(feature = "ENABLE_SMP")]
 use crate::{
     ffi::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
-    interrupt::getActiveIRQ,
+    interrupt::get_active_irq,
 };
 
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::utils::cpu_id;
 use sel4_task::*;
 
-use crate::arch::fpu::lazyFPURestore;
+use crate::arch::fpu::lazy_fpu_restore;
 
 #[no_mangle]
 pub fn restore_user_context() {
@@ -29,10 +29,10 @@ pub fn restore_user_context() {
     // c_exit_hook();
     get_currenct_thread().tcbArch.load_thread_local();
 
-    // TODO: I have already implement lazyFPURestore, But I am not very clearly about the fpu operator
+    // TODO: I have already implement lazy_fpu_restore, But I am not very clearly about the fpu operator
     // So I project to add it in the next pull request
     // #ifdef CONFIG_HAVE_FPU
-    //     lazyFPURestore(NODE_STATE(ksCurThread));
+    //     lazy_fpu_restore(NODE_STATE(ksCurThread));
     // #endif /* CONFIG_HAVE_FPU */
     unsafe {
         #[cfg(feature = "ENABLE_SMP")]
@@ -43,7 +43,7 @@ pub fn restore_user_context() {
         }
 
         #[cfg(feature = "HAVE_FPU")]
-        lazyFPURestore(get_currenct_thread());
+        lazy_fpu_restore(get_currenct_thread());
         asm!(
                 "mov     sp, {}                     \n",
 
@@ -88,11 +88,15 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
     use core::arch::asm;
     unsafe {
         #[cfg(feature = "ENABLE_SMP")]
-        { clh_lock_release(cpu_id()); }
+        {
+            clh_lock_release(cpu_id());
+        }
 
         (*cur_thread).tcbArch.load_thread_local();
         #[cfg(feature = "HAVE_FPU")]
-        { lazyFPURestore(get_currenct_thread()); }
+        {
+            lazy_fpu_restore(get_currenct_thread());
+        }
         asm!(
             "mov     x0, {0}                     \n",
             "mov     x1, {1}                     \n",
@@ -145,14 +149,14 @@ pub fn c_handle_interrupt() {
     #[cfg(feature = "ENABLE_SMP")]
     {
         use sel4_common::arch::config::irq_remote_call_ipi;
-        if getActiveIRQ() != irq_remote_call_ipi {
+        if get_active_irq() != irq_remote_call_ipi {
             unsafe {
                 clh_lock_acquire(cpu_id(), true);
             }
         }
     }
     // sel4_common::println!("c_handle_interrupt");
-    handleInterruptEntry();
+    handle_interrupt_entry();
     restore_user_context();
 }
 
@@ -167,7 +171,7 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     //     debug!("c_handle_syscall: syscall: {},", syscall as isize);
     // }
     // sel4_common::println!("c handle syscall");
-    slowpath(syscall);
+    slow_path(syscall);
     // debug!("c_handle_syscall complete");
 }
 
@@ -223,12 +227,12 @@ pub fn c_handle_undefined_instruction() -> ! {
     restore_user_context();
     unreachable!()
 }
-
+#[cfg(feature = "HAVE_FPU")]
 #[no_mangle]
 pub fn c_handle_enfp() -> ! {
-    use super::fpu::handleFPUFault;
+    use super::fpu::handle_fpu_fault;
     entry_hook();
-    unsafe { handleFPUFault() };
+    unsafe { handle_fpu_fault() };
     restore_user_context();
     unreachable!()
 }

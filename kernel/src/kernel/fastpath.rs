@@ -1,5 +1,6 @@
-use crate::arch::fpu::lazyFPURestore;
-use crate::syscall::{slowpath, SysCall, SysReplyRecv};
+use crate::arch::fastpath_restore;
+use crate::arch::fpu::lazy_fpu_restore;
+use crate::syscall::{slow_path, SysCall, SysReplyRecv};
 use crate::MASK;
 use core::intrinsics::{likely, unlikely};
 #[cfg(feature = "KERNEL_MCS")]
@@ -24,7 +25,6 @@ use sel4_ipc::*;
 use sel4_task::reply::reply_t;
 use sel4_task::*;
 use sel4_vspace::*;
-use crate::arch::fastpath_restore;
 
 #[inline]
 #[no_mangle]
@@ -85,14 +85,14 @@ pub fn endpoint_ptr_mset_epQueue_tail_state(ptr: *mut endpoint, tail: usize, sta
 
 #[inline]
 #[no_mangle]
-pub fn switchToThread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: PTE) {
+pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: PTE) {
     let asid = stored_hw_asid.0;
     unsafe {
         #[cfg(target_arch = "riscv64")]
         setVSpaceRoot(pptr_to_paddr(vroot as usize), asid);
         #[cfg(target_arch = "aarch64")]
         setCurrentUserVSpaceRoot(ttbr_new(asid, pptr_to_paddr(vroot as usize)));
-        // panic!("switchToThread_fp");
+        // panic!("switch_to_thread_fp");
         // ksCurThread = thread as usize;
         set_current_thread(&*thread);
     }
@@ -141,7 +141,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     if fastpath_mi_check(msgInfo)
         || current.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault
     {
-        slowpath(SysCall as usize);
+        slow_path(SysCall as usize);
     }
     let lookup_fp_ret = &lookup_fp(&current.get_cspace(tcbCTable).capability, cptr);
 
@@ -149,13 +149,13 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         !(lookup_fp_ret.clone().get_tag() == cap_tag::cap_endpoint_cap)
             || (cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0),
     ) {
-        slowpath(SysCall as usize);
+        slow_path(SysCall as usize);
     }
     let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
     let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
 
     if unlikely(ep.get_ep_state() != EPState::Recv) {
-        slowpath(SysCall as usize);
+        slow_path(SysCall as usize);
     }
 
     let dest = convert_to_mut_type_ref::<tcb_t>(ep.get_epQueue_head() as usize);
@@ -163,32 +163,32 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     if unlikely(!isValidVTableRoot_fp(
         &dest.get_cspace(tcbVTable).capability.clone(),
     )) {
-        slowpath(SysCall as usize);
+        slow_path(SysCall as usize);
     }
     let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(tcbVTable).capability);
 
     let dom = 0;
     if unlikely(dest.tcbPriority < current.tcbPriority && !isHighestPrio(dom, dest.tcbPriority)) {
-        slowpath(SysCall as usize);
+        slow_path(SysCall as usize);
     }
     if unlikely((ep_cap.get_capCanGrant() == 0) && (ep_cap.get_capCanGrantReply() == 0)) {
-        slowpath(SysCall as usize);
+        slow_path(SysCall as usize);
     }
     #[cfg(feature = "KERNEL_MCS")]
     {
         if unlikely(dest.tcbSchedContext != 0) {
-            slowpath(SysCall as usize);
+            slow_path(SysCall as usize);
         }
         assert!(dest.tcbState.get_tcbQueued() == 0);
         assert!(dest.tcbState.get_tcbInReleaseQueue() == 0);
         let reply = dest.tcbState.get_replyObject();
         if unlikely(reply == 0) {
-            slowpath(SysCall as usize);
+            slow_path(SysCall as usize);
         }
     }
     #[cfg(feature = "ENABLE_SMP")]
     if unlikely(get_currenct_thread().tcbAffinity != dest.tcbAffinity) {
-        slowpath(SysCall as usize);
+        slow_path(SysCall as usize);
     }
 
     // debug!("enter fast path");
@@ -251,7 +251,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     dest.tcbState.0.arr[0] = ThreadState::ThreadStateRunning as u64;
     let cap_pd = new_vtable.get_capPTBasePtr() as *mut PTE;
     let stored_hw_asid: PTE = PTE(new_vtable.get_capPTMappedASID() as usize);
-    switchToThread_fp(dest as *mut tcb_t, cap_pd, stored_hw_asid);
+    switch_to_thread_fp(dest as *mut tcb_t, cap_pd, stored_hw_asid);
     info.set_capsUnwrapped(0);
     let msgInfo1 = info.to_word();
     let badge = ep_cap.get_capEPBadge() as usize;
@@ -269,7 +269,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     let fault_type = current.tcbFault.get_tag();
 
     if fastpath_mi_check(msgInfo) || fault_type != seL4_Fault_tag::seL4_Fault_NullFault {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     let lookup_fp_ret = &lookup_fp(&current.get_cspace(tcbCTable).capability, cptr);
 
@@ -277,20 +277,20 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
         lookup_fp_ret.clone().get_tag() != cap_tag::cap_endpoint_cap
             || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0,
     ) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
     if let Some(ntfn) = convert_to_option_mut_type_ref::<notification>(current.tcbBoundNotification)
     {
         if ntfn.get_ntfn_state() == NtfnState::Active {
-            slowpath(SysReplyRecv as usize);
+            slow_path(SysReplyRecv as usize);
         }
     }
 
     let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
     if unlikely(ep.get_ep_state() == EPState::Send) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
 
     let caller_slot = current.get_cspace_mut_ref(tcbCaller);
@@ -302,24 +302,24 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
             .get_tag()
             != cap_tag::cap_reply_cap,
     ) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
 
     let caller = convert_to_mut_type_ref::<tcb_t>(caller_cap.get_capTCBPtr() as usize);
     if unlikely(caller.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
 
     if unlikely(!isValidVTableRoot_fp(
         &caller.get_cspace(tcbVTable).capability.clone(),
     )) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     let new_vtable = &cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     let dom = 0;
     if unlikely(!isHighestPrio(dom, caller.tcbPriority)) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     thread_state_ptr_mset_blockingObject_tsType(
         &mut current.tcbState,
@@ -357,7 +357,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     caller.tcbState.0.arr[0] = ThreadState::ThreadStateRunning as u64;
     let cap_pd = new_vtable.get_capPTBasePtr() as *mut PTE;
     let stored_hw_asid: PTE = PTE(new_vtable.get_capPTMappedASID() as usize);
-    switchToThread_fp(caller, cap_pd, stored_hw_asid);
+    switch_to_thread_fp(caller, cap_pd, stored_hw_asid);
     info.set_capsUnwrapped(0);
     let msg_info1 = info.to_word();
     unsafe { fastpath_restore(0, msg_info1, get_currenct_thread() as *mut tcb_t) };
@@ -376,7 +376,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     let fault_type = current.tcbFault.get_tag();
 
     if fastpath_mi_check(msgInfo) || fault_type != seL4_Fault_tag::seL4_Fault_NullFault {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     let lookup_fp_ret = &lookup_fp(&current.get_cspace(tcbCTable).capability, cptr);
 
@@ -384,7 +384,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
         lookup_fp_ret.clone().get_tag() != cap_tag::cap_endpoint_cap
             || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0,
     ) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
@@ -394,19 +394,19 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
 
     /* check it's a reply object */
     if unlikely(reply_cap.clone().unsplay().get_tag() != cap_tag::cap_endpoint_cap) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
 
     if let Some(ntfn) = convert_to_option_mut_type_ref::<notification>(current.tcbBoundNotification)
     {
         if ntfn.get_ntfn_state() == NtfnState::Active {
-            slowpath(SysReplyRecv as usize);
+            slow_path(SysReplyRecv as usize);
         }
     }
 
     let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
     if unlikely(ep.get_ep_state() == EPState::Send) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     /* Get the reply address */
     let reply_ptr = convert_to_mut_type_ref::<reply_t>(reply_cap.get_capReplyPtr() as usize);
@@ -417,28 +417,28 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
             || reply_ptr.replyNext.get_isHead() == 0
             || reply_ptr.replyNext.get_callStackPtr() as usize != current.tcbSchedContext,
     ) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     let caller = convert_to_mut_type_ref::<tcb_t>(reply_ptr.replyTCB);
 
     if unlikely(caller.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
 
     if unlikely(!isValidVTableRoot_fp(
         &caller.get_cspace(tcbVTable).capability.clone(),
     )) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     let new_vtable = cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     let dom = 0;
     if unlikely(!isHighestPrio(dom, caller.tcbPriority)) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
 
     if unlikely(caller.tcbSchedContext != 0) {
-        slowpath(SysReplyRecv as usize);
+        slow_path(SysReplyRecv as usize);
     }
     assert!(current.tcbState.get_replyObject() == 0);
 
@@ -526,7 +526,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     caller.tcbState.0.arr[0] = ThreadState::ThreadStateRunning as u64;
     let cap_pd = new_vtable.get_capPTBasePtr() as *mut PTE;
     let stored_hw_asid: PTE = PTE(new_vtable.get_capPTMappedASID() as usize);
-    switchToThread_fp(caller, cap_pd, stored_hw_asid);
+    switch_to_thread_fp(caller, cap_pd, stored_hw_asid);
     info.set_capsUnwrapped(0);
     let msg_info1 = info.to_word();
     fastpath_restore(0, msg_info1, get_currenct_thread() as *mut tcb_t);

@@ -1,25 +1,25 @@
 use core::arch::asm;
 
 use super::read_scause;
-use crate::syscall::slowpath;
+use crate::syscall::slow_path;
 
 use sel4_common::sel4_config::{
     RISCVInstructionAccessFault, RISCVInstructionPageFault, RISCVLoadAccessFault,
     RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
 };
 
-use crate::arch::fpu::{handleFPUFault, isFpuEnable, lazyFPURestore, set_tcb_fs_state};
+use crate::arch::fpu::{handle_fpu_fault, is_fpu_enable, lazy_fpu_restore, set_tcb_fs_state};
 use sel4_common::arch::ArchReg;
 
 use sel4_task::*;
 
 use super::exception::{handleUserLevelFault, handleVMFaultEvent};
-use crate::interrupt::handler::handleInterruptEntry;
+use crate::interrupt::handler::handle_interrupt_entry;
 
 #[cfg(feature = "ENABLE_SMP")]
 use crate::{
     ffi::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
-    interrupt::getActiveIRQ,
+    interrupt::get_active_irq,
 };
 
 #[cfg(feature = "ENABLE_SMP")]
@@ -47,8 +47,8 @@ pub fn restore_user_context() {
         #[cfg(feature = "HAVE_FPU")]
         {
             unsafe {
-                lazyFPURestore(get_currenct_thread());
-                set_tcb_fs_state(get_currenct_thread(), isFpuEnable());
+                lazy_fpu_restore(get_currenct_thread());
+                set_tcb_fs_state(get_currenct_thread(), is_fpu_enable());
             }
         }
         // debug!("restore_user_context3");
@@ -123,10 +123,10 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
         }
         #[cfg(feature = "HAVE_FPU")]
         {
-            use crate::arch::fpu::{isFpuEnable, set_tcb_fs_state};
+            use crate::arch::fpu::{is_fpu_enable, set_tcb_fs_state};
             unsafe {
-                lazyFPURestore(get_currenct_thread());
-                set_tcb_fs_state(get_currenct_thread(), isFpuEnable());
+                lazy_fpu_restore(get_currenct_thread());
+                set_tcb_fs_state(get_currenct_thread(), is_fpu_enable());
             }
         }
 
@@ -191,14 +191,14 @@ pub fn c_handle_interrupt() {
     #[cfg(feature = "ENABLE_SMP")]
     {
         use sel4_common::platform::INTERRUPT_IPI_0;
-        if getActiveIRQ() != INTERRUPT_IPI_0 {
+        if get_active_irq() != INTERRUPT_IPI_0 {
             unsafe {
                 clh_lock_acquire(cpu_id(), true);
             }
         }
     }
     // debug!("c_handle_interrupt");
-    handleInterruptEntry();
+    handle_interrupt_entry();
     restore_user_context();
 }
 
@@ -224,23 +224,23 @@ pub fn c_handle_exception() {
         }
         _ => {
             // #ifdef CONFIG_HAVE_FPU
-            //         if (!isFpuEnable()) {
+            //         if (!is_fpu_enable()) {
             //             /* we assume the illegal instruction is caused by FPU first */
-            //             handleFPUFault();
+            //             handle_fpu_fault();
             //             setNextPC(NODE_STATE(ksCurThread), getRestartPC(NODE_STATE(ksCurThread)));
             //             break;
             //         }
             // #endif
             unsafe {
-                if !isFpuEnable() {
-                    handleFPUFault();
+                if !is_fpu_enable() {
+                    handle_fpu_fault();
                     let pc = get_currenct_thread().tcbArch.get_register(ArchReg::FaultIP);
                     get_currenct_thread()
                         .tcbArch
                         .set_register(ArchReg::NextIP, pc);
-                }else{
-					handleUserLevelFault(cause, 0);
-				}
+                } else {
+                    handleUserLevelFault(cause, 0);
+                }
             }
         }
     }
@@ -256,7 +256,7 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     // if hart_id() == 0 {
     //     debug!("c_handle_syscall: syscall: {},", syscall as isize);
     // }
-    slowpath(syscall);
+    slow_path(syscall);
     // debug!("c_handle_syscall complete");
 }
 

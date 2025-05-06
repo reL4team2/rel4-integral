@@ -27,7 +27,7 @@ pub fn invokeSchedContext_UnbindObject(sc: &mut sched_context, capability: cap) 
     exception_t::EXCEPTION_NONE
 }
 
-pub fn invokeSchedContext_Bind(sc: &mut sched_context, capability: &cap) -> exception_t {
+pub fn invoke_sched_context_bind(sc: &mut sched_context, capability: &cap) -> exception_t {
     match capability.clone().splay() {
         cap_Splayed::thread_cap(data) => sc.schedContext_bindTCB(convert_to_mut_type_ref::<tcb_t>(
             data.get_capTCBPtr() as usize,
@@ -43,7 +43,7 @@ pub fn invokeSchedContext_Bind(sc: &mut sched_context, capability: &cap) -> exce
     }
     exception_t::EXCEPTION_NONE
 }
-pub fn invokeSchedContext_Unbind(sc: &mut sched_context) -> exception_t {
+pub fn invoke_sched_context_unbind(sc: &mut sched_context) -> exception_t {
     sc.schedContext_unbindAllTCBs();
     sc.schedContext_unbindNtfn();
     if sc.scReply != 0 {
@@ -52,12 +52,12 @@ pub fn invokeSchedContext_Unbind(sc: &mut sched_context) -> exception_t {
     }
     exception_t::EXCEPTION_NONE
 }
-pub fn invokeSchedContext_Consumed(sc: &mut sched_context) -> exception_t {
+pub fn invoke_sched_context_consumed(sc: &mut sched_context) -> exception_t {
     // TODO: MCS
     sc.setConsumed();
     exception_t::EXCEPTION_NONE
 }
-pub fn invokeSchedContext_YieldTo(sc: &mut sched_context) -> exception_t {
+pub fn invoke_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
     if sc.scYieldFrom != 0 {
         convert_to_mut_type_ref::<tcb_t>(sc.scYieldFrom).schedContext_completeYieldTo();
         assert!(sc.scYieldFrom == 0);
@@ -84,7 +84,7 @@ pub fn invokeSchedContext_YieldTo(sc: &mut sched_context) -> exception_t {
     }
     exception_t::EXCEPTION_NONE
 }
-pub fn invokeSchedControl_ConfigureFlags(
+pub fn invoke_sched_control_configure_flags(
     target: &mut sched_context,
     _core: usize,
     budget: ticks_t,

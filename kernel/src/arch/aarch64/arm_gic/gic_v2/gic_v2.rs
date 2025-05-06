@@ -1,10 +1,10 @@
 use super::consts::*;
-use super::{Gic_Cpu_Iface_Map, Gic_Dist_Map};
+use super::{GicCpuIfaceMap, GicDistMap};
 use aarch64_cpu::registers::Readable;
 use tock_registers::interfaces::Writeable;
 
-static GIC_DIST: Gic_Dist_Map = Gic_Dist_Map::new(GIC_V2_DISTRIBUTOR_PPTR as *mut u8);
-static GIC_CPUIFACE: Gic_Cpu_Iface_Map = Gic_Cpu_Iface_Map::new(GIC_V2_CONTROLLER_PPTR as *mut u8);
+static GIC_DIST: GicDistMap = GicDistMap::new(GIC_V2_DISTRIBUTOR_PPTR as *mut u8);
+static GIC_CPUIFACE: GicCpuIfaceMap = GicCpuIfaceMap::new(GIC_V2_CONTROLLER_PPTR as *mut u8);
 
 // This is for aarch64 only
 pub fn cpu_iface_init() {
@@ -30,7 +30,7 @@ pub fn cpu_iface_init() {
     GIC_CPUIFACE.regs().icontrol.set(1);
 }
 
-pub fn cpu_initLocalIRQController() {
+pub fn cpu_init_local_irq_controller() {
     cpu_iface_init();
 }
 
@@ -89,7 +89,7 @@ pub fn dist_init() {
     let target = infer_cpu_gic_id(nirqs);
 
     for i in (0..nirqs).step_by(4) {
-        GIC_DIST.regs().targets[i >> 2].set(TARGET_CPU_ALLINT(target));
+        GIC_DIST.regs().targets[i >> 2].set(target_cpu_all_int(target));
     }
 
     for i in (64..nirqs).step_by(32) {
@@ -131,7 +131,7 @@ pub fn dist_init() {
 //      */
 //     uint8_t target = infer_cpu_gic_id(nirqs);
 //     for (i = 0; i < nirqs; i += 4) {
-//         gic_dist->targets[i >> 2] = TARGET_CPU_ALLINT(target);
+//         gic_dist->targets[i >> 2] = target_cpu_all_int(target);
 //     }
 
 //     /* level-triggered, 1-N */
@@ -187,6 +187,6 @@ fn infer_cpu_gic_id(nirqs: usize) -> u8 {
     (target & 0xff) as u8
 }
 
-fn TARGET_CPU_ALLINT(CPU: u8) -> u32 {
+fn target_cpu_all_int(CPU: u8) -> u32 {
     ((CPU as u32) << 0) | ((CPU as u32) << 8) | ((CPU as u32) << 16) | ((CPU as u32) << 24)
 }

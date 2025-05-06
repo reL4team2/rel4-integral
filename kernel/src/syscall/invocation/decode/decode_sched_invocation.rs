@@ -29,9 +29,9 @@ use crate::{
     syscall::{
         get_syscall_arg,
         invocation::invoke_sched::{
-            invokeSchedContext_Bind, invokeSchedContext_Consumed, invokeSchedContext_Unbind,
-            invokeSchedContext_UnbindObject, invokeSchedContext_YieldTo,
-            invokeSchedControl_ConfigureFlags,
+            invokeSchedContext_UnbindObject, invoke_sched_context_bind,
+            invoke_sched_context_consumed, invoke_sched_context_unbind,
+            invoke_sched_context_yield_to, invoke_sched_control_configure_flags,
         },
     },
 };
@@ -45,10 +45,10 @@ pub fn decode_sched_context_invocation(
     match inv_label {
         MessageLabel::SchedContextConsumed => {
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            invokeSchedContext_Consumed(sc)
+            invoke_sched_context_consumed(sc)
         }
-        MessageLabel::SchedContextBind => decodeSchedContext_Bind(sc),
-        MessageLabel::SchedContextUnbindObject => decodeSchedContext_UnbindObject(sc),
+        MessageLabel::SchedContextBind => decode_sched_context_bind(sc),
+        MessageLabel::SchedContextUnbindObject => decode_sched_context_unbind_object(sc),
         MessageLabel::SchedContextUnbind => {
             if sc.scTcb == unsafe { ksCurThread } {
                 debug!("SchedContext UnbindObject: cannot unbind sc of current thread");
@@ -58,9 +58,9 @@ pub fn decode_sched_context_invocation(
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            invokeSchedContext_Unbind(sc)
+            invoke_sched_context_unbind(sc)
         }
-        MessageLabel::SchedContextYieldTo => decodeSchedContext_YieldTo(sc),
+        MessageLabel::SchedContextYieldTo => decode_sched_context_yield_to(sc),
         _ => {
             debug!("SchedContext invocation: Illegal operation attempted.");
             unsafe {
@@ -161,7 +161,7 @@ pub fn decode_sched_control_invocation(
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            return invokeSchedControl_ConfigureFlags(
+            return invoke_sched_control_configure_flags(
                 convert_to_mut_type_ref::<sched_context_t>(
                     cap::cap_sched_context_cap(&targetCap).get_capSCPtr() as usize,
                 ),
@@ -182,7 +182,7 @@ pub fn decode_sched_control_invocation(
     }
     exception_t::EXCEPTION_NONE
 }
-pub fn decodeSchedContext_UnbindObject(sc: &mut sched_context) -> exception_t {
+pub fn decode_sched_context_unbind_object(sc: &mut sched_context) -> exception_t {
     // TODO: MCS
     if get_extra_cap_by_index(0).is_none() {
         debug!("SchedContext_Unbind: Truncated message.");
@@ -230,7 +230,7 @@ pub fn decodeSchedContext_UnbindObject(sc: &mut sched_context) -> exception_t {
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
     return invokeSchedContext_UnbindObject(sc, capability.clone());
 }
-pub fn decodeSchedContext_Bind(sc: &mut sched_context) -> exception_t {
+pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
     if get_extra_cap_by_index(0).is_none() {
         debug!("SchedContext_Bind: Truncated Message.");
         unsafe {
@@ -268,7 +268,7 @@ pub fn decodeSchedContext_Bind(sc: &mut sched_context) -> exception_t {
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            return invokeSchedContext_Bind(sc, &capability);
+            return invoke_sched_context_bind(sc, &capability);
         }
         cap_Splayed::notification_cap(data) => {
             if sc.scNotification != 0 {
@@ -289,7 +289,7 @@ pub fn decodeSchedContext_Bind(sc: &mut sched_context) -> exception_t {
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-            return invokeSchedContext_Bind(sc, &capability);
+            return invoke_sched_context_bind(sc, &capability);
         }
         _ => {
             debug!("SchedContext_Bind: invalid cap.");
@@ -301,7 +301,7 @@ pub fn decodeSchedContext_Bind(sc: &mut sched_context) -> exception_t {
         }
     }
 }
-pub fn decodeSchedContext_YieldTo(sc: &mut sched_context) -> exception_t {
+pub fn decode_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
     let thread = get_currenct_thread();
 
     if sc.scTcb == 0 {
@@ -341,5 +341,5 @@ pub fn decodeSchedContext_YieldTo(sc: &mut sched_context) -> exception_t {
     }
 
     set_thread_state(thread, ThreadState::ThreadStateRestart);
-    return invokeSchedContext_YieldTo(sc);
+    return invoke_sched_context_yield_to(sc);
 }

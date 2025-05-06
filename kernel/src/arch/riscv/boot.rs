@@ -5,7 +5,7 @@ use crate::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
-    structures::{p_region_t, seL4_SlotRegion, v_region_t},
+    structures::{p_region_t, v_region_t, SlotRegion},
 };
 use log::debug;
 use sel4_common::println;
@@ -105,7 +105,7 @@ pub fn try_init_kernel(
             debug!("ERROR: could not create untypteds for kernel image boot memory");
         }
         unsafe {
-            (*ndks_boot.bi_frame).sharedFrames = seL4_SlotRegion { start: 0, end: 0 };
+            (*ndks_boot.bi_frame).sharedFrames = SlotRegion { start: 0, end: 0 };
 
             bi_finalise(dtb_size, dtb_phys_addr, extra_bi_size);
         }
@@ -113,8 +113,8 @@ pub fn try_init_kernel(
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "ENABLE_SMP")]
         {
+            use crate::ffi::{clh_lock_acquire, clh_lock_init};
             use sel4_common::utils::cpu_id;
-            use crate::ffi::{clh_lock_init, clh_lock_acquire};
             unsafe {
                 clh_lock_init();
                 release_secondary_cores();

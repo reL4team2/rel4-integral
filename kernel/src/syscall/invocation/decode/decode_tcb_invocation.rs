@@ -612,7 +612,7 @@ fn decode_set_sched_params(
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
     }
-    if !validFaultHandler(fh_cap) {
+    if !valid_fault_handler(fh_cap) {
         debug!("TCB Configure: fault endpoint cap invalid.");
         unsafe {
             current_syscall_error._type = seL4_InvalidCapability;
@@ -624,7 +624,7 @@ fn decode_set_sched_params(
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
     let t_cap = cap_thread_cap::new(tcb.get_ptr() as u64).unsplay();
 
-    let status = installTCBCap(tcb, &t_cap, slot, tcbFaultHandler, fh_cap, fh_slot.unwrap());
+    let status = install_tcb_cap(tcb, &t_cap, slot, tcbFaultHandler, fh_cap, fh_slot.unwrap());
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
@@ -765,7 +765,7 @@ fn decode_set_space(
     )
 }
 #[cfg(feature = "KERNEL_MCS")]
-pub fn validFaultHandler(capability: &cap) -> bool {
+pub fn valid_fault_handler(capability: &cap) -> bool {
     use sel4_common::structures_gen::cap_Splayed;
 
     match capability.clone().splay() {
@@ -867,7 +867,7 @@ fn decode_set_space(
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if !validFaultHandler(fh_cap) {
+    if !valid_fault_handler(fh_cap) {
         sel4_common::println!("TCB SetSpace: fault endpoint cap invalid.");
         unsafe {
             current_syscall_error.invalidCapNumber = 1;
@@ -971,7 +971,7 @@ pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t
     }
     let mut thSlot = get_extra_cap_by_index(0).unwrap();
     let thCap = &thSlot.clone().capability;
-    if !validFaultHandler(&thCap) {
+    if !valid_fault_handler(&thCap) {
         debug!("TCB SetTimeoutEndpoint: timeout endpoint cap invalid.");
         unsafe {
             current_syscall_error.invalidCapNumber = 1;
@@ -995,7 +995,11 @@ pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t
 }
 
 #[cfg(feature = "ENABLE_SMP")]
-fn decode_set_affinity(capability: &cap_thread_cap, length: usize, buffer: &seL4_IPCBuffer) -> exception_t {
+fn decode_set_affinity(
+    capability: &cap_thread_cap,
+    length: usize,
+    buffer: &seL4_IPCBuffer,
+) -> exception_t {
     use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 
     if length < 1 {

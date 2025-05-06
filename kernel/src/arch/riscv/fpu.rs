@@ -19,14 +19,14 @@ const SSTATUS_FS_DIRTY: u32 = 0x00006000;
 pub static mut ksActiveFPUState: usize = 0;
 
 #[no_mangle]
-pub static mut ksFPURestoresSinceSwitch: usize = 0;
+pub static mut KS_FPU_RESTORE_SINCE_SWITCH: usize = 0;
 
 // extern "C" {
 //     pub fn saveFpuState(dest: usize);
 //     pub fn loadFpuState(src: usize);
 // }
 // TODO: support smp
-static mut isFPUEnabledCached: bool = false;
+static mut IS_FPU_ENABLE_CACHED: bool = false;
 
 #[cfg(feature = "RISCV_EXT_D")]
 #[inline]
@@ -233,19 +233,19 @@ pub unsafe fn set_fs_off() {
 }
 
 #[inline]
-pub(crate) unsafe fn enableFpu() {
-    isFPUEnabledCached = true;
+pub(crate) unsafe fn enable_fpu() {
+    IS_FPU_ENABLE_CACHED = true;
 }
 
 #[inline]
-pub(crate) unsafe fn disableFpu() {
-    isFPUEnabledCached = false
+pub(crate) unsafe fn disable_fpu() {
+    IS_FPU_ENABLE_CACHED = false
 }
 
 #[inline]
 #[allow(unused)]
-pub unsafe fn isFpuEnable() -> bool {
-    return isFPUEnabledCached;
+pub unsafe fn is_fpu_enable() -> bool {
+    return IS_FPU_ENABLE_CACHED;
 }
 #[inline]
 #[allow(unused)]
@@ -260,18 +260,18 @@ pub unsafe fn set_tcb_fs_state(tcb: &mut tcb_t, enabled: bool) {
 
 #[inline]
 #[no_mangle]
-unsafe fn switchLocalFpuOwner(new_owner: usize) {
+unsafe fn switch_local_fpu_owner(new_owner: usize) {
     unsafe {
-        enableFpu();
+        enable_fpu();
         if ksActiveFPUState != 0 {
             save_fpu_state(ksActiveFPUState);
         }
 
         if new_owner != 0 {
-            ksFPURestoresSinceSwitch = 0;
+            KS_FPU_RESTORE_SINCE_SWITCH = 0;
             load_fpu_state(new_owner as *const FPUState as usize);
         } else {
-            disableFpu();
+            disable_fpu();
         }
         ksActiveFPUState = new_owner;
     }
@@ -279,21 +279,21 @@ unsafe fn switchLocalFpuOwner(new_owner: usize) {
 
 #[inline]
 #[allow(unused)]
-pub(crate) unsafe fn handleFPUFault() {
+pub(crate) unsafe fn handle_fpu_fault() {
     let new_owner = get_currenct_thread().tcbArch.fpu_state_ptr();
-    switchLocalFpuOwner(new_owner as usize);
+    switch_local_fpu_owner(new_owner as usize);
 }
 
 #[inline(always)]
-unsafe fn nativeThreadUsingFPU(thread: &mut tcb_t) -> bool {
+unsafe fn native_thread_using_fpu(thread: &mut tcb_t) -> bool {
     return thread.tcbArch.fpu_state_ptr() as usize == ksActiveFPUState;
 }
 
 #[inline(always)]
-pub fn fpuThreadDelete(thread: &mut tcb_t) {
+pub fn fpu_thread_delete(thread: &mut tcb_t) {
     unsafe {
-        if nativeThreadUsingFPU(thread) {
-            switchLocalFpuOwner(0);
+        if native_thread_using_fpu(thread) {
+            switch_local_fpu_owner(0);
         }
     }
 }
@@ -302,24 +302,24 @@ pub fn init_fpu() {
     unsafe {
         set_fs_clean();
         write_fcsr(0);
-        disableFpu();
+        disable_fpu();
     }
 }
 
 #[inline(always)]
 #[allow(unused)]
-pub unsafe fn lazyFPURestore(thread: &mut tcb_t) {
+pub unsafe fn lazy_fpu_restore(thread: &mut tcb_t) {
     if ksActiveFPUState != 0 {
-        if unlikely(ksFPURestoresSinceSwitch > CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH) {
-            switchLocalFpuOwner(0);
-            ksFPURestoresSinceSwitch = 0
+        if unlikely(KS_FPU_RESTORE_SINCE_SWITCH > CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH) {
+            switch_local_fpu_owner(0);
+            KS_FPU_RESTORE_SINCE_SWITCH = 0
         } else {
-            if likely(nativeThreadUsingFPU(thread)) {
-                enableFpu();
+            if likely(native_thread_using_fpu(thread)) {
+                enable_fpu();
             } else {
-                disableFpu();
+                disable_fpu();
             }
-            ksFPURestoresSinceSwitch += 1;
+            KS_FPU_RESTORE_SINCE_SWITCH += 1;
         }
     }
 }

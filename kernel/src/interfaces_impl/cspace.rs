@@ -1,8 +1,8 @@
 use core::usize;
 
 // use crate::ffi::tcbDebugRemove;
-use crate::arch::fpu::fpuThreadDelete;
-use crate::interrupt::{deletingIRQHandler, isIRQPending, setIRQStateByIndex, IRQState};
+use crate::arch::fpu::fpu_thread_delete;
+use crate::interrupt::{deleting_irq_handler, is_irq_pending, set_irq_state_by_index, IrqState};
 use crate::kernel::boot::current_lookup_fault;
 use crate::syscall::safe_unbind_notification;
 use sel4_common::sel4_config::{
@@ -17,7 +17,7 @@ use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_common::utils::convert_to_option_mut_type_ref;
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::compatibility::{ZombieType_ZombieTCB, Zombie_new};
-use sel4_cspace::interface::finaliseCap_ret;
+use sel4_cspace::interface::FinaliseCapRet;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
 use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
 #[cfg(feature = "KERNEL_MCS")]
@@ -33,8 +33,8 @@ use sel4_vspace::{asid_pool_t, asid_t, delete_asid, delete_asid_pool, unmapPage,
 
 #[cfg(target_arch = "riscv64")]
 #[no_mangle]
-pub fn Arch_finaliseCap(capability: &cap, final_: bool) -> finaliseCap_ret {
-    let mut fc_ret = finaliseCap_ret {
+pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
+    let mut fc_ret = FinaliseCapRet {
         remainder: cap_null_cap::new().unsplay(),
         cleanupInfo: cap_null_cap::new().unsplay(),
     };
@@ -92,10 +92,10 @@ pub fn Arch_finaliseCap(capability: &cap, final_: bool) -> finaliseCap_ret {
 }
 
 #[cfg(target_arch = "aarch64")]
-pub fn Arch_finaliseCap(capability: &cap, final_: bool) -> finaliseCap_ret {
+pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
     use sel4_common::utils::ptr_to_mut;
 
-    let mut fc_ret = finaliseCap_ret {
+    let mut fc_ret = FinaliseCapRet {
         remainder: cap_null_cap::new().unsplay(),
         cleanupInfo: cap_null_cap::new().unsplay(),
     };
@@ -170,8 +170,8 @@ pub fn Arch_finaliseCap(capability: &cap, final_: bool) -> finaliseCap_ret {
 }
 
 #[no_mangle]
-pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCap_ret {
-    let mut fc_ret = finaliseCap_ret {
+pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseCapRet {
+    let mut fc_ret = FinaliseCapRet {
         remainder: cap_null_cap::new().unsplay(),
         cleanupInfo: cap_null_cap::new().unsplay(),
     };
@@ -180,10 +180,10 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
         // For Removing Warnings
         // #[cfg(target_arch = "aarch64")]
         // unsafe {
-        //     return Arch_finaliseCap(cap, _final);
+        //     return arch_finalise_cap(cap, _final);
         // }
         // #[cfg(target_arch = "riscv64")]
-        return Arch_finaliseCap(capability, _final);
+        return arch_finalise_cap(capability, _final);
     }
     match capability.get_tag() {
         cap_tag::cap_endpoint_cap => {
@@ -248,7 +248,7 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
         }
         _ => {
             if _exposed {
-                panic!("finaliseCap: failed to finalise immediately.");
+                panic!("finalise_cap: failed to finalise immediately.");
             }
         }
     }
@@ -292,7 +292,7 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
                 }
                 tcb.cancel_ipc();
                 tcb.suspend();
-                fpuThreadDelete(tcb);
+                fpu_thread_delete(tcb);
                 // #[cfg(feature="DEBUG_BUILD")]
                 // unsafe {
                 //     tcbDebugRemove(tcb as *mut tcb_t);
@@ -339,7 +339,7 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
         cap_tag::cap_irq_handler_cap => {
             if _final {
                 let irq = cap::cap_irq_handler_cap(capability).get_capIRQ() as usize;
-                deletingIRQHandler(irq);
+                deleting_irq_handler(irq);
                 fc_ret.remainder = cap_null_cap::new().unsplay();
                 fc_ret.cleanupInfo = capability.clone();
                 return fc_ret;
@@ -360,13 +360,13 @@ pub fn finaliseCap(capability: &cap, _final: bool, _exposed: bool) -> finaliseCa
 pub fn post_cap_deletion(capability: &cap) {
     if capability.get_tag() == cap_tag::cap_irq_handler_cap {
         let irq = cap::cap_irq_handler_cap(capability).get_capIRQ() as usize;
-        // deletedIRQHandler
-        setIRQStateByIndex(IRQState::IRQInactive, irq);
+        // deleted_irq_handler
+        set_irq_state_by_index(IrqState::IRQInactive, irq);
     }
 }
 
 #[no_mangle]
-pub fn preemptionPoint() -> exception_t {
+pub fn preemption_point() -> exception_t {
     unsafe {
         ksWorkUnitsCompleted += 1;
         if ksWorkUnitsCompleted >= CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION {
@@ -378,13 +378,13 @@ pub fn preemptionPoint() -> exception_t {
                 let sc = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
                 if !(sc.sc_active() && sc.refill_sufficient(ksConsumed))
                     || isCurDomainExpired()
-                    || isIRQPending()
+                    || is_irq_pending()
                 {
                     return exception_t::EXCEPTION_PREEMTED;
                 }
             }
             #[cfg(not(feature = "KERNEL_MCS"))]
-            if isIRQPending() {
+            if is_irq_pending() {
                 return exception_t::EXCEPTION_PREEMTED;
             }
         }

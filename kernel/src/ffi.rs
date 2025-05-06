@@ -1,5 +1,5 @@
-use sel4_task::tcb_t;
 use sel4_common::structures::irq_t;
+use sel4_task::tcb_t;
 
 #[cfg(feature = "ENABLE_SMP")]
 #[link(name = "kernel_all.c")]

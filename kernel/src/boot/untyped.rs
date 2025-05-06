@@ -1,5 +1,5 @@
 use super::{ndks_boot, utils::*};
-use crate::structures::{p_region_t, region_t, seL4_SlotPos, seL4_SlotRegion, seL4_UntypedDesc};
+use crate::structures::{p_region_t, region_t, seL4_SlotPos, SlotRegion, UntypedDesc};
 
 use crate::{BIT, IS_ALIGNED, MASK};
 use log::debug;
@@ -71,7 +71,7 @@ pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: regio
                 );
             }
         }
-        (*ndks_boot.bi_frame).untyped = seL4_SlotRegion {
+        (*ndks_boot.bi_frame).untyped = SlotRegion {
             start: first_untyped_slot,
             end: ndks_boot.slot_pos_cur,
         };
@@ -151,7 +151,7 @@ fn provide_untyped_cap(
     unsafe {
         let i = ndks_boot.slot_pos_cur - first_untyped_slot;
         if i < CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS {
-            (*ndks_boot.bi_frame).untypedList[i] = seL4_UntypedDesc {
+            (*ndks_boot.bi_frame).untypedList[i] = UntypedDesc {
                 paddr: pptr_to_paddr(pptr),
                 sizeBits: size_bits as u8,
                 isDevice: device_memory as u8,

@@ -1,10 +1,9 @@
 use super::calculate_extra_bi_size_bits;
 use super::utils::{arch_get_n_paging, provide_cap, write_slot};
 use super::{ndks_boot, utils::is_reg_empty};
-use crate::interrupt::{setIRQStateByIrq, IRQState};
+use crate::interrupt::{set_irq_state_by_irq, IrqState};
 use crate::structures::{
-    create_frames_of_region_ret_t, region_t, rootserver_mem_t, seL4_BootInfo, seL4_SlotRegion,
-    v_region_t,
+    create_frames_of_region_ret_t, region_t, rootserver_mem_t, v_region_t, BootInfo, SlotRegion,
 };
 use crate::{BIT, ROUND_DOWN};
 use log::debug;
@@ -436,7 +435,7 @@ fn init_sched_control(root_cnode_cap: &cap_cnode_cap, num_nodes: usize) -> bool 
 
     /* update boot info with slot region for sched control caps */
     unsafe {
-        (*ndks_boot.bi_frame).schedcontrol = seL4_SlotRegion {
+        (*ndks_boot.bi_frame).schedcontrol = SlotRegion {
             start: slot_pos_before,
             end: ndks_boot.slot_pos_cur,
         }
@@ -652,23 +651,23 @@ fn create_domain_cap(root_cnode_cap: &cap_cnode_cap) {
 fn init_irqs(root_cnode_cap: &cap_cnode_cap) {
     for i in 0..maxIRQ + 1 {
         if i != irqInvalid {
-            setIRQStateByIrq(IRQState::IRQInactive, i);
+            set_irq_state_by_irq(IrqState::IRQInactive, i);
         }
     }
-    setIRQStateByIrq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
+    set_irq_state_by_irq(IrqState::IRQTimer, KERNEL_TIMER_IRQ);
     #[cfg(all(feature = "ENABLE_SMP", target_arch = "riscv64"))]
     {
         use sel4_common::platform::{INTERRUPT_IPI_0, INTERRUPT_IPI_1};
-        setIRQStateByIrq(IRQState::IRQIPI, INTERRUPT_IPI_0);
-        setIRQStateByIrq(IRQState::IRQIPI, INTERRUPT_IPI_1);
+        set_irq_state_by_irq(IrqState::IRQIPI, INTERRUPT_IPI_0);
+        set_irq_state_by_irq(IrqState::IRQIPI, INTERRUPT_IPI_1);
     }
     #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))]
     {
+        use crate::arch::arm_gic::irq_to_idx;
         use sel4_common::arch::config::{irq_remote_call_ipi, irq_reschedule_ipi};
         use sel4_common::utils::cpu_id;
-        use crate::arch::arm_gic::irq_to_idx;
-        setIRQStateByIrq(IRQState::IRQIPI, irq_remote_call_ipi);
-        setIRQStateByIrq(IRQState::IRQIPI, irq_reschedule_ipi);
+        set_irq_state_by_irq(IrqState::IRQIPI, irq_remote_call_ipi);
+        set_irq_state_by_irq(IrqState::IRQIPI, irq_reschedule_ipi);
     }
 
     unsafe {
@@ -713,7 +712,7 @@ unsafe fn rust_create_it_address_space(
         i += 1;
     }
     let slot_pos_after = ndks_boot.slot_pos_cur;
-    (*ndks_boot.bi_frame).userImagePaging = seL4_SlotRegion {
+    (*ndks_boot.bi_frame).userImagePaging = SlotRegion {
         start: slot_pos_before,
         end: slot_pos_after,
     };
@@ -776,7 +775,7 @@ unsafe fn rust_create_it_address_space(
     }
 
     let slot_pos_after = ndks_boot.slot_pos_cur;
-    (*ndks_boot.bi_frame).userImagePaging = seL4_SlotRegion {
+    (*ndks_boot.bi_frame).userImagePaging = SlotRegion {
         start: slot_pos_before,
         end: slot_pos_after,
     };
@@ -883,7 +882,7 @@ fn rust_create_frames_of_region(
 
         if !provide_cap(root_cnode_cap, frame_cap.unsplay()) {
             return create_frames_of_region_ret_t {
-                region: seL4_SlotRegion { start: 0, end: 0 },
+                region: SlotRegion { start: 0, end: 0 },
                 success: false,
             };
         }
@@ -892,7 +891,7 @@ fn rust_create_frames_of_region(
     unsafe {
         let slot_pos_after = ndks_boot.slot_pos_cur;
         return create_frames_of_region_ret_t {
-            region: seL4_SlotRegion {
+            region: SlotRegion {
                 start: slot_pos_before,
                 end: slot_pos_after,
             },
@@ -927,7 +926,7 @@ fn rust_create_frames_of_region(
 
         if !provide_cap(root_cnode_cap, frame_cap.unsplay()) {
             return create_frames_of_region_ret_t {
-                region: seL4_SlotRegion { start: 0, end: 0 },
+                region: SlotRegion { start: 0, end: 0 },
                 success: false,
             };
         }
@@ -936,7 +935,7 @@ fn rust_create_frames_of_region(
     unsafe {
         let slot_pos_after = ndks_boot.slot_pos_cur;
         return create_frames_of_region_ret_t {
-            region: seL4_SlotRegion {
+            region: SlotRegion {
                 start: slot_pos_before,
                 end: slot_pos_after,
             },
@@ -981,7 +980,7 @@ unsafe fn rust_populate_bi_frame(
             calculate_extra_bi_size_bits(extra_bi_size),
         );
     }
-    let bi = &mut *(rootserver.boot_info as *mut seL4_BootInfo);
+    let bi = &mut *(rootserver.boot_info as *mut BootInfo);
     bi.nodeID = node_id;
     bi.numNodes = num_nodes;
     bi.numIOPTLevels = 0;
@@ -990,7 +989,7 @@ unsafe fn rust_populate_bi_frame(
     bi.initThreadDomain = ksDomSchedule[ksDomScheduleIdx].domain;
     bi.extraLen = extra_bi_size;
 
-    ndks_boot.bi_frame = bi as *mut seL4_BootInfo;
+    ndks_boot.bi_frame = bi as *mut BootInfo;
     ndks_boot.slot_pos_cur = seL4_NumInitialCaps;
 }
 #[cfg(target_arch = "aarch64")]

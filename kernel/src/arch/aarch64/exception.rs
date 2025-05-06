@@ -4,7 +4,7 @@ use core::intrinsics::likely;
 #[cfg(feature = "BUILD_BINARY")]
 use crate::arch::aarch64::c_traps::entry_hook;
 use crate::arch::aarch64::consts::*;
-use crate::compatibility::lookupIPCBuffer;
+use crate::compatibility::lookup_ipc_buffer;
 use crate::halt;
 use crate::object::lookupCapAndSlot;
 use crate::strnlen;
@@ -37,7 +37,7 @@ use super::instruction::*;
 use super::restore_user_context;
 
 #[no_mangle]
-pub fn handleUnknownSyscall(w: isize) -> exception_t {
+pub fn handle_unknown_syscall(w: isize) -> exception_t {
     let thread = get_currenct_thread();
     if w == SysDebugPutChar {
         print!("{}", thread.tcbArch.get_register(Cap) as u8 as char);
@@ -76,7 +76,7 @@ pub fn handleUnknownSyscall(w: isize) -> exception_t {
             debug!("SysDebugNameThread: cap is not a TCB, halting");
             halt();
         }
-        let name = lookupIPCBuffer(true, thread) + 1;
+        let name = lookup_ipc_buffer(true, thread) + 1;
         if name == 0 {
             debug!("SysDebugNameThread: Failed to lookup IPC buffer, halting");
             halt();

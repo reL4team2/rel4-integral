@@ -41,7 +41,7 @@ pub mod structures_gen {
 ///
 /// // call with arguments
 /// // Format is fname(arg_name:type => value) -> ret_type
-/// ffi_call!(handleUnknownSyscall, a1:usize => 1);
+/// ffi_call!(handle_unknown_syscall, a1:usize => 1);
 ///
 /// ffi_call!(some_function);
 ///

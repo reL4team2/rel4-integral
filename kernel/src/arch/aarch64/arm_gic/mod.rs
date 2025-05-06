@@ -15,7 +15,7 @@ cfg_if::cfg_if! {
                 _ => (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + irq.irq,
             }
         }
-        
+
         const LOCAL_PPI_MINUS_ONE: usize = CONFIG_MAX_NUM_NODES * NUM_PPI;
         #[inline]
         pub(crate) fn idx_to_irq(idx: usize) -> usize {

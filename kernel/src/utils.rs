@@ -1,8 +1,8 @@
 #[cfg(target_arch = "aarch64")]
 use sel4_common::{
     sel4_config::{ID_AA64PFR0_EL1_ASIMD, ID_AA64PFR0_EL1_FP},
+    utils::ptr_to_usize_add,
     MASK,
-	utils::ptr_to_usize_add,
 };
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{dsb, isb};
@@ -34,7 +34,7 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
         core::slice::from_raw_parts_mut(ptr, BIT!(bits)).fill(0);
         clean_cache_range_ram(
             ptr as usize,
-			ptr_to_usize_add(ptr,BIT!(bits) - 1),
+            ptr_to_usize_add(ptr, BIT!(bits) - 1),
             pptr_to_paddr(ptr as usize),
         );
     }
@@ -64,7 +64,7 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
 
 #[inline]
 #[cfg(target_arch = "aarch64")]
-pub fn setVTable(addr: usize) {
+pub fn set_vtable(addr: usize) {
     dsb();
     unsafe {
         core::arch::asm!("MSR vbar_el1, {0}", in(reg) addr);
@@ -74,7 +74,7 @@ pub fn setVTable(addr: usize) {
 
 #[inline]
 #[cfg(target_arch = "aarch64")]
-pub fn fpsimd_HWCapTest() -> bool {
+pub fn fpsime_hw_cap_test() -> bool {
     let mut id_aa64pfr0: usize;
 
     // 读取系统寄存器

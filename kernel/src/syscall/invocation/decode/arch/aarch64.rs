@@ -85,7 +85,7 @@ fn decode_page_table_invocation(
                 current_syscall_error.type = seL4_RevokeFirst;
                 return EXCEPTION_SYSCALL_ERROR;
             }
-            setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
+            set_thread_state(NODE_STATE(ksCurThread), ThreadState_Restart);
             return performPageTableInvocationUnmap(cap, cte);
         }
     */
@@ -875,7 +875,7 @@ fn decode_vspace_flush_invocation(
 //                 current_syscall_error.type = seL4_RevokeFirst;
 //                 return EXCEPTION_SYSCALL_ERROR;
 //             }
-//             setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
+//             set_thread_state(NODE_STATE(ksCurThread), ThreadState_Restart);
 //             return performUpperPageDirectoryInvocationUnmap(cap, cte);
 //         }
 //     */
@@ -971,7 +971,7 @@ fn decode_vspace_flush_invocation(
 //                 current_syscall_error.type = seL4_RevokeFirst;
 //                 return EXCEPTION_SYSCALL_ERROR;
 //             }
-//             setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
+//             set_thread_state(NODE_STATE(ksCurThread), ThreadState_Restart);
 //             return performPageDirectoryInvocationUnmap(cap, cte);
 //         }
 //     */
@@ -1126,7 +1126,7 @@ pub fn arch_decode_irq_control_invocation(
     }
 }
 #[cfg(feature = "ENABLE_SMC")]
-pub fn decode_ARM_SMC_invocation(
+pub fn decode_arm_smc_invocation(
     label: MessageLabel,
     length: usize,
     capability: &cap_smc_cap,
@@ -1158,10 +1158,10 @@ pub fn decode_ARM_SMC_invocation(
     }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
 
-    invokeSMCCall(buffer, call)
+    invoke_smc_call(buffer, call)
 }
 #[cfg(feature = "ENABLE_SMC")]
-fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
+fn invoke_smc_call(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     use core::arch::asm;
 
     let thread = get_currenct_thread();

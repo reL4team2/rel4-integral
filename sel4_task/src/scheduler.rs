@@ -6,18 +6,20 @@
 //!
 #[cfg(feature = "ENABLE_SMP")]
 use crate::deps::doMaskReschedule;
-#[cfg(feature = "ENABLE_SMP")]
-use sel4_common::ffi::kernel_stack_alloc;
 use core::arch::asm;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
+#[cfg(feature = "ENABLE_SMP")]
+use sel4_common::ffi::kernel_stack_alloc;
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::sel4_config::{seL4_TCBBits, CONFIG_MAX_NUM_NODES};
 use sel4_common::sel4_config::{
     wordBits, wordRadix, CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE,
     L2_BITMAP_SIZE, NUM_READY_QUEUES, TCB_OFFSET,
 };
-use sel4_common::utils::{convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe,ptr_to_usize_add, cpu_id};
+use sel4_common::utils::{
+    convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe, cpu_id, ptr_to_usize_add,
+};
 use sel4_common::{BIT, MASK};
 
 use crate::deps::ksIdleThreadTCB;
@@ -903,7 +905,7 @@ pub fn activateThread() {
             // setNextPC(thread, pc);
             // sel4_common::println!("restart pc is {:x}",pc);
             thread.tcbArch.set_register(ArchReg::NextIP, pc);
-            // setThreadState(thread, ThreadStateRunning);
+            // set_thread_state(thread, ThreadStateRunning);
             set_thread_state(thread, ThreadState::ThreadStateRunning);
         }
         // 诡异的语法...
@@ -924,7 +926,6 @@ pub fn configure_sched_context(tcb: &mut tcb_t, sc_pptr: &mut sched_context_t, t
 #[cfg(not(feature = "ENABLE_SMP"))]
 /// Create the idle thread.
 pub fn create_idle_thread() {
-
     unsafe {
         let pptr = &mut ksIdleThreadTCB.data[0][0] as *mut u8 as *mut usize;
         // let pptr = ksIdleThreadTCB as usize as *mut usize;
@@ -954,7 +955,7 @@ pub fn create_idle_thread() {
     unsafe {
         for i in 0..CONFIG_MAX_NUM_NODES {
             // debug!("ksIdleThread: {:#x}", ksSMP[i].ksIdleThread);
-            let pptr =  &mut ksIdleThreadTCB.data[i] as *mut u8 as *mut usize;
+            let pptr = &mut ksIdleThreadTCB.data[i] as *mut u8 as *mut usize;
             ksSMP[i].ksIdleThread = ptr_to_usize_add(pptr, TCB_OFFSET);
             let tcb = convert_to_mut_type_ref::<tcb_t>(ksSMP[i].ksIdleThread);
             tcb.tcbArch.config_idle_thread(idle_thread as usize, i);

@@ -25,7 +25,7 @@ use sel4_common::ffi::current_fault;
 
 #[no_mangle]
 #[cfg(not(feature = "KERNEL_MCS"))]
-pub fn handleInvocation(isCall: bool, isBlocking: bool) -> exception_t {
+pub fn handle_invocation(isCall: bool, isBlocking: bool) -> exception_t {
     let thread = get_currenct_thread();
     let info = seL4_MessageInfo::from_word_security(thread.tcbArch.get_register(ArchReg::MsgInfo));
     let cptr = thread.tcbArch.get_register(ArchReg::Cap);
@@ -89,7 +89,7 @@ pub fn handleInvocation(isCall: bool, isBlocking: bool) -> exception_t {
 #[no_mangle]
 #[cfg(feature = "KERNEL_MCS")]
 // TODO: MCS
-pub fn handleInvocation(
+pub fn handle_invocation(
     isCall: bool,
     isBlocking: bool,
     canDonate: bool,

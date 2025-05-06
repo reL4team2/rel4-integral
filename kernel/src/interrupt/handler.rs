@@ -14,16 +14,16 @@ use sel4_task::ksReprogram;
 use sel4_task::{checkBudget, updateTimestamp};
 
 #[no_mangle]
-pub fn handleInterruptEntry() -> exception_t {
+pub fn handle_interrupt_entry() -> exception_t {
     #[cfg(feature = "KERNEL_MCS")]
     {
         updateTimestamp();
         checkBudget();
     }
-    let irq = getActiveIRQ();
+    let irq = get_active_irq();
 
     if irq != irqInvalid {
-        handleInterrupt(irq);
+        handle_interrput(irq);
     }
 
     schedule();
@@ -32,23 +32,23 @@ pub fn handleInterruptEntry() -> exception_t {
 }
 
 #[no_mangle]
-pub fn handleInterrupt(irq: usize) {
+pub fn handle_interrput(irq: usize) {
     if unlikely(irq > maxIRQ) {
         debug!(
             "Received IRQ {}, which is above the platforms maxIRQ of {}\n",
             irq, maxIRQ
         );
         mask_interrupt(true, irq);
-        ackInterrupt(irq);
+        ack_interrupt(irq);
         return;
     }
     match get_irq_state(irq) {
-        IRQState::IRQInactive => {
+        IrqState::IRQInactive => {
             debug!("IRQInactive");
             mask_interrupt(true, irq);
             debug!("Received disabled IRQ: {}\n", irq);
         }
-        IRQState::IRQSignal => {
+        IrqState::IRQSignal => {
             debug!("IRQSignal");
             let handler_slot = get_irq_handler_slot(irq);
             let handler_cap = &handler_slot.capability;
@@ -65,7 +65,7 @@ pub fn handleInterrupt(irq: usize) {
                 mask_interrupt(true, irq);
             }
         }
-        IRQState::IRQTimer => {
+        IrqState::IRQTimer => {
             #[cfg(feature = "KERNEL_MCS")]
             {
                 timer.ackDeadlineIRQ();
@@ -75,16 +75,26 @@ pub fn handleInterrupt(irq: usize) {
             timer.resetTimer();
         }
         #[cfg(feature = "ENABLE_SMP")]
-        IRQState::IRQIPI => {
+        IrqState::IRQIPI => {
             use sel4_common::structures::irq_t;
             #[cfg(target_arch = "aarch64")]
-            unsafe { crate::ffi::handleIPI(irq_t {core: sel4_common::utils::cpu_id(), irq}, true) };
+            unsafe {
+                crate::ffi::handleIPI(
+                    irq_t {
+                        core: sel4_common::utils::cpu_id(),
+                        irq,
+                    },
+                    true,
+                )
+            };
             #[cfg(target_arch = "riscv64")]
-            unsafe { crate::ffi::handleIPI(irq as irq_t, true) };
+            unsafe {
+                crate::ffi::handleIPI(irq as irq_t, true)
+            };
         }
-        IRQState::IRQReserved => {
+        IrqState::IRQReserved => {
             debug!("Received unhandled reserved IRQ: {}\n", irq);
         }
     }
-    ackInterrupt(irq);
+    ack_interrupt(irq);
 }

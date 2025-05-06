@@ -8,7 +8,6 @@ use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     msgRegisterNum, n_exceptionMessage, n_syscallMessage, vm_rights_t, ArchReg, ArchTCB,
 };
-use sel4_common::{fault::*, println};
 use sel4_common::ffi::current_fault;
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::sel4_config::*;
@@ -24,6 +23,7 @@ use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
 #[cfg(feature = "ENABLE_SMP")]
 use sel4_common::BIT;
 use sel4_common::MASK;
+use sel4_common::{fault::*, println};
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::{platform::time_def::ticks_t, utils::convert_to_option_mut_type_ref};
 #[cfg(not(feature = "KERNEL_MCS"))]
@@ -262,7 +262,7 @@ impl tcb_t {
 
     /// Enqueue the TCB to the scheduling queue
     pub fn sched_enqueue(&mut self) {
-        // let thread = self as *mut tcb_t as usize; 
+        // let thread = self as *mut tcb_t as usize;
         // sel4_common::println!("{}: sched_enqueue: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
         #[cfg(feature = "KERNEL_MCS")]
         {
@@ -335,7 +335,7 @@ impl tcb_t {
 
     /// Dequeue the TCB from the scheduling queue
     pub fn sched_dequeue(&mut self) {
-        // let thread = self as *mut tcb_t as usize; 
+        // let thread = self as *mut tcb_t as usize;
         // sel4_common::println!("{}: sched_dequeue: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
         if self.tcbState.get_tcbQueued() != 0 {
             let dom = self.domain;
@@ -361,7 +361,7 @@ impl tcb_t {
     /// # Note
     /// This function is as same as `sched_enqueue`, but it is used for the EP queue
     pub fn sched_append(&mut self) {
-        // let thread = self as *mut tcb_t as usize; 
+        // let thread = self as *mut tcb_t as usize;
         // sel4_common::println!("{}: sched_append: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
         #[cfg(feature = "KERNEL_MCS")]
         {
@@ -489,7 +489,7 @@ impl tcb_t {
                 self.tcbArch.get_register(ArchReg::FaultIP),
             );
         }
-        // setThreadState(self as *mut Self, ThreadStateInactive);
+        // set_thread_state(self as *mut Self, ThreadStateInactive);
         // println!("tcb suspend: {:#x}", self.get_ptr());
         set_thread_state(self, ThreadState::ThreadStateInactive);
         self.sched_dequeue();
@@ -506,7 +506,7 @@ impl tcb_t {
     //     {
     //         cancelIPC(target);
     // #ifdef CONFIG_KERNEL_MCS
-    //         setThreadState(target, ThreadState_Restart);
+    //         set_thread_state(target, ThreadState_Restart);
     //         if (sc_sporadic(target->tcbSchedContext) && target->tcbSchedContext != NODE_STATE(ksCurSC))
     //         {
     //             refill_unblock_check(target->tcbSchedContext);
@@ -518,7 +518,7 @@ impl tcb_t {
     //         }
     // #else
     //         setupReplyMaster(target);
-    //         setThreadState(target, ThreadState_Restart);
+    //         set_thread_state(target, ThreadState_Restart);
     //         SCHED_ENQUEUE(target);
     //         possibleSwitchTo(target);
     // #endif
@@ -546,7 +546,7 @@ impl tcb_t {
             #[cfg(not(feature = "KERNEL_MCS"))]
             {
                 self.setup_reply_master();
-                // setThreadState(self as *mut Self, ThreadStateRestart);
+                // set_thread_state(self as *mut Self, ThreadStateRestart);
                 set_thread_state(self, ThreadState::ThreadStateRestart);
                 self.sched_enqueue();
                 possible_switch_to(self);

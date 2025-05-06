@@ -136,8 +136,8 @@ pub fn ptr_to_mut<T>(ptr: *mut T) -> &'static mut T {
 
 /// this is used for a ptr is seem as a usize and add an offset
 #[inline]
-pub fn ptr_to_usize_add<T>(ptr: *mut T,offset:usize) -> usize {
-	unsafe{ (ptr as usize + offset) }
+pub fn ptr_to_usize_add<T>(ptr: *mut T, offset: usize) -> usize {
+    unsafe { ptr as usize + offset }
 }
 
 #[inline]

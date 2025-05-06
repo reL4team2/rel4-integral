@@ -3,13 +3,14 @@ mod c_traps;
 mod exception;
 mod platform;
 
+#[cfg(feature = "HAVE_FPU")]
 pub mod fpu;
 pub use boot::try_init_kernel;
-pub use c_traps::{restore_user_context, fastpath_restore};
+pub use c_traps::{fastpath_restore, restore_user_context};
 use core::arch::asm;
 pub use platform::{init_cpu, init_freemem};
 
-pub use exception::handleUnknownSyscall;
+pub use exception::handle_unknown_syscall;
 
 #[cfg(feature = "ENABLE_SMP")]
 pub use boot::try_init_kernel_secondary_core;

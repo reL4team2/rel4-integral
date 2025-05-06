@@ -166,7 +166,7 @@ pub fn invoke_cnode_move(src_slot: &mut cte_t, dest_slot: &mut cte_t) -> excepti
 #[inline]
 pub fn invoke_cnode_cancel_badged_sends(dest_slot: &mut cte_t) -> exception_t {
     let dest_cap = &dest_slot.capability;
-    if !hasCancelSendRight(&dest_cap) {
+    if !has_cancel_send_right(&dest_cap) {
         debug!("CNode CancelBadgedSends: Target cap invalid.");
         unsafe {
             current_syscall_error._type = seL4_IllegalOperation;
@@ -196,7 +196,7 @@ pub fn invoke_cnode_delete(dest_slot: &mut cte_t) -> exception_t {
     dest_slot.delete_all(true)
 }
 
-fn hasCancelSendRight(capability: &cap) -> bool {
+fn has_cancel_send_right(capability: &cap) -> bool {
     match capability.get_tag() {
         cap_tag::cap_endpoint_cap => {
             cap::cap_endpoint_cap(capability).get_capCanSend() != 0

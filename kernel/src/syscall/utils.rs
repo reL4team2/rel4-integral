@@ -49,20 +49,20 @@ pub fn OFFSET_TO_FREE_IDNEX(offset: usize) -> usize {
     offset >> seL4_MinUntypedBits
 }
 
-#[inline]
-#[no_mangle]
-pub fn getSyscallArg(i: usize, ipc_buffer: *const usize) -> usize {
-    unsafe {
-        return if i < msgRegisterNum {
-            // return getRegister(get_currenct_thread() as *const tcb_t, msgRegister[i]);
-            get_currenct_thread().tcbArch.get_register(ArchReg::Msg(i))
-        } else {
-            assert_ne!(ipc_buffer as usize, 0);
-            let ptr = ipc_buffer.add(i + 1);
-            *ptr
-        };
-    }
-}
+// #[inline]
+// #[no_mangle]
+// pub fn getSyscallArg(i: usize, ipc_buffer: *const usize) -> usize {
+//     unsafe {
+//         return if i < msgRegisterNum {
+//             // return getRegister(get_currenct_thread() as *const tcb_t, msgRegister[i]);
+//             get_currenct_thread().tcbArch.get_register(ArchReg::Msg(i))
+//         } else {
+//             assert_ne!(ipc_buffer as usize, 0);
+//             let ptr = ipc_buffer.add(i + 1);
+//             *ptr
+//         };
+//     }
+// }
 
 #[inline]
 pub fn lookup_extra_caps_with_buf(thread: &mut tcb_t, buf: Option<&seL4_IPCBuffer>) -> exception_t {

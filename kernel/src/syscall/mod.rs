@@ -2,7 +2,7 @@ pub mod invocation;
 pub mod syscall_reply;
 pub mod utils;
 
-use super::arch::handleUnknownSyscall;
+use super::arch::handle_unknown_syscall;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
 // use sel4_common::ffi_call;
@@ -83,29 +83,29 @@ use sel4_task::{chargeBudget, get_current_sc, ksConsumed, mcs_preemption_point};
 pub use utils::*;
 
 use crate::arch::restore_user_context;
-use crate::interrupt::getActiveIRQ;
-use crate::interrupt::handler::handleInterrupt;
+use crate::interrupt::get_active_irq;
+use crate::interrupt::handler::handle_interrput;
 use crate::kernel::boot::current_lookup_fault;
 use sel4_common::ffi::current_fault;
 use sel4_common::platform::irqInvalid;
 
-use self::invocation::handleInvocation;
+use self::invocation::handle_invocation;
 
 #[no_mangle]
-pub fn slowpath(syscall: usize) {
+pub fn slow_path(syscall: usize) {
     if (syscall as isize) < SYSCALL_MIN || (syscall as isize) > SYSCALL_MAX {
         // using ffi_call! macro to call c function
-        handleUnknownSyscall(syscall as isize);
-        // ffi_call!(handleUnknownSyscall(id: usize => syscall));
+        handle_unknown_syscall(syscall as isize);
+        // ffi_call!(handle_unknown_syscall(id: usize => syscall));
     } else {
-        handleSyscall(syscall);
+        handlesyscall(syscall);
     }
     restore_user_context();
 }
 
 #[no_mangle]
 #[cfg(not(feature = "KERNEL_MCS"))]
-pub fn handleSyscall(_syscall: usize) -> exception_t {
+pub fn handlesyscall(_syscall: usize) -> exception_t {
     let syscall: isize = _syscall as isize;
     // if hart_id() == 0 {
     //     debug!("handle syscall: {}", syscall);
@@ -113,29 +113,29 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
     // sel4_common::println!("handle syscall {}", syscall);
     match syscall {
         SysSend => {
-            let ret = handleInvocation(false, true);
+            let ret = handle_invocation(false, true);
             if unlikely(ret != exception_t::EXCEPTION_NONE) {
-                let irq = getActiveIRQ();
+                let irq = get_active_irq();
                 if irq != irqInvalid {
-                    handleInterrupt(irq);
+                    handle_interrput(irq);
                 }
             }
         }
         SysNBSend => {
-            let ret = handleInvocation(false, false);
+            let ret = handle_invocation(false, false);
             if unlikely(ret != exception_t::EXCEPTION_NONE) {
-                let irq = getActiveIRQ();
+                let irq = get_active_irq();
                 if irq != irqInvalid {
-                    handleInterrupt(irq);
+                    handle_interrput(irq);
                 }
             }
         }
         SysCall => {
-            let ret = handleInvocation(true, true);
+            let ret = handle_invocation(true, true);
             if unlikely(ret != exception_t::EXCEPTION_NONE) {
-                let irq = getActiveIRQ();
+                let irq = get_active_irq();
                 if irq != irqInvalid {
-                    handleInterrupt(irq);
+                    handle_interrput(irq);
                 }
             }
         }
@@ -157,7 +157,7 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
 }
 #[no_mangle]
 #[cfg(feature = "KERNEL_MCS")]
-pub fn handleSyscall(_syscall: usize) -> exception_t {
+pub fn handlesyscall(_syscall: usize) -> exception_t {
     use core::intrinsics::likely;
 
     use sel4_task::{checkBudgetRestart, updateTimestamp};
@@ -171,7 +171,7 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
     if likely(checkBudgetRestart()) {
         match syscall {
             SysSend => {
-                let ret = handleInvocation(
+                let ret = handle_invocation(
                     false,
                     true,
                     false,
@@ -180,14 +180,14 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
                 );
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
-                    let irq = getActiveIRQ();
+                    let irq = get_active_irq();
                     if irq != irqInvalid {
-                        handleInterrupt(irq);
+                        handle_interrput(irq);
                     }
                 }
             }
             SysNBSend => {
-                let ret = handleInvocation(
+                let ret = handle_invocation(
                     false,
                     false,
                     false,
@@ -196,14 +196,14 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
                 );
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
-                    let irq = getActiveIRQ();
+                    let irq = get_active_irq();
                     if irq != irqInvalid {
-                        handleInterrupt(irq);
+                        handle_interrput(irq);
                     }
                 }
             }
             SysCall => {
-                let ret = handleInvocation(
+                let ret = handle_invocation(
                     true,
                     true,
                     true,
@@ -212,9 +212,9 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
                 );
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
-                    let irq = getActiveIRQ();
+                    let irq = get_active_irq();
                     if irq != irqInvalid {
-                        handleInterrupt(irq);
+                        handle_interrput(irq);
                     }
                 }
             }
@@ -229,19 +229,19 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
             }
             SysReplyRecv => {
                 let reply = get_currenct_thread().tcbArch.get_register(Reply);
-                let ret = handleInvocation(false, false, true, true, reply);
+                let ret = handle_invocation(false, false, true, true, reply);
                 assert!(ret == exception_t::EXCEPTION_NONE);
                 handle_recv(true, true);
             }
             SysNBSendRecv => {
                 // TODO: MCS
                 let dest = get_currenct_thread().tcbArch.get_register(nbsRecvDest);
-                let ret = handleInvocation(false, false, true, true, dest);
+                let ret = handle_invocation(false, false, true, true, dest);
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
-                    let irq = getActiveIRQ();
+                    let irq = get_active_irq();
                     if irq != irqInvalid {
-                        handleInterrupt(irq);
+                        handle_interrput(irq);
                     }
                 } else {
                     handle_recv(true, true);
@@ -249,12 +249,12 @@ pub fn handleSyscall(_syscall: usize) -> exception_t {
             }
             SysNBSendWait => {
                 let reply = get_currenct_thread().tcbArch.get_register(Reply);
-                let ret = handleInvocation(false, false, true, true, reply);
+                let ret = handle_invocation(false, false, true, true, reply);
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
-                    let irq = getActiveIRQ();
+                    let irq = get_active_irq();
                     if irq != irqInvalid {
-                        handleInterrupt(irq);
+                        handle_interrput(irq);
                     }
                 } else {
                     handle_recv(true, false);
@@ -390,7 +390,7 @@ pub fn endTimeslice(can_timeout_fault: bool) {
 }
 #[cfg(feature = "KERNEL_MCS")]
 #[inline]
-pub fn lookupReply() -> lookupCap_ret_t {
+pub fn lookup_reply() -> lookupCap_ret_t {
     use log::debug;
 
     use crate::object::lookup_cap;
@@ -456,7 +456,7 @@ fn handle_recv(block: bool, canReply: bool) {
             }
             // TODO: MCS
             if canReply {
-                let lu_ret = lookupReply();
+                let lu_ret = lookup_reply();
                 if lu_ret.status != exception_t::EXCEPTION_NONE {
                     return;
                 } else {
@@ -567,7 +567,7 @@ fn handle_yield() {
     #[cfg(not(feature = "KERNEL_MCS"))]
     {
         // let thread = get_currenct_thread();
-        // let thread_ptr = thread as *mut tcb_t as usize; 
+        // let thread_ptr = thread as *mut tcb_t as usize;
         // sel4_common::println!("{}: handle_yield: {:#x}, tcb queued: {}, state: {:?}", thread.get_cpu(), thread_ptr, thread.tcbState.get_tcbQueued(), thread.get_state());
         get_currenct_thread().sched_dequeue();
         #[cfg(feature = "ENABLE_SMP")]
@@ -576,7 +576,7 @@ fn handle_yield() {
         }
         #[cfg(not(feature = "ENABLE_SMP"))]
         get_currenct_thread().sched_append();
-        
+
         rescheduleRequired();
     }
 }

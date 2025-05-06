@@ -5,7 +5,7 @@ use sel4_common::{sel4_config::PAGE_BITS, BIT};
 use sel4_task::{create_idle_thread, tcb_t, SchedulerAction_ResumeCurrentThread};
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 
-use crate::arch::aarch64::platform::{cleanInvalidateL1Caches, init_cpu, invalidateLocalTLB};
+use crate::arch::aarch64::platform::{clean_invalidate_l1_caches, init_cpu, invalidate_local_tlb};
 
 use crate::{
     arch::init_freemem,
@@ -13,13 +13,13 @@ use crate::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
-    structures::{p_region_t, seL4_SlotRegion, v_region_t},
+    structures::{p_region_t, v_region_t, SlotRegion},
 };
 
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 
-use super::platform::initIRQController;
-use crate::interrupt::{intStateIRQNodeToR, setIRQStateByIrq, mask_interrupt, IRQState};
+use super::platform::init_irq_controller;
+use crate::interrupt::{intStateIRQNodeToR, mask_interrupt, set_irq_state_by_irq, IrqState};
 
 #[cfg(feature = "ENABLE_SMP")]
 use core::arch::asm;
@@ -116,23 +116,23 @@ pub fn try_init_kernel(
         v_entry,
     ) {
         create_idle_thread();
-        cleanInvalidateL1Caches();
+        clean_invalidate_l1_caches();
         init_core_state(initial_thread);
         if !create_untypeds(&root_cnode_cap, boot_mem_reuse_reg) {
             debug!("ERROR: could not create untypteds for kernel image boot memory");
         }
         unsafe {
-            (*ndks_boot.bi_frame).sharedFrames = seL4_SlotRegion { start: 0, end: 0 };
+            (*ndks_boot.bi_frame).sharedFrames = SlotRegion { start: 0, end: 0 };
 
             bi_finalise(dtb_size, dtb_phys_addr, extra_bi_size);
         }
-        cleanInvalidateL1Caches();
-        invalidateLocalTLB();
+        clean_invalidate_l1_caches();
+        invalidate_local_tlb();
         // debug!("release_secondary_cores start");
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "ENABLE_SMP")]
         {
-            use crate::ffi::{clh_lock_init, clh_lock_acquire};
+            use crate::ffi::{clh_lock_acquire, clh_lock_init};
             use sel4_common::utils::cpu_id;
             unsafe {
                 clh_lock_init();
@@ -163,9 +163,9 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     for i in 0..sel4_common::platform::NUM_PPI {
         mask_interrupt(true, i);
     }
-    setIRQStateByIrq(IRQState::IRQIPI, irq_remote_call_ipi);
-    setIRQStateByIrq(IRQState::IRQIPI, irq_reschedule_ipi);
-    setIRQStateByIrq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
+    set_irq_state_by_irq(IrqState::IRQIPI, irq_remote_call_ipi);
+    set_irq_state_by_irq(IrqState::IRQIPI, irq_reschedule_ipi);
+    set_irq_state_by_irq(IrqState::IRQTimer, KERNEL_TIMER_IRQ);
 
     unsafe { clh_lock_acquire(cpu_id(), false) };
     ksNumCPUs.lock().add_assign(1);
@@ -182,5 +182,5 @@ pub(crate) fn release_secondary_cpus() {
 }
 
 fn init_plat() {
-    initIRQController()
+    init_irq_controller()
 }

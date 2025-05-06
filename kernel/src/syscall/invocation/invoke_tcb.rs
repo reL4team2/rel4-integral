@@ -206,7 +206,7 @@ pub fn invoke_tcb_set_space(
 }
 #[cfg(feature = "KERNEL_MCS")]
 #[no_mangle]
-pub fn installTCBCap(
+pub fn install_tcb_cap(
     target: &mut tcb_t,
     tCap: &cap,
     slot: &mut cte_t,
@@ -245,7 +245,7 @@ pub fn invoke_tcb_thread_control_caps(
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
     if updateFlags & thread_control_caps_update_fault != 0 {
         if let Some(fh_slot) = fh_srcSlot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
@@ -260,7 +260,7 @@ pub fn invoke_tcb_thread_control_caps(
     }
     if updateFlags & thread_control_caps_update_timeout != 0 {
         if let Some(th_slot) = th_srcSlot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
@@ -275,7 +275,7 @@ pub fn invoke_tcb_thread_control_caps(
     }
     if updateFlags & thread_control_caps_update_space != 0 {
         if let Some(croot_slot) = croot_src_slot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
@@ -288,7 +288,7 @@ pub fn invoke_tcb_thread_control_caps(
             }
         }
         if let Some(vroot_slot) = vroot_src_slot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,

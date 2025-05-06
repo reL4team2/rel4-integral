@@ -41,9 +41,9 @@ impl ArchTCB {
     pub fn config_idle_thread(&mut self, idle_thread: usize, core: usize) {
         self.registers[NextIP] = idle_thread;
         self.registers[SSTATUS] = SSTATUS_SPP | SSTATUS_SPIE;
-        self.registers[sp] =
-            unsafe { &kernel_stack_alloc.data[core][BIT!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8 }
-                as usize;
+        self.registers[sp] = unsafe {
+            &kernel_stack_alloc.data[core][BIT!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8
+        } as usize;
     }
 
     #[inline]

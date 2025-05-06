@@ -33,7 +33,7 @@ impl Default for finaliseSlot_ret {
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone)]
-pub struct finaliseCap_ret {
+pub struct FinaliseCapRet {
     pub remainder: cap,
     pub cleanupInfo: cap,
 }

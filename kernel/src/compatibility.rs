@@ -14,16 +14,16 @@ pub fn deriveCap(_slot: *mut cte_t, _cap: &cap) {
     panic!("should not be invoked!")
 }
 
-#[no_mangle]
-pub fn setThreadState(tptr: *mut tcb_t, ts: usize) {
-    // panic!("should not be invoked!")
-    unsafe {
-        set_thread_state(
-            &mut *tptr,
-            core::mem::transmute::<u8, ThreadState>(ts as u8),
-        )
-    }
-}
+// #[no_mangle]
+// pub fn set_thread_state(tptr: *mut tcb_t, ts: usize) {
+//     // panic!("should not be invoked!")
+//     unsafe {
+//         set_thread_state(
+//             &mut *tptr,
+//             core::mem::transmute::<u8, ThreadState>(ts as u8),
+//         )
+//     }
+// }
 
 #[no_mangle]
 pub fn setupReplyMaster(_thread: *mut tcb_t) {
@@ -31,7 +31,7 @@ pub fn setupReplyMaster(_thread: *mut tcb_t) {
 }
 
 #[no_mangle]
-pub fn lookupIPCBuffer(isReceiver: bool, thread: *mut tcb_t) -> usize {
+pub fn lookup_ipc_buffer(isReceiver: bool, thread: *mut tcb_t) -> usize {
     unsafe {
         match (*thread).lookup_ipc_buffer(isReceiver) {
             Some(ipc_buffer) => return ipc_buffer as *const seL4_IPCBuffer as usize,

@@ -16,9 +16,7 @@ use sel4_common::sel4_config::*;
 use spin::Mutex;
 
 pub use crate::boot::utils::paddr_to_pptr_reg;
-use crate::structures::{
-    ndks_boot_t, p_region_t, region_t, seL4_BootInfo, seL4_BootInfoHeader, seL4_SlotRegion,
-};
+use crate::structures::{ndks_boot_t, p_region_t, region_t, BootInfo, BootInfoHeader, SlotRegion};
 
 #[cfg(target_arch = "aarch64")]
 pub use mm::reserve_region;
@@ -54,7 +52,7 @@ pub static mut ndks_boot: ndks_boot_t = ndks_boot_t {
     reserved: [p_region_t { start: 0, end: 0 }; MAX_NUM_RESV_REG],
     resv_count: 0,
     freemem: [region_t { start: 0, end: 0 }; MAX_NUM_FREEMEM_REG],
-    bi_frame: 0 as *mut seL4_BootInfo,
+    bi_frame: 0 as *mut BootInfo,
     slot_pos_cur: seL4_NumInitialCaps,
 };
 
@@ -95,7 +93,7 @@ pub fn init_dtb(
             return None;
         }
 
-        (*extra_bi_size) += size_of::<seL4_BootInfoHeader>() + dtb_size;
+        (*extra_bi_size) += size_of::<BootInfoHeader>() + dtb_size;
         dtb_p_reg = p_region_t {
             start: dtb_phys_addr,
             end: dtb_phys_end,
@@ -106,14 +104,14 @@ pub fn init_dtb(
 
 pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) {
     let mut extra_bi_offset = 0;
-    let mut header: seL4_BootInfoHeader = seL4_BootInfoHeader { id: 0, len: 0 };
+    let mut header: BootInfoHeader = BootInfoHeader { id: 0, len: 0 };
     if dtb_size > 0 {
         header.id = SEL4_BOOTINFO_HEADER_FDT;
-        header.len = size_of::<seL4_BootInfoHeader>() + dtb_size;
+        header.len = size_of::<BootInfoHeader>() + dtb_size;
         unsafe {
-            *((rootserver.extra_bi + extra_bi_offset) as *mut seL4_BootInfoHeader) = header.clone();
+            *((rootserver.extra_bi + extra_bi_offset) as *mut BootInfoHeader) = header.clone();
         }
-        extra_bi_offset += size_of::<seL4_BootInfoHeader>();
+        extra_bi_offset += size_of::<BootInfoHeader>();
         let src = unsafe {
             core::slice::from_raw_parts(paddr_to_pptr(dtb_phys_addr) as *const u8, dtb_size)
         };
@@ -129,14 +127,14 @@ pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize
         header.id = SEL4_BOOTINFO_HEADER_PADDING;
         header.len = extra_bi_size - extra_bi_offset;
         unsafe {
-            *((rootserver.extra_bi + extra_bi_offset) as *mut seL4_BootInfoHeader) = header.clone();
+            *((rootserver.extra_bi + extra_bi_offset) as *mut BootInfoHeader) = header.clone();
         }
     }
 }
 
 pub fn bi_finalise(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) {
     unsafe {
-        (*ndks_boot.bi_frame).empty = seL4_SlotRegion {
+        (*ndks_boot.bi_frame).empty = SlotRegion {
             start: ndks_boot.slot_pos_cur,
             end: BIT!(CONFIG_ROOT_CNODE_SIZE_BITS),
         };

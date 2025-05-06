@@ -1,7 +1,7 @@
 //! `CSpace Table Entry`相关操作的具体实现，包含`cte`链表的插入删除等。
 use super::{
     capability::{is_cap_revocable, same_object_as, same_region_as},
-    deps::{finaliseCap, post_cap_deletion, preemptionPoint},
+    deps::{finalise_cap, post_cap_deletion, preemption_point},
     structures::{finaliseSlot_ret, resolveAddressBits_ret_t},
 };
 use crate::capability::{
@@ -164,17 +164,17 @@ impl cte_t {
 
     ///清除`cte slot`中的`capability`
     /// 因为涉及到几个函数之间的来回调用，不太好理解，所以用一个`CNode cap`删除的例子来帮助理解，
-    /// 假设现在有一个`CNode`的`slot`要执行`delete_all(true)`，会先调用`finalise(true)`，在`finaliseCap`中，
+    /// 假设现在有一个`CNode`的`slot`要执行`delete_all(true)`，会先调用`finalise(true)`，在`finalise_cap`中，
     /// 会将`cnode_cap`设置为`zombie_cap`，然后进入`reduce_zombie`,
     /// `reduce_zombie`会调用最后一个`slot`的`delete_all(false)`函数，然后再次进入`finalise(false)`
-    /// 假设最后一个`slot`存储的`cap`为一个二级`cnode_cap`，则会在`finaliseCap`中生成一个新的`zombie_cap`，
+    /// 假设最后一个`slot`存储的`cap`为一个二级`cnode_cap`，则会在`finalise_cap`中生成一个新的`zombie_cap`，
     /// 之后再次进入`reduce_zombie(false)`，在其中进入`else`分支，
     /// 执行`cteswap`将二级`cnode_cap`中的第一个`cap`与二级`cnode_cap`进行交换，使得二级`cnode_cap`指向自身，变成`cyclicZombie`。
     /// 然后继续清除即可。至于二级`cnode_cap`其实无法被清除。
     unsafe fn finalise(&mut self, immediate: bool) -> finaliseSlot_ret {
         let mut ret = finaliseSlot_ret::default();
         while self.capability.get_tag() != cap_tag::cap_null_cap {
-            let fc_ret = finaliseCap(&self.capability, self.is_final_cap(), false);
+            let fc_ret = finalise_cap(&self.capability, self.is_final_cap(), false);
             if cap_removable(&fc_ret.remainder, self) {
                 ret.status = exception_t::EXCEPTION_NONE;
                 ret.success = true;
@@ -196,7 +196,7 @@ impl cte_t {
                 return ret;
             }
 
-            let status = preemptionPoint();
+            let status = preemption_point();
             if exception_t::EXCEPTION_NONE != status {
                 ret.status = status;
                 ret.success = false;
@@ -223,7 +223,7 @@ impl cte_t {
     /// 将当前的`cte slot`中的能力清除,要求`cap`是可删除的
     pub fn delete_one(&mut self) {
         if self.capability.get_tag() != cap_tag::cap_null_cap {
-            let fc_ret = unsafe { finaliseCap(&self.capability, self.is_final_cap(), true) };
+            let fc_ret = unsafe { finalise_cap(&self.capability, self.is_final_cap(), true) };
             assert!(
                 cap_removable(&fc_ret.remainder, self)
                     && fc_ret.cleanupInfo.get_tag() == cap_tag::cap_null_cap
@@ -341,7 +341,7 @@ impl cte_t {
                 return status;
             }
 
-            status = unsafe { preemptionPoint() };
+            status = unsafe { preemption_point() };
             if status != exception_t::EXCEPTION_NONE {
                 return status;
             }
@@ -477,7 +477,7 @@ fn cap_removable(capability: &cap, slot: *mut cte_t) -> bool {
             n == 0 || (n == 1 && slot == z_slot)
         }
         _ => {
-            panic!("Invalid cap type , finaliseCap should only return Zombie or NullCap");
+            panic!("Invalid cap type , finalise_cap should only return Zombie or NullCap");
         }
     }
 }
