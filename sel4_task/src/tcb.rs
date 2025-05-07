@@ -68,7 +68,7 @@ pub struct tcb_t {
     /// The time slice of the TCB
     pub tcbTimeSlice: usize,
     /// The falut handler of the TCB
-    pub tcbFaultHandler: usize,
+    pub TCB_FAULT_HANDLER: usize,
     /// The IPC buffer of the TCB
     pub tcbIPCBuffer: usize,
     /// the affinity of the TCB in SMP
@@ -89,7 +89,7 @@ impl tcb_t {
     /// Get i th cspace of the TCB, unmutable reference
     pub fn get_cspace(&mut self, i: usize) -> &'static cte_t {
         unsafe {
-            let p = ((self.get_mut_ptr()) & !MASK!(seL4_TCBBits)) as *mut cte_t;
+            let p = ((self.get_mut_ptr()) & !MASK!(SEL4_TCB_BITS)) as *mut cte_t;
             &*(p.add(i))
         }
     }
@@ -104,7 +104,7 @@ impl tcb_t {
     /// Get i th cspace of the TCB, mutable reference
     pub fn get_cspace_mut_ref(&mut self, i: usize) -> &'static mut cte_t {
         unsafe {
-            let p = ((self as *mut tcb_t as usize) & !MASK!(seL4_TCBBits)) as *mut cte_t;
+            let p = ((self as *mut tcb_t as usize) & !MASK!(SEL4_TCB_BITS)) as *mut cte_t;
             &mut *(p.add(i))
         }
     }
@@ -422,8 +422,8 @@ impl tcb_t {
 
     /// Set the VM root of the TCB
     pub fn set_vm_root(&mut self) -> Result<(), lookup_fault> {
-        // let threadRoot = &(*getCSpace(thread as usize, tcbVTable)).cap;
-        let thread_root = &self.get_cspace(tcbVTable).capability;
+        // let threadRoot = &(*getCSpace(thread as usize, TCB_VTABLE)).cap;
+        let thread_root = &self.get_cspace(TCB_VTABLE).capability;
         set_vm_root(thread_root)
     }
 
@@ -461,8 +461,8 @@ impl tcb_t {
     /// # Returns
     /// The lookup result structure
     pub fn lookup_slot(&mut self, cap_ptr: usize) -> lookupSlot_raw_ret_t {
-        let thread_root = &self.get_cspace(tcbCTable).capability;
-        let res_ret = resolve_address_bits(&thread_root, cap_ptr, wordBits);
+        let thread_root = &self.get_cspace(TCB_CTABLE).capability;
+        let res_ret = resolve_address_bits(&thread_root, cap_ptr, WORD_BITS);
         lookupSlot_raw_ret_t {
             status: res_ret.status,
             slot: res_ret.slot,
@@ -473,7 +473,7 @@ impl tcb_t {
     #[cfg(not(feature = "kernel_mcs"))]
     /// Setup the reply master of the TCB
     pub fn setup_reply_master(&mut self) {
-        let slot = self.get_cspace_mut_ref(tcbReply);
+        let slot = self.get_cspace_mut_ref(TCB_REPLY);
         if slot.capability.get_tag() == cap_tag::cap_null_cap {
             slot.capability = cap_reply_cap::new(self.get_ptr() as u64, 1, 1).unsplay();
             slot.cteMDBNode = mdb_node::new(0, 1, 1, 0);
@@ -562,7 +562,7 @@ impl tcb_t {
     /// * `can_grant` - If the cap can be granted
     pub fn setup_caller_cap(&mut self, sender: &mut Self, can_grant: bool) {
         set_thread_state(sender, ThreadState::ThreadStateBlockedOnReply);
-        let reply_slot = sender.get_cspace_mut_ref(tcbReply);
+        let reply_slot = sender.get_cspace_mut_ref(TCB_REPLY);
         let master_cap = cap::cap_reply_cap(&reply_slot.capability);
 
         assert_eq!(
@@ -573,7 +573,7 @@ impl tcb_t {
         assert_eq!(master_cap.get_capReplyCanGrant(), 1);
         assert_eq!(master_cap.get_capTCBPtr() as usize, sender.get_ptr());
 
-        let caller_slot = self.get_cspace_mut_ref(tcbCaller);
+        let caller_slot = self.get_cspace_mut_ref(TCB_CALLER);
         assert_eq!(caller_slot.capability.get_tag(), cap_tag::cap_null_cap);
         cte_insert(
             &cap_reply_cap::new(sender.get_ptr() as u64, can_grant as u64, 0).unsplay(),
@@ -586,7 +586,7 @@ impl tcb_t {
     #[cfg(not(feature = "kernel_mcs"))]
     /// Delete the caller cap of the TCB
     pub fn delete_caller_cap(&mut self) {
-        let caller_slot = self.get_cspace_mut_ref(tcbCaller);
+        let caller_slot = self.get_cspace_mut_ref(TCB_CALLER);
         caller_slot.delete_one();
     }
 
@@ -597,7 +597,7 @@ impl tcb_t {
     /// The IPC buffer of the TCB
     pub fn lookup_ipc_buffer(&mut self, is_receiver: bool) -> Option<&'static seL4_IPCBuffer> {
         let w_buffer_ptr = self.tcbIPCBuffer;
-        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(tcbBuffer).capability);
+        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(TCB_BUFFER).capability);
         if unlikely(buffer_cap.clone().unsplay().get_tag() != cap_tag::cap_frame_cap) {
             return None;
         }
@@ -625,7 +625,10 @@ impl tcb_t {
     /// * `res` - The result array to store the extra caps
     /// # Returns
     /// The result of the lookup represented by seL4_Fault_t
-    pub fn lookup_extra_caps(&mut self, res: &mut [pptr_t; seL4_MsgMaxExtraCaps]) -> exception_t {
+    pub fn lookup_extra_caps(
+        &mut self,
+        res: &mut [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+    ) -> exception_t {
         let info =
             seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
         if let Some(buffer) = self.lookup_ipc_buffer(false) {
@@ -644,7 +647,7 @@ impl tcb_t {
                 res[i as usize] = lu_ret.slot as usize;
                 i += 1;
             }
-            if i < seL4_MsgMaxExtraCaps as u64 {
+            if i < SEL4_MSG_MAX_EXTRA_CAPS as u64 {
                 res[i as usize] = 0;
             }
         } else {
@@ -661,7 +664,7 @@ impl tcb_t {
     /// The result of the lookup represented by seL4_Fault_t
     pub fn lookup_extra_caps_with_buf(
         &mut self,
-        res: &mut [pptr_t; seL4_MsgMaxExtraCaps],
+        res: &mut [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
         buf: Option<&seL4_IPCBuffer>,
     ) -> Result<(), seL4_Fault> {
         let info =
@@ -678,7 +681,7 @@ impl tcb_t {
                 res[i as usize] = lu_ret.slot as usize;
                 i += 1;
             }
-            if i < seL4_MsgMaxExtraCaps as u64 {
+            if i < SEL4_MSG_MAX_EXTRA_CAPS as u64 {
                 res[i as usize] = 0;
             }
         }
@@ -691,7 +694,7 @@ impl tcb_t {
         is_receiver: bool,
     ) -> Option<&'static mut seL4_IPCBuffer> {
         let w_buffer_ptr = self.tcbIPCBuffer;
-        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(tcbBuffer).capability);
+        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(TCB_BUFFER).capability);
         if buffer_cap.clone().unsplay().get_tag() != cap_tag::cap_frame_cap {
             return None;
         }
@@ -866,13 +869,13 @@ impl tcb_t {
     #[inline]
     /// Copy the syscall fault messages of the TCB to the receiver
     pub fn copy_syscall_fault_mrs(&self, receiver: &mut Self) {
-        self.copy_fault_mrs(receiver, MessageID_Syscall, N_SYSCALL_MESSAGE)
+        self.copy_fault_mrs(receiver, MESSAGE_ID_SYSCALL, N_SYSCALL_MESSAGE)
     }
 
     #[inline]
     /// Copy the exception fault messages of the TCB to the receiver
     pub fn copy_exeception_fault_mrs(&self, receiver: &mut Self) {
-        self.copy_fault_mrs(receiver, MessageID_Exception, N_EXCEPTON_MESSAGE)
+        self.copy_fault_mrs(receiver, MESSAGE_ID_EXCEPTION, N_EXCEPTON_MESSAGE)
     }
 
     #[inline]
@@ -1037,7 +1040,7 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn valid_timeout_handler(&mut self) -> bool {
-        let cte = self.get_cspace(tcbTimeoutHandler);
+        let cte = self.get_cspace(TCB_TIMEOUT_HANDLER);
         cte.capability.get_tag() == cap_tag::cap_endpoint_cap
     }
 }

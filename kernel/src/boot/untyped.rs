@@ -5,7 +5,7 @@ use crate::{BIT, IS_ALIGNED, MASK};
 use log::debug;
 use sel4_common::{arch::config::MAX_UNTYPED_BITS, utils::max_free_index};
 use sel4_common::{
-    sel4_config::seL4_MinUntypedBits,
+    sel4_config::SEL4_MIN_UNTYPED_BITS,
     structures_gen::{cap_cnode_cap, cap_untyped_cap},
 };
 
@@ -86,7 +86,7 @@ fn create_untypeds_for_region(
     first_untyped_slot: seL4_SlotPos,
 ) -> bool {
     while !is_reg_empty(&reg) {
-        let mut size_bits = seL4_WordBits - 1 - (reg.end - reg.start).leading_zeros() as usize;
+        let mut size_bits = SEL4_WORD_BITS - 1 - (reg.end - reg.start).leading_zeros() as usize;
         if size_bits > MAX_UNTYPED_BITS {
             size_bits = MAX_UNTYPED_BITS;
         }
@@ -96,7 +96,7 @@ fn create_untypeds_for_region(
                 size_bits = align_bits;
             }
         }
-        if size_bits >= seL4_MinUntypedBits {
+        if size_bits >= SEL4_MIN_UNTYPED_BITS {
             if !provide_untyped_cap(
                 root_cnode_cap,
                 device_memory,
@@ -119,7 +119,7 @@ fn provide_untyped_cap(
     size_bits: usize,
     first_untyped_slot: seL4_SlotPos,
 ) -> bool {
-    if size_bits > MAX_UNTYPED_BITS || size_bits < seL4_MinUntypedBits {
+    if size_bits > MAX_UNTYPED_BITS || size_bits < SEL4_MIN_UNTYPED_BITS {
         debug!("Kernel init: Invalid untyped size {}", size_bits);
         return false;
     }

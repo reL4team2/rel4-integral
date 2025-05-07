@@ -10,7 +10,7 @@ use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, cap_vspace_cap};
 use sel4_common::utils::{pageBitsForSize, ptr_to_mut};
 use sel4_common::{
-    sel4_config::{seL4_PageBits, PT_INDEX_BITS},
+    sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS},
     structures_gen::lookup_fault,
     BIT,
 };
@@ -296,7 +296,7 @@ pub fn invalidate_tlb_by_asid(asid: asid_t) {
 
 #[inline]
 pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: vptr_t) {
-    invalidate_local_tlb_va_asid((asid << 48) | vaddr >> seL4_PageBits);
+    invalidate_local_tlb_va_asid((asid << 48) | vaddr >> SEL4_PAGE_BITS);
 }
 
 // pub fn unmap_page_upper_directory(asid: asid_t, vaddr: vptr_t, pud: &PUDE) {
@@ -386,7 +386,7 @@ pub fn unmap_page(
     Ok(())
 
     // match page_size {
-    //     ARM_Small_Page => {
+    //     ARM_SMALL_PAGE => {
     //         let lu_ret =
     //             PGDE::new_from_pte(find_ret.vspace_root.unwrap() as usize).lookup_pt_slot(vptr);
     //         if unlikely(lu_ret.status != exception_t::EXCEPTION_NONE) {
@@ -403,7 +403,7 @@ pub fn unmap_page(
     //         }
     //         Ok(())
     //     }
-    //     ARM_Large_Page => {
+    //     ARM_LARGE_PAGE => {
     //         log::info!("unmap large page: {:#x?}", vptr);
     //         let lu_ret =
     //             PGDE::new_from_pte(find_ret.vspace_root.unwrap() as usize).lookup_pd_slot(vptr);

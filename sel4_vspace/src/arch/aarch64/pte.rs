@@ -7,7 +7,7 @@ use sel4_common::utils::ptr_to_mut;
 use sel4_common::MASK;
 use sel4_common::{
     arch::vm_rights_t,
-    sel4_config::{seL4_PageBits, seL4_PageTableBits, PT_INDEX_BITS},
+    sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS, SEL4_PAGE_TABLE_BITS},
     utils::{convert_ref_type_to_usize, convert_to_mut_type_ref},
     BIT,
 };
@@ -108,7 +108,7 @@ impl PTE {
     }
 
     pub fn get_pte_from_ppn_mut(&self) -> &mut PTE {
-        convert_to_mut_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << seL4_PageTableBits))
+        convert_to_mut_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << SEL4_PAGE_TABLE_BITS))
     }
 
     pub fn get_ppn(&self) -> usize {
@@ -220,7 +220,7 @@ impl PTE {
     pub fn lookup_pt_slot(&mut self, vptr: vptr_t) -> lookupPTSlot_ret_t {
         let mut pt = self.0 as *mut PTE;
         let mut level: usize = UPT_LEVELS - 1;
-        let ptBitsLeft = PT_INDEX_BITS * level + seL4_PageBits;
+        let ptBitsLeft = PT_INDEX_BITS * level + SEL4_PAGE_BITS;
         pt = unsafe { pt.add((vptr >> ptBitsLeft) & MASK!(VSPACE_INDEX_BITS)) };
         let mut ret: lookupPTSlot_ret_t = lookupPTSlot_ret_t {
             ptSlot: pt,

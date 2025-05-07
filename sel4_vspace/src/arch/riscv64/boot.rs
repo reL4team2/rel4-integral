@@ -5,7 +5,7 @@ use sel4_common::structures_gen::{cap_frame_cap, cap_page_table_cap};
 use sel4_common::{
     arch::config::KDEV_BASE,
     arch::vm_rights_t,
-    sel4_config::{seL4_PageBits, RISCVMegaPageBits, RISCVPageBits},
+    sel4_config::{RISCV_MEGA_PAGE_BITS, RISCV_PAGE_BITS, SEL4_PAGE_BITS},
     utils::convert_to_mut_type_ref,
     ROUND_DOWN,
 };
@@ -34,7 +34,7 @@ pub fn map_it_pt_cap(_vspace_cap: &cap_page_table_cap, _pt_cap: &cap_page_table_
     let pt = _pt_cap.get_capPTBasePtr() as usize;
     let pt_ret = lvl1pt.lookup_pt_slot(vptr);
     let targetSlot = convert_to_mut_type_ref::<PTE>(pt_ret.ptSlot as usize);
-    *targetSlot = PTE::new(pptr_to_paddr(pt) >> seL4_PageBits, PTEFlags::V);
+    *targetSlot = PTE::new(pptr_to_paddr(pt) >> SEL4_PAGE_BITS, PTEFlags::V);
     sfence();
 }
 
@@ -48,7 +48,7 @@ pub fn map_it_frame_cap(_vspace_cap: &cap_page_table_cap, _frame_cap: &cap_frame
     let targetSlot = convert_to_mut_type_ref::<PTE>(pt_ret.ptSlot as usize);
 
     *targetSlot = PTE::new(
-        pptr_to_paddr(frame_pptr) >> seL4_PageBits,
+        pptr_to_paddr(frame_pptr) >> SEL4_PAGE_BITS,
         PTEFlags::ADUVRWX,
     );
     sfence();
@@ -66,9 +66,9 @@ pub fn create_mapped_it_frame_cap(
 ) -> cap_frame_cap {
     let frame_size: usize;
     if use_large {
-        frame_size = RISCVMegaPageBits;
+        frame_size = RISCV_MEGA_PAGE_BITS;
     } else {
-        frame_size = RISCVPageBits;
+        frame_size = RISCV_PAGE_BITS;
     }
     let capability = cap_frame_cap::new(
         asid as u64,

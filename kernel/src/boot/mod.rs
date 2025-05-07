@@ -53,7 +53,7 @@ pub static mut ndks_boot: ndks_boot_t = ndks_boot_t {
     resv_count: 0,
     freemem: [region_t { start: 0, end: 0 }; MAX_NUM_FREEMEM_REG],
     bi_frame: 0 as *mut BootInfo,
-    slot_pos_cur: seL4_NumInitialCaps,
+    slot_pos_cur: SEL4_NUM_INITIAL_CAPS,
 };
 
 pub fn calculate_extra_bi_size_bits(size: usize) -> usize {
@@ -61,8 +61,8 @@ pub fn calculate_extra_bi_size_bits(size: usize) -> usize {
         return 0;
     }
 
-    let clzl_ret = ROUND_UP!(size, seL4_PageBits).leading_zeros() as usize;
-    let mut msb = seL4_WordBits - 1 - clzl_ret;
+    let clzl_ret = ROUND_UP!(size, SEL4_PAGE_BITS).leading_zeros() as usize;
+    let mut msb = SEL4_WORD_BITS - 1 - clzl_ret;
     if size > BIT!(msb) {
         msb += 1;
     }

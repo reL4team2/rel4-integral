@@ -14,7 +14,7 @@ use log::debug;
 use sel4_common::structures_gen::{cap, cap_Splayed, endpoint, notification};
 use sel4_common::{
     arch::MessageLabel,
-    sel4_config::seL4_InvalidCapability,
+    sel4_config::SEL4_INVALID_CAPABILITY,
     structures::{exception_t, seL4_IPCBuffer},
     utils::convert_to_mut_type_ref,
 };
@@ -60,7 +60,7 @@ pub fn decode_invocation(
                 capability.get_tag()
             );
             unsafe {
-                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 0;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -73,7 +73,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -97,7 +97,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -112,7 +112,7 @@ pub fn decode_invocation(
             if unlikely(data.get_capReplyMaster() != 0) {
                 debug!("Attempted to invoke an invalid reply cap {}.", cap_index);
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
@@ -170,7 +170,7 @@ pub fn decode_invocation(
                 capability.get_tag()
             );
             unsafe {
-                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 0;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -183,7 +183,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -208,7 +208,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -231,7 +231,7 @@ pub fn decode_invocation(
             if unlikely(firstPhase) {
                 debug!("Cannot invoke thread capabilities in the first phase of an invocation");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;
@@ -242,7 +242,7 @@ pub fn decode_invocation(
             if unlikely(firstPhase) {
                 debug!("Cannot invoke cnode capabilities in the first phase of an invocation");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;
@@ -265,7 +265,7 @@ pub fn decode_invocation(
                     "Cannot invoke sched control capabilities in the first phase of an invocation"
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;
@@ -278,7 +278,7 @@ pub fn decode_invocation(
                     "Cannot invoke sched context capabilities in the first phase of an invocation"
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;

@@ -4,7 +4,7 @@ use sel4_common::{
         KERNEL_ELF_BASE, KERNEL_ELF_PADDR_BASE, PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_BASE_OFFSET,
         PPTR_TOP,
     },
-    sel4_config::{seL4_PageBits, PT_INDEX_BITS},
+    sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS},
     structures::{exception_t, paddr_t, pptr_t},
     structures_gen::lookup_fault,
     utils::pageBitsForSize,
@@ -184,7 +184,7 @@ pub fn unmap_page(
 
         if slot.get_valid() == 0
             || slot.is_pte_table()
-            || slot.get_ppn() << seL4_PageBits != pptr_to_paddr(pptr)
+            || slot.get_ppn() << SEL4_PAGE_BITS != pptr_to_paddr(pptr)
         {
             return Ok(());
         }
@@ -211,7 +211,7 @@ pub fn unmap_page(
 
     if slot.get_valid() == 0
         || slot.is_pte_table()
-        || slot.get_ppn() << seL4_PageBits != pptr_to_paddr(pptr)
+        || slot.get_ppn() << SEL4_PAGE_BITS != pptr_to_paddr(pptr)
     {
         return Ok(());
     }

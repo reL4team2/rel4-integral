@@ -3,7 +3,7 @@ use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
 use sel4_common::structures_gen::{cap, cap_thread_cap, notification};
 use sel4_common::{
-    sel4_config::{tcbBuffer, tcbCTable, tcbVTable},
+    sel4_config::{TCB_BUFFER, TCB_CTABLE, TCB_VTABLE},
     structures::{exception_t, seL4_IPCBuffer},
 };
 use sel4_cspace::interface::{cte_insert, cte_t, same_object_as};
@@ -184,8 +184,8 @@ pub fn invoke_tcb_set_space(
     vroot_src_slot: &mut cte_t,
 ) -> exception_t {
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
-    target.tcbFaultHandler = fault_ep;
-    let root_slot = target.get_cspace_mut_ref(tcbCTable);
+    target.TCB_FAULT_HANDLER = fault_ep;
+    let root_slot = target.get_cspace_mut_ref(TCB_CTABLE);
     let status = root_slot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;
@@ -196,7 +196,7 @@ pub fn invoke_tcb_set_space(
         cte_insert(croot_new_cap, croot_src_slot, root_slot);
     }
 
-    let root_vslot = target.get_cspace_mut_ref(tcbVTable);
+    let root_vslot = target.get_cspace_mut_ref(TCB_VTABLE);
     let status = root_vslot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;
@@ -243,17 +243,17 @@ pub fn invoke_tcb_thread_control_caps(
     updateFlags: usize,
 ) -> exception_t {
     use sel4_common::sel4_config::{
-        tcbFaultHandler, tcbTimeoutHandler, thread_control_caps_update_fault,
-        thread_control_caps_update_space, thread_control_caps_update_timeout,
+        TCB_FAULT_HANDLER, TCB_TIMEOUT_HANDLER, THREAD_CONTROL_CAPS_UPDATE_FAULT,
+        THREAD_CONTROL_CAPS_UPDATE_SPACE, THREAD_CONTROL_CAPS_UPDATE_TIMEOUT,
     };
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
-    if updateFlags & thread_control_caps_update_fault != 0 {
+    if updateFlags & THREAD_CONTROL_CAPS_UPDATE_FAULT != 0 {
         if let Some(fh_slot) = fh_srcSlot {
             let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
-                tcbFaultHandler,
+                TCB_FAULT_HANDLER,
                 fh_newCap,
                 fh_slot,
             );
@@ -262,13 +262,13 @@ pub fn invoke_tcb_thread_control_caps(
             }
         }
     }
-    if updateFlags & thread_control_caps_update_timeout != 0 {
+    if updateFlags & THREAD_CONTROL_CAPS_UPDATE_TIMEOUT != 0 {
         if let Some(th_slot) = th_srcSlot {
             let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
-                tcbTimeoutHandler,
+                TCB_TIMEOUT_HANDLER,
                 th_newCap,
                 th_slot,
             );
@@ -277,13 +277,13 @@ pub fn invoke_tcb_thread_control_caps(
             }
         }
     }
-    if updateFlags & thread_control_caps_update_space != 0 {
+    if updateFlags & THREAD_CONTROL_CAPS_UPDATE_SPACE != 0 {
         if let Some(croot_slot) = croot_src_slot {
             let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
-                tcbCTable,
+                TCB_CTABLE,
                 croot_new_cap,
                 croot_slot,
             );
@@ -296,7 +296,7 @@ pub fn invoke_tcb_thread_control_caps(
                 target,
                 &target_cap,
                 slot,
-                tcbVTable,
+                TCB_VTABLE,
                 vroot_new_cap,
                 vroot_slot,
             );
@@ -306,8 +306,8 @@ pub fn invoke_tcb_thread_control_caps(
         }
     }
 
-    // target.tcbFaultHandler = fault_ep;
-    // let root_slot = target.get_cspace_mut_ref(tcbCTable);
+    // target.TCB_FAULT_HANDLER = fault_ep;
+    // let root_slot = target.get_cspace_mut_ref(TCB_CTABLE);
     // let status = root_slot.delete_all(true);
     // if status != exception_t::EXCEPTION_NONE {
     //     return status;
@@ -318,7 +318,7 @@ pub fn invoke_tcb_thread_control_caps(
     //     cte_insert(croot_new_cap, croot_src_slot, root_slot);
     // }
 
-    // let root_vslot = target.get_cspace_mut_ref(tcbVTable);
+    // let root_vslot = target.get_cspace_mut_ref(TCB_VTABLE);
     // let status = root_vslot.delete_all(true);
     // if status != exception_t::EXCEPTION_NONE {
     //     return status;
@@ -339,7 +339,7 @@ pub fn invoke_tcb_set_ipc_buffer(
     buffer_src_slot: Option<&mut cte_t>,
 ) -> exception_t {
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
-    let buffer_slot = target.get_cspace_mut_ref(tcbBuffer);
+    let buffer_slot = target.get_cspace_mut_ref(TCB_BUFFER);
     let status = buffer_slot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;

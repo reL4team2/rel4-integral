@@ -16,7 +16,7 @@ use sel4_common::{
     structures_gen::{cap, cap_null_cap, cap_tag, mdb_node},
 };
 use sel4_common::{
-    sel4_config::wordRadix,
+    sel4_config::WORD_RADIX,
     structures::exception_t,
     utils::{convert_to_mut_type_ref, convert_to_type_ref},
     MASK,
@@ -527,7 +527,7 @@ pub fn resolve_address_bits(
         let levelBits = radixBits + guardBits;
         assert_ne!(levelBits, 0);
         let capGuard = cnode_cap.get_capCNodeGuard() as usize;
-        let guard = (cap_ptr >> ((n_bits - guardBits) & MASK!(wordRadix))) & MASK!(guardBits);
+        let guard = (cap_ptr >> ((n_bits - guardBits) & MASK!(WORD_RADIX))) & MASK!(guardBits);
         if unlikely(guardBits > n_bits || guard != capGuard) {
             ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
             return ret;

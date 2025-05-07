@@ -12,10 +12,10 @@ use sel4_common::arch::ArchReg;
 #[cfg(feature = "enable_smp")]
 use sel4_common::ffi::kernel_stack_alloc;
 #[cfg(feature = "enable_smp")]
-use sel4_common::sel4_config::{seL4_TCBBits, CONFIG_MAX_NUM_NODES};
+use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, SEL4_TCB_BITS};
 use sel4_common::sel4_config::{
-    wordBits, wordRadix, CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE,
-    L2_BITMAP_SIZE, NUM_READY_QUEUES, TCB_OFFSET,
+    CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE, L2_BITMAP_SIZE, NUM_READY_QUEUES,
+    TCB_OFFSET, WORD_BITS, WORD_RADIX,
 };
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
@@ -306,13 +306,13 @@ pub fn ready_queues_index(dom: usize, prio: usize) -> usize {
 #[inline]
 /// Get the L1 index for the given priority level.
 fn prio_to_l1index(prio: usize) -> usize {
-    prio >> wordRadix
+    prio >> WORD_RADIX
 }
 
 #[inline]
 /// Get the priority level for the given L1 index.
 fn l1index_to_prio(l1index: usize) -> usize {
-    l1index << wordRadix
+    l1index << WORD_RADIX
 }
 
 #[inline]
@@ -327,10 +327,10 @@ fn invert_l1index(l1index: usize) -> usize {
 /// Get the highest priority level for the given domain in single-core mode.
 fn get_highest_prio(dom: usize) -> prio_t {
     unsafe {
-        let l1index = wordBits - 1 - ksReadyQueuesL1Bitmap[dom].leading_zeros() as usize;
+        let l1index = WORD_BITS - 1 - ksReadyQueuesL1Bitmap[dom].leading_zeros() as usize;
         let l1index_inverted = invert_l1index(l1index);
         let l2index =
-            wordBits - 1 - ksReadyQueuesL2Bitmap[dom][l1index_inverted].leading_zeros() as usize;
+            WORD_BITS - 1 - ksReadyQueuesL2Bitmap[dom][l1index_inverted].leading_zeros() as usize;
         l1index_to_prio(l1index) | l2index
     }
 }
@@ -341,9 +341,9 @@ fn get_highest_prio(dom: usize) -> prio_t {
 fn get_highest_prio(dom: usize) -> prio_t {
     unsafe {
         let l1index =
-            wordBits - 1 - ksSMP[cpu_id()].ksReadyQueuesL1Bitmap[dom].leading_zeros() as usize;
+            WORD_BITS - 1 - ksSMP[cpu_id()].ksReadyQueuesL1Bitmap[dom].leading_zeros() as usize;
         let l1index_inverted = invert_l1index(l1index);
-        let l2index = wordBits
+        let l2index = WORD_BITS
             - 1
             - (ksSMP[cpu_id()].ksReadyQueuesL2Bitmap[dom])[l1index_inverted].leading_zeros()
                 as usize;
@@ -374,12 +374,12 @@ pub fn add_to_bitmap(_cpu: usize, dom: usize, prio: usize) {
         {
             ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] |= BIT!(l1index);
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] |=
-                BIT!(prio & MASK!(wordRadix));
+                BIT!(prio & MASK!(WORD_RADIX));
         }
         #[cfg(not(feature = "enable_smp"))]
         {
             ksReadyQueuesL1Bitmap[dom] |= BIT!(l1index);
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= BIT!(prio & MASK!(wordRadix));
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= BIT!(prio & MASK!(WORD_RADIX));
         }
     }
 }
@@ -393,14 +393,14 @@ pub fn remove_from_bigmap(_cpu: usize, dom: usize, prio: usize) {
         #[cfg(feature = "enable_smp")]
         {
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] &=
-                !BIT!(prio & MASK!(wordRadix));
+                !BIT!(prio & MASK!(WORD_RADIX));
             if unlikely(ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
                 ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] &= !(BIT!((l1index)));
             }
         }
         #[cfg(not(feature = "enable_smp"))]
         {
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !BIT!(prio & MASK!(wordRadix));
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !BIT!(prio & MASK!(WORD_RADIX));
             if unlikely(ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
                 ksReadyQueuesL1Bitmap[dom] &= !(BIT!((l1index)));
             }
@@ -562,14 +562,14 @@ pub fn awaken() {
 }
 #[cfg(feature = "kernel_mcs")]
 pub fn is_cur_domain_expired() -> bool {
-    use sel4_common::sel4_config::numDomains;
-    numDomains > 1 && unsafe { ksDomainTime } == 0
+    use sel4_common::sel4_config::NUM_DOMAINS;
+    NUM_DOMAINS > 1 && unsafe { ksDomainTime } == 0
 }
 #[cfg(feature = "kernel_mcs")]
 pub fn update_timestamp() {
     use sel4_common::{
         platform::{timer, Timer_func},
-        sel4_config::numDomains,
+        sel4_config::NUM_DOMAINS,
     };
 
     use crate::sched_context::{max_release_time, min_budget};
@@ -580,7 +580,7 @@ pub fn update_timestamp() {
         assert!(ksCurTime < max_release_time());
         let consumed = ksCurTime - prev;
         ksConsumed += consumed;
-        if numDomains > 1 {
+        if NUM_DOMAINS > 1 {
             if consumed + min_budget() >= ksDomainTime {
                 ksDomainTime = 0;
             } else {
@@ -638,7 +638,7 @@ pub fn set_next_interrupt() {
     use sel4_common::{
         arch::get_timer_precision,
         platform::{timer, Timer_func},
-        sel4_config::numDomains,
+        sel4_config::NUM_DOMAINS,
     };
 
     unsafe {
@@ -646,7 +646,7 @@ pub fn set_next_interrupt() {
             + (*convert_to_mut_type_ref::<sched_context_t>(get_currenct_thread().tcbSchedContext)
                 .refill_head())
             .rAmount;
-        if numDomains > 1 {
+        if NUM_DOMAINS > 1 {
             next_interrupt = core::cmp::min(next_interrupt, ksCurTime + ksDomainTime);
         }
         if ksReleaseQueue.head != 0 {

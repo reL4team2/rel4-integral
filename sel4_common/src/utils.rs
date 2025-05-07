@@ -66,7 +66,7 @@ pub macro unsafe_ops($expr: expr) {
 
 #[inline]
 pub fn max_free_index(bits: usize) -> usize {
-    BIT!(bits - seL4_MinUntypedBits)
+    BIT!(bits - SEL4_MIN_UNTYPED_BITS)
 }
 
 #[inline]
@@ -157,9 +157,9 @@ pub fn cpu_id() -> usize {
 #[inline]
 pub fn pageBitsForSize(page_size: usize) -> usize {
     match page_size {
-        RISCV_4K_Page => RISCVPageBits,
-        RISCV_Mega_Page => RISCVMegaPageBits,
-        RISCV_Giga_Page => RISCVGigaPageBits,
+        RISCV_4K_PAGE => RISCV_PAGE_BITS,
+        RISCV_MEGA_PAGE => RISCV_MEGA_PAGE_BITS,
+        RISCV_GIGA_PAGE => RISCV_GIGA_PAGE_BITS,
         _ => panic!("Invalid page size!"),
     }
 }

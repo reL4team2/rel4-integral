@@ -85,7 +85,7 @@ impl cap_func for cap {
             cap_tag::cap_cnode_cap => {
                 let w = CNodeCapData::new(new_data as usize);
                 let guard_size = w.get_guard_size();
-                if guard_size + cap::cap_cnode_cap(self).get_capCNodeRadix() as usize > wordBits {
+                if guard_size + cap::cap_cnode_cap(self).get_capCNodeRadix() as usize > WORD_BITS {
                     return cap_null_cap::new().unsplay();
                 }
                 let guard = w.get_guard() & MASK!(guard_size);
@@ -101,14 +101,14 @@ impl cap_func for cap {
     fn get_cap_size_bits(&self) -> usize {
         match self.get_tag() {
             cap_tag::cap_untyped_cap => cap::cap_untyped_cap(self).get_capBlockSize() as usize,
-            cap_tag::cap_endpoint_cap => seL4_EndpointBits,
-            cap_tag::cap_notification_cap => seL4_NotificationBits,
+            cap_tag::cap_endpoint_cap => SEL4_ENDPOINT_BITS,
+            cap_tag::cap_notification_cap => SEL4_NOTIFICATION_BITS,
             cap_tag::cap_cnode_cap => {
-                cap::cap_cnode_cap(self).get_capCNodeRadix() as usize + seL4_SlotBits
+                cap::cap_cnode_cap(self).get_capCNodeRadix() as usize + SEL4_SLOT_BITS
             }
             cap_tag::cap_page_table_cap => PT_SIZE_BITS,
             #[cfg(feature = "kernel_mcs")]
-            cap_tag::cap_reply_cap => seL4_ReplyBits,
+            cap_tag::cap_reply_cap => SEL4_REPLY_BITS,
             #[cfg(not(feature = "kernel_mcs"))]
             cap_tag::cap_reply_cap => 0,
             #[cfg(feature = "kernel_mcs")]

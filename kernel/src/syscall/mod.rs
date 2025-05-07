@@ -9,57 +9,57 @@ use sel4_common::arch::ArchReg;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::arch::ArchReg::*;
 #[cfg(not(feature = "kernel_mcs"))]
-use sel4_common::sel4_config::tcbCaller;
+use sel4_common::sel4_config::TCB_CALLER;
 
-pub const SysCall: isize = -1;
-pub const SYSCALL_MAX: isize = SysCall;
-pub const SysReplyRecv: isize = -2;
+pub const SYS_CALL: isize = -1;
+pub const SYSCALL_MAX: isize = SYS_CALL;
+pub const SYS_REPLY_RECV: isize = -2;
 
 #[cfg(not(feature = "kernel_mcs"))]
-pub const SysSend: isize = -3;
+pub const SYS_SEND: isize = -3;
 #[cfg(not(feature = "kernel_mcs"))]
-pub const SysNBSend: isize = -4;
+pub const SYS_NB_SEND: isize = -4;
 #[cfg(not(feature = "kernel_mcs"))]
-pub const SysRecv: isize = -5;
+pub const SYS_RECV: isize = -5;
 #[cfg(not(feature = "kernel_mcs"))]
-pub const SysReply: isize = -6;
+pub const SYS_REPLY: isize = -6;
 #[cfg(not(feature = "kernel_mcs"))]
-pub const SysYield: isize = -7;
-
-#[cfg(feature = "kernel_mcs")]
-pub const SysNBSendRecv: isize = -3;
-#[cfg(feature = "kernel_mcs")]
-pub const SysNBSendWait: isize = -4;
-#[cfg(feature = "kernel_mcs")]
-pub const SysSend: isize = -5;
-#[cfg(feature = "kernel_mcs")]
-pub const SysNBSend: isize = -6;
-#[cfg(feature = "kernel_mcs")]
-pub const SysRecv: isize = -7;
-
-pub const SysNBRecv: isize = -8;
+pub const SYS_YIELD: isize = -7;
 
 #[cfg(feature = "kernel_mcs")]
-pub const SysWait: isize = -9;
+pub const SYS_NB_SEND_RECV: isize = -3;
 #[cfg(feature = "kernel_mcs")]
-pub const SysNBWait: isize = -10;
+pub const SYS_NB_SEND_WAIT: isize = -4;
 #[cfg(feature = "kernel_mcs")]
-pub const SysYield: isize = -11;
+pub const SYS_SEND: isize = -5;
 #[cfg(feature = "kernel_mcs")]
-pub const SYSCALL_MIN: isize = SysYield;
-#[cfg(not(feature = "kernel_mcs"))]
-pub const SYSCALL_MIN: isize = SysNBRecv;
+pub const SYS_NB_SEND: isize = -6;
+#[cfg(feature = "kernel_mcs")]
+pub const SYS_RECV: isize = -7;
 
-pub const SysDebugPutChar: isize = SYSCALL_MIN - 1;
-pub const SysDebugDumpScheduler: isize = SysDebugPutChar - 1;
-pub const SysDebugHalt: isize = SysDebugDumpScheduler - 1;
-pub const SysDebugCapIdentify: isize = SysDebugHalt - 1;
-pub const SysDebugSnapshot: isize = SysDebugCapIdentify - 1;
-pub const SysDebugNameThread: isize = SysDebugSnapshot - 1;
-#[cfg(not(feature = "kernel_mcs"))]
-pub const SysGetClock: isize = -30;
+pub const SYS_NB_RECV: isize = -8;
+
 #[cfg(feature = "kernel_mcs")]
-pub const SysGetClock: isize = -33;
+pub const SYS_WAIT: isize = -9;
+#[cfg(feature = "kernel_mcs")]
+pub const SYS_NB_WAIT: isize = -10;
+#[cfg(feature = "kernel_mcs")]
+pub const SYS_YIELD: isize = -11;
+#[cfg(feature = "kernel_mcs")]
+pub const SYSCALL_MIN: isize = SYS_YIELD;
+#[cfg(not(feature = "kernel_mcs"))]
+pub const SYSCALL_MIN: isize = SYS_NB_RECV;
+
+pub const SYS_DEBUG_PUT_CHAR: isize = SYSCALL_MIN - 1;
+pub const SYS_DEBUG_DUMP_SCHEDULER: isize = SYS_DEBUG_PUT_CHAR - 1;
+pub const SYS_DEBUG_HALT: isize = SYS_DEBUG_DUMP_SCHEDULER - 1;
+pub const SYS_DEBUG_CAP_IDENTIFY: isize = SYS_DEBUG_HALT - 1;
+pub const SYS_DEBUG_SNAPSHOT: isize = SYS_DEBUG_CAP_IDENTIFY - 1;
+pub const SYS_DEBUG_NAME_THREAD: isize = SYS_DEBUG_SNAPSHOT - 1;
+#[cfg(not(feature = "kernel_mcs"))]
+pub const SYS_GET_CLOCK: isize = -30;
+#[cfg(feature = "kernel_mcs")]
+pub const SYS_GET_CLOCK: isize = -33;
 #[cfg(feature = "kernel_mcs")]
 use crate::structures::lookupCap_ret_t;
 use sel4_common::structures::exception_t;
@@ -87,7 +87,7 @@ use crate::interrupt::get_active_irq;
 use crate::interrupt::handler::handle_interrput;
 use crate::kernel::boot::current_lookup_fault;
 use sel4_common::ffi::current_fault;
-use sel4_common::platform::irqInvalid;
+use sel4_common::platform::IRQ_INVALID;
 
 use self::invocation::handle_invocation;
 
@@ -112,43 +112,43 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
     // }
     // sel4_common::println!("handle syscall {}", syscall);
     match syscall {
-        SysSend => {
+        SYS_SEND => {
             let ret = handle_invocation(false, true);
             if unlikely(ret != exception_t::EXCEPTION_NONE) {
                 let irq = get_active_irq();
-                if irq != irqInvalid {
+                if irq != IRQ_INVALID {
                     handle_interrput(irq);
                 }
             }
         }
-        SysNBSend => {
+        SYS_NB_SEND => {
             let ret = handle_invocation(false, false);
             if unlikely(ret != exception_t::EXCEPTION_NONE) {
                 let irq = get_active_irq();
-                if irq != irqInvalid {
+                if irq != IRQ_INVALID {
                     handle_interrput(irq);
                 }
             }
         }
-        SysCall => {
+        SYS_CALL => {
             let ret = handle_invocation(true, true);
             if unlikely(ret != exception_t::EXCEPTION_NONE) {
                 let irq = get_active_irq();
-                if irq != irqInvalid {
+                if irq != IRQ_INVALID {
                     handle_interrput(irq);
                 }
             }
         }
-        SysRecv => {
+        SYS_RECV => {
             handle_recv(true);
         }
-        SysReply => handle_reply(),
-        SysReplyRecv => {
+        SYS_REPLY => handle_reply(),
+        SYS_REPLY_RECV => {
             handle_reply();
             handle_recv(true);
         }
-        SysNBRecv => handle_recv(false),
-        SysYield => handle_yield(),
+        SYS_NB_RECV => handle_recv(false),
+        SYS_YIELD => handle_yield(),
         _ => panic!("Invalid syscall"),
     }
     schedule();
@@ -169,7 +169,7 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
     update_timestamp();
     if likely(check_budget_restart()) {
         match syscall {
-            SysSend => {
+            SYS_SEND => {
                 let ret = handle_invocation(
                     false,
                     true,
@@ -180,12 +180,12 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
                     let irq = get_active_irq();
-                    if irq != irqInvalid {
+                    if irq != IRQ_INVALID {
                         handle_interrput(irq);
                     }
                 }
             }
-            SysNBSend => {
+            SYS_NB_SEND => {
                 let ret = handle_invocation(
                     false,
                     false,
@@ -196,12 +196,12 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
                     let irq = get_active_irq();
-                    if irq != irqInvalid {
+                    if irq != IRQ_INVALID {
                         handle_interrput(irq);
                     }
                 }
             }
-            SysCall => {
+            SYS_CALL => {
                 let ret = handle_invocation(
                     true,
                     true,
@@ -212,55 +212,55 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
                     let irq = get_active_irq();
-                    if irq != irqInvalid {
+                    if irq != IRQ_INVALID {
                         handle_interrput(irq);
                     }
                 }
             }
-            SysRecv => {
+            SYS_RECV => {
                 handle_recv(true, true);
             }
-            SysWait => {
+            SYS_WAIT => {
                 handle_recv(true, false);
             }
-            SysNBWait => {
+            SYS_NB_WAIT => {
                 handle_recv(false, false);
             }
-            SysReplyRecv => {
+            SYS_REPLY_RECV => {
                 let reply = get_currenct_thread().tcbArch.get_register(Reply);
                 let ret = handle_invocation(false, false, true, true, reply);
                 assert!(ret == exception_t::EXCEPTION_NONE);
                 handle_recv(true, true);
             }
-            SysNBSendRecv => {
+            SYS_NB_SEND_RECV => {
                 // TODO: MCS
                 let dest = get_currenct_thread().tcbArch.get_register(nbsRecvDest);
                 let ret = handle_invocation(false, false, true, true, dest);
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
                     let irq = get_active_irq();
-                    if irq != irqInvalid {
+                    if irq != IRQ_INVALID {
                         handle_interrput(irq);
                     }
                 } else {
                     handle_recv(true, true);
                 }
             }
-            SysNBSendWait => {
+            SYS_NB_SEND_WAIT => {
                 let reply = get_currenct_thread().tcbArch.get_register(Reply);
                 let ret = handle_invocation(false, false, true, true, reply);
                 if unlikely(ret != exception_t::EXCEPTION_NONE) {
                     mcs_preemption_point();
                     let irq = get_active_irq();
-                    if irq != irqInvalid {
+                    if irq != IRQ_INVALID {
                         handle_interrput(irq);
                     }
                 } else {
                     handle_recv(true, false);
                 }
             }
-            SysNBRecv => handle_recv(false, true),
-            SysYield => handle_yield(),
+            SYS_NB_RECV => handle_recv(false, true),
+            SYS_YIELD => handle_yield(),
             _ => panic!("Invalid syscall"),
         }
     }
@@ -301,10 +301,10 @@ fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
     use sel4_common::structures_gen::seL4_Fault_tag;
 
     let origin_lookup_fault = unsafe { current_lookup_fault.clone() };
-    let lu_ret = thread.lookup_slot(thread.tcbFaultHandler);
+    let lu_ret = thread.lookup_slot(thread.TCB_FAULT_HANDLER);
     if lu_ret.status != exception_t::EXCEPTION_NONE {
         unsafe {
-            current_fault = seL4_Fault_CapFault::new(thread.tcbFaultHandler as u64, 0).unsplay();
+            current_fault = seL4_Fault_CapFault::new(thread.TCB_FAULT_HANDLER as u64, 0).unsplay();
         }
         return exception_t::EXCEPTION_FAULT;
     }
@@ -329,7 +329,7 @@ fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
         );
     } else {
         unsafe {
-            current_fault = seL4_Fault_CapFault::new(thread.tcbFaultHandler as u64, 0).unsplay();
+            current_fault = seL4_Fault_CapFault::new(thread.TCB_FAULT_HANDLER as u64, 0).unsplay();
             current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
         }
         return exception_t::EXCEPTION_FAULT;
@@ -347,8 +347,8 @@ pub fn handle_fault(thread: &mut tcb_t) {
 #[inline]
 #[cfg(feature = "kernel_mcs")]
 pub fn handle_fault(thread: &mut tcb_t) {
-    use sel4_common::sel4_config::tcbFaultHandler;
-    let cte = thread.get_cspace(tcbFaultHandler);
+    use sel4_common::sel4_config::TCB_FAULT_HANDLER;
+    let cte = thread.get_cspace(TCB_FAULT_HANDLER);
     let hasFaultHandler = send_fault_ipc(thread, &cte.capability, thread.tcbSchedContext != 0);
     if !hasFaultHandler {
         set_thread_state(thread, ThreadState::ThreadStateInactive);
@@ -358,10 +358,10 @@ pub fn handle_fault(thread: &mut tcb_t) {
 #[cfg(feature = "kernel_mcs")]
 #[no_mangle]
 pub fn handleTimeout(tptr: &mut tcb_t) {
-    use sel4_common::sel4_config::tcbTimeoutHandler;
+    use sel4_common::sel4_config::TCB_TIMEOUT_HANDLER;
 
     assert!(tptr.valid_timeout_handler());
-    let cte = tptr.get_cspace(tcbTimeoutHandler);
+    let cte = tptr.get_cspace(TCB_TIMEOUT_HANDLER);
     send_fault_ipc(tptr, &cte.capability, false);
 }
 #[inline]
@@ -417,7 +417,7 @@ pub fn lookup_reply() -> lookupCap_ret_t {
 #[cfg(not(feature = "kernel_mcs"))]
 fn handle_reply() {
     let current_thread = get_currenct_thread();
-    let caller_slot = current_thread.get_cspace_mut_ref(tcbCaller);
+    let caller_slot = current_thread.get_cspace_mut_ref(TCB_CALLER);
     if caller_slot.capability.clone().get_tag() == cap_tag::cap_reply_cap {
         if cap::cap_reply_cap(&caller_slot.capability).get_capReplyMaster() != 0 {
             return;

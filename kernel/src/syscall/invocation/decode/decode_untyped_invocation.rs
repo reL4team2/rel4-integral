@@ -34,7 +34,7 @@ pub fn decode_untyed_invocation(
     if inv_label != MessageLabel::UntypedRetype {
         debug!("Untyped cap: Illegal operation attempted.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -42,7 +42,7 @@ pub fn decode_untyed_invocation(
     if length < 6 || get_extra_cap_by_index(0).is_none() {
         debug!("Untyped invocation: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -54,7 +54,7 @@ pub fn decode_untyed_invocation(
             get_syscall_arg(0, buffer)
         );
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidArgumentNumber = 0;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -66,13 +66,13 @@ pub fn decode_untyed_invocation(
     let node_offset = get_syscall_arg(4, buffer);
     let node_window = get_syscall_arg(5, buffer);
     let obj_size = new_type.get_object_size(user_obj_size);
-    if user_obj_size >= wordBits || obj_size > MAX_UNTYPED_BITS {
+    if user_obj_size >= WORD_BITS || obj_size > MAX_UNTYPED_BITS {
         debug!(
             "Untyped Retype: Invalid object size. {} : {}",
             user_obj_size, obj_size
         );
         unsafe {
-            current_syscall_error._type = seL4_RangeError;
+            current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 0;
             current_syscall_error.rangeErrorMax = MAX_UNTYPED_BITS;
         }
@@ -84,10 +84,10 @@ pub fn decode_untyed_invocation(
         return status;
     }
     #[cfg(feature = "kernel_mcs")]
-    if new_type == ObjectType::SchedContextObject && user_obj_size < seL4_MinSchedContextBits {
+    if new_type == ObjectType::SchedContextObject && user_obj_size < SEL4_MIN_SCHED_CONTEXT_BITS {
         debug!("Untyped retype: Requested a scheduling context too small.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidArgumentNumber = 1;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -107,7 +107,7 @@ pub fn decode_untyed_invocation(
     let (free_index, reset) = if status != exception_t::EXCEPTION_NONE {
         // 原始 untype 有子节点
         unsafe {
-            current_syscall_error._type = seL4_RevokeFirst;
+            current_syscall_error._type = SEL4_REVOKE_FIRST;
         }
         (capability.get_capFreeIndex() as usize, false)
     } else {
@@ -120,7 +120,7 @@ pub fn decode_untyed_invocation(
         debug!(
             "Untyped Retype: Insufficient memory({} * {} bytes needed, {} bytes available)",
             node_window,
-            if obj_size >= wordBits {
+            if obj_size >= WORD_BITS {
                 -1
             } else {
                 1i64 << obj_size
@@ -128,7 +128,7 @@ pub fn decode_untyed_invocation(
             untyped_free_bytes
         );
         unsafe {
-            current_syscall_error._type = seL4_NotEnoughMemory;
+            current_syscall_error._type = SEL4_NOT_ENOUGH_MEMORY;
             current_syscall_error.memoryLeft = untyped_free_bytes;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -138,7 +138,7 @@ pub fn decode_untyed_invocation(
     if device_mem && !new_type.is_arch_type() && new_type != ObjectType::UnytpedObject {
         debug!("Untyped Retype: Creating kernel objects with device untyped");
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidArgumentNumber = 1;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -164,16 +164,16 @@ fn check_object_type(new_type: ObjectType, user_obj_size: usize) -> exception_t 
     if new_type == ObjectType::CapTableObject && user_obj_size == 0 {
         debug!("Untyped Retype: Requested CapTable size too small.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidArgumentNumber = 1;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    if new_type == ObjectType::UnytpedObject && user_obj_size < seL4_MinUntypedBits {
+    if new_type == ObjectType::UnytpedObject && user_obj_size < SEL4_MIN_UNTYPED_BITS {
         debug!("Untyped Retype: Requested UntypedItem size too small.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidArgumentNumber = 1;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -202,7 +202,7 @@ fn get_target_cnode(
     if target_node_cap.get_tag() != cap_tag::cap_cnode_cap {
         debug!("Untyped Retype: Destination cap invalid or read-only.");
         unsafe {
-            current_syscall_error._type = seL4_FailedLookup;
+            current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = 0;
             current_lookup_fault =
                 lookup_fault_missing_capability::new(node_depth as u64).unsplay();
@@ -226,7 +226,7 @@ fn check_cnode_slot(
             node_offset
         );
         unsafe {
-            current_syscall_error._type = seL4_RangeError;
+            current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 0;
             current_syscall_error.rangeErrorMax = node_size - 1;
         }
@@ -239,7 +239,7 @@ fn check_cnode_slot(
             node_window
         );
         unsafe {
-            current_syscall_error._type = seL4_RangeError;
+            current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 1;
             current_syscall_error.rangeErrorMax = CONFIG_RETYPE_FAN_OUT_LIMIT;
         }
@@ -249,7 +249,7 @@ fn check_cnode_slot(
     if node_window > node_size - node_offset {
         debug!("Untyped Retype: Requested destination window overruns size of node.");
         unsafe {
-            current_syscall_error._type = seL4_RangeError;
+            current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 1;
             current_syscall_error.rangeErrorMax = node_size - node_offset;
         }
@@ -264,7 +264,7 @@ fn check_cnode_slot(
                 i
             );
             unsafe {
-                current_syscall_error._type = seL4_DeleteFirst;
+                current_syscall_error._type = SEL4_DELETE_FIRST;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }

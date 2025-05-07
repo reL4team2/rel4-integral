@@ -1,12 +1,12 @@
 //! zombie cap相关字段和方法
 //! 当`tcb_cap`和`cnode_cap`删除的过程中会变为`zombie_cap`
 use crate::cte::cte_t;
-use sel4_common::sel4_config::wordRadix;
+use sel4_common::sel4_config::WORD_RADIX;
 use sel4_common::structures_gen::{cap, cap_tag, cap_zombie_cap};
 use sel4_common::MASK;
 
 /// Judge whether the zombie cap is from tcb cap.
-pub const ZOMBIE_TYPE_ZOMBIE_TCB: usize = 1usize << wordRadix;
+pub const ZOMBIE_TYPE_ZOMBIE_TCB: usize = 1usize << WORD_RADIX;
 pub const TCB_CNODE_RADIX: usize = 4;
 
 pub trait zombie_func {
@@ -57,7 +57,7 @@ pub fn zombie_new(number: usize, _type: usize, ptr: usize) -> cap {
 }
 
 pub fn zombie_type_zombie_cnode(n: usize) -> usize {
-    n & MASK!(wordRadix)
+    n & MASK!(WORD_RADIX)
 }
 
 ///判断是否为循环`zombie cap`,指向自身且类型为`CapZombieCap`（似乎只有`CNode Capability`指向自己才会出现这种情况）

@@ -1,7 +1,7 @@
 use crate::sel4_config::{
-    seL4_PGDBits, seL4_PUDBits, seL4_PageDirBits, seL4_PageTableBits, seL4_VSpaceBits,
-    ARMHugePageBits, ARMLargePageBits, ARMSmallPageBits, ARM_Huge_Page, ARM_Large_Page,
-    ARM_Small_Page,
+    ARM_HUGE_PAGE, ARM_HUGE_PAGE_BITS, ARM_LARGE_PAGE, ARM_LARGE_PAGE_BITS, ARM_SMALL_PAGE,
+    ARM_SMALL_PAGE_BITS, SEL4_PAGE_DIR_BITS, SEL4_PAGE_TABLE_BITS, SEL4_PGD_BITS, SEL4_PUD_BITS,
+    SEL4_VSPACE_BITS,
 };
 #[cfg(not(feature = "kernel_mcs"))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -41,11 +41,11 @@ pub enum ObjectType {
 impl ObjectType {
     pub fn arch_get_object_size(&self) -> usize {
         match self {
-            Self::seL4_ARM_SmallPageObject => ARMSmallPageBits,
-            Self::seL4_ARM_LargePageObject => ARMLargePageBits,
-            Self::seL4_ARM_HugePageObject => ARMHugePageBits,
-            Self::seL4_ARM_PageTableObject => seL4_PageTableBits,
-            Self::seL4_ARM_VSpaceObject => seL4_VSpaceBits,
+            Self::seL4_ARM_SmallPageObject => ARM_SMALL_PAGE_BITS,
+            Self::seL4_ARM_LargePageObject => ARM_LARGE_PAGE_BITS,
+            Self::seL4_ARM_HugePageObject => ARM_HUGE_PAGE_BITS,
+            Self::seL4_ARM_PageTableObject => SEL4_PAGE_TABLE_BITS,
+            Self::seL4_ARM_VSpaceObject => SEL4_VSPACE_BITS,
             _ => panic!("unsupported object type:{}", *self as usize),
         }
     }
@@ -57,9 +57,9 @@ impl ObjectType {
     /// The frame type of the object.
     pub fn get_frame_type(&self) -> usize {
         match self {
-            ObjectType::seL4_ARM_SmallPageObject => ARM_Small_Page,
-            ObjectType::seL4_ARM_LargePageObject => ARM_Large_Page,
-            ObjectType::seL4_ARM_HugePageObject => ARM_Huge_Page,
+            ObjectType::seL4_ARM_SmallPageObject => ARM_SMALL_PAGE,
+            ObjectType::seL4_ARM_LargePageObject => ARM_LARGE_PAGE,
+            ObjectType::seL4_ARM_HugePageObject => ARM_HUGE_PAGE,
             _ => {
                 panic!("Invalid frame type: {:?}", self);
             }

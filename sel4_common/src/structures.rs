@@ -23,11 +23,11 @@ pub struct seL4_IPCBuffer {
     /// The tag field of the IPC message.
     pub tag: usize,
     /// The message payload of the IPC message.
-    pub msg: [usize; seL4_MsgMaxLength],
+    pub msg: [usize; SEL4_MSG_MAX_LENGTH],
     /// User-defined data associated with the IPC message.
     pub userData: usize,
     /// Array of capabilities or badges associated with the IPC message.
-    pub caps_or_badges: [usize; seL4_MsgMaxExtraCaps],
+    pub caps_or_badges: [usize; SEL4_MSG_MAX_EXTRA_CAPS],
     /// The capability node where the IPC message is received.
     pub receiveCNode: usize,
     /// The index within the capability node where the IPC message is received.

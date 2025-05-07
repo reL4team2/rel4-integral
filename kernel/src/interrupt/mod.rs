@@ -22,7 +22,7 @@ use crate::ffi::{ipi_clear_irq, ipi_get_irq};
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
-        pub const MAX_IRQ: usize = (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + maxIRQ;
+        pub const MAX_IRQ: usize = (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + MAX_IRQ;
     } else {
         pub const MAX_IRQ: usize = maxIRQ;
     }
@@ -35,7 +35,7 @@ pub static mut int_state_irq_node_ptr: pptr_t = 0;
 
 #[no_mangle]
 // #[link_section = ".boot.bss"]
-pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [irqInvalid; CONFIG_MAX_NUM_NODES];
+pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [IRQ_INVALID; CONFIG_MAX_NUM_NODES];
 
 #[cfg(feature = "enable_smp")]
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -189,7 +189,7 @@ pub fn is_irq_pending() -> bool {
 #[no_mangle]
 pub fn ack_interrupt(_irq: usize) {
     unsafe {
-        active_irq[cpu_id()] = irqInvalid;
+        active_irq[cpu_id()] = IRQ_INVALID;
     }
     #[cfg(feature = "enable_smp")]
     {
@@ -248,7 +248,7 @@ pub fn get_active_irq() -> usize {
         } else if (sip & BIT!(SIP_STIP)) != 0 {
             irq = KERNEL_TIMER_IRQ;
         } else {
-            irq = irqInvalid;
+            irq = IRQ_INVALID;
         }
     }
     #[cfg(not(feature = "enable_smp"))]
@@ -257,7 +257,7 @@ pub fn get_active_irq() -> usize {
     } else if (sip & BIT!(SIP_STIP)) != 0 {
         irq = KERNEL_TIMER_IRQ;
     } else {
-        irq = irqInvalid;
+        irq = IRQ_INVALID;
     }
     unsafe {
         active_irq[cpu_id()] = irq;
@@ -278,7 +278,7 @@ pub fn get_active_irq() -> usize {
         if (is_irq_valid(active_irq[CURRENT_CPU_INDEX()])) {
             irq = CORE_IRQ_TO_IRQT(CURRENT_CPU_INDEX(), active_irq[CURRENT_CPU_INDEX()] & IRQ_MASK);
         } else {
-            irq = irqInvalid;
+            irq = IRQ_INVALID;
         }
     */
     use crate::arch::arm_gic::gic_v2::{consts::IRQ_MASK, gic_v2::gic_int_ack};
@@ -291,7 +291,7 @@ pub fn get_active_irq() -> usize {
     let local_irq = unsafe_ops!(active_irq[cpu_id()]) & IRQ_MASK as usize;
     let irq2 = match local_irq < maxIRQ {
         true => local_irq,
-        false => irqInvalid,
+        false => IRQ_INVALID,
     };
     log::debug!("active irq: {}", irq);
     irq2
@@ -306,7 +306,7 @@ pub const fn is_irq_valid(_x: usize) -> bool {
             // TODO: not used now
             panic!("not used in aarch64")
         } else {
-            (_x <= maxIRQ) && (_x != irqInvalid)
+            (_x <= maxIRQ) && (_x != IRQ_INVALID)
         }
     }
 }

@@ -6,7 +6,7 @@ use crate::interrupt::{deleting_irq_handler, is_irq_pending, set_irq_state_by_in
 use crate::kernel::boot::current_lookup_fault;
 use crate::syscall::safe_unbind_notification;
 use sel4_common::sel4_config::{
-    tcbCNodeEntries, tcbCTable, tcbVTable, CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION,
+    CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION, TCB_CNODE_ENTRIES, TCB_CTABLE, TCB_VTABLE,
 };
 use sel4_common::structures::exception_t;
 #[cfg(feature = "kernel_mcs")]
@@ -278,7 +278,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 unsafe {
                     crate::ffi::remoteTCBStall(tcb)
                 };
-                let cte_ptr = tcb.get_cspace_mut_ref(tcbCTable);
+                let cte_ptr = tcb.get_cspace_mut_ref(TCB_CTABLE);
                 safe_unbind_notification(tcb);
                 #[cfg(feature = "kernel_mcs")]
                 if let Some(sc) =
@@ -298,7 +298,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 //     tcbDebugRemove(tcb as *mut tcb_t);
                 // }
                 fc_ret.remainder =
-                    zombie_new(tcbCNodeEntries, ZOMBIE_TYPE_ZOMBIE_TCB, cte_ptr.get_ptr());
+                    zombie_new(TCB_CNODE_ENTRIES, ZOMBIE_TYPE_ZOMBIE_TCB, cte_ptr.get_ptr());
                 fc_ret.cleanupInfo = cap_null_cap::new().unsplay();
                 return fc_ret;
             }
@@ -399,7 +399,7 @@ pub fn deleteASID(asid: asid_t, vspace: *mut PTE) {
         if let Err(lookup_fault) = delete_asid(
             asid,
             vspace,
-            &get_currenct_thread().get_cspace(tcbVTable).capability,
+            &get_currenct_thread().get_cspace(TCB_VTABLE).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }
@@ -413,7 +413,7 @@ pub fn deleteASID(asid: asid_t, vspace: *mut PTE) {
         if let Err(lookup_fault) = delete_asid(
             asid,
             vspace,
-            &get_currenct_thread().get_cspace(tcbVTable).capability,
+            &get_currenct_thread().get_cspace(TCB_VTABLE).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }
@@ -427,7 +427,7 @@ pub fn deleteASIDPool(asid_base: asid_t, pool: *mut asid_pool_t) {
         if let Err(lookup_fault) = delete_asid_pool(
             asid_base,
             pool,
-            &get_currenct_thread().get_cspace(tcbVTable).capability,
+            &get_currenct_thread().get_cspace(TCB_VTABLE).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }
@@ -441,7 +441,7 @@ pub fn deleteASIDPool(asid_base: asid_t, pool: *mut asid_pool_t) {
         if let Err(lookup_fault) = delete_asid_pool(
             asid_base,
             pool,
-            &get_currenct_thread().get_cspace(tcbVTable).capability,
+            &get_currenct_thread().get_cspace(TCB_VTABLE).capability,
         ) {
             current_lookup_fault = lookup_fault;
         }

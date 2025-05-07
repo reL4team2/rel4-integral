@@ -7,8 +7,8 @@ use crate::syscall::slow_path;
 use crate::arch::fpu::{handle_fpu_fault, is_fpu_enable, lazy_fpu_restore, set_tcb_fs_state};
 use sel4_common::arch::ArchReg;
 use sel4_common::sel4_config::{
-    RISCVInstructionAccessFault, RISCVInstructionPageFault, RISCVLoadAccessFault,
-    RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
+    RISCV_INSTRUCTION_ACCESS_FAULT, RISCV_INSTRUCTION_PAGE_FAULT, RISCV_LOAD_ACCESS_FAULT,
+    RISCV_LOAD_PAGE_FAULT, RISCV_STORE_ACCESS_FAULT, RISCV_STORE_PAGE_FAULT,
 };
 
 use sel4_task::*;
@@ -209,12 +209,12 @@ pub fn c_handle_exception() {
 
     let cause = read_scause();
     match cause {
-        RISCVInstructionAccessFault
-        | RISCVLoadAccessFault
-        | RISCVStoreAccessFault
-        | RISCVLoadPageFault
-        | RISCVStorePageFault
-        | RISCVInstructionPageFault => {
+        RISCV_INSTRUCTION_ACCESS_FAULT
+        | RISCV_LOAD_ACCESS_FAULT
+        | RISCV_STORE_ACCESS_FAULT
+        | RISCV_LOAD_PAGE_FAULT
+        | RISCV_STORE_PAGE_FAULT
+        | RISCV_INSTRUCTION_PAGE_FAULT => {
             handleVMFaultEvent(cause);
         }
         _ => {

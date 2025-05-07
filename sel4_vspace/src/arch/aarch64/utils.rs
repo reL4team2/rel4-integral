@@ -45,11 +45,11 @@ pub fn get_pgd_index(addr: usize) -> usize {
 }
 #[inline]
 pub fn kpt_level_shift(n: usize) -> usize {
-    ((PT_INDEX_BITS) * (((KPT_LEVELS) - 1) - (n))) + seL4_PageBits
+    ((PT_INDEX_BITS) * (((KPT_LEVELS) - 1) - (n))) + SEL4_PAGE_BITS
 }
 #[inline]
 pub fn upt_level_shift(n: usize) -> usize {
-    ((PT_INDEX_BITS) * (((UPT_LEVELS) - 1) - (n))) + seL4_PageBits
+    ((PT_INDEX_BITS) * (((UPT_LEVELS) - 1) - (n))) + SEL4_PAGE_BITS
 }
 #[inline]
 pub fn get_ulvl_pgsize_bits(n: usize) -> usize {

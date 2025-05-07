@@ -8,7 +8,7 @@ use sel4_common::structures_gen::lookup_fault_missing_capability;
 use sel4_common::{
     arch::MessageLabel,
     sel4_config::{
-        seL4_DeleteFirst, seL4_FailedLookup, seL4_IllegalOperation, seL4_TruncatedMessage,
+        SEL4_DELETE_FIRST, SEL4_FAILED_LOOKUP, SEL4_ILLEGAL_OPERATION, SEL4_TRUNCATED_MESSAGE,
     },
     structures::{exception_t, seL4_IPCBuffer},
     utils::convert_to_mut_type_ref,
@@ -30,7 +30,7 @@ pub fn decode_cnode_invocation(
     if invLabel < MessageLabel::CNodeRevoke || invLabel as usize > CNODE_LAST_INVOCATION {
         debug!("CNodeCap: Illegal Operation attempted.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -38,7 +38,7 @@ pub fn decode_cnode_invocation(
     if length < 2 {
         debug!("CNode operation: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -77,7 +77,7 @@ fn decode_cnode_invoke_with_two_slot(
     if length < 4 || get_extra_cap_by_index(0).is_none() {
         debug!("CNode Copy/Mint/Move/Mutate: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -88,7 +88,7 @@ fn decode_cnode_invoke_with_two_slot(
     if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
         debug!("CNode Copy/Mint/Move/Mutate: Destination not empty.");
         unsafe {
-            current_syscall_error._type = seL4_DeleteFirst;
+            current_syscall_error._type = SEL4_DELETE_FIRST;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -101,7 +101,7 @@ fn decode_cnode_invoke_with_two_slot(
     let src_slot = convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize);
     if src_slot.capability.get_tag() == cap_tag::cap_null_cap {
         unsafe {
-            current_syscall_error._type = seL4_FailedLookup;
+            current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = 1;
             current_lookup_fault = lookup_fault_missing_capability::new(src_depth as u64).unsplay();
         }
@@ -113,7 +113,7 @@ fn decode_cnode_invoke_with_two_slot(
             if length < 5 {
                 debug!("Truncated message for CNode Copy operation.");
                 unsafe {
-                    current_syscall_error._type = seL4_TruncatedMessage;
+                    current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -127,7 +127,7 @@ fn decode_cnode_invoke_with_two_slot(
             if length < 6 {
                 debug!("Truncated message for CNode Mint operation.");
                 unsafe {
-                    current_syscall_error._type = seL4_TruncatedMessage;
+                    current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -146,7 +146,7 @@ fn decode_cnode_invoke_with_two_slot(
             if length < 5 {
                 debug!("Truncated message for CNode Mutate operation.");
                 unsafe {
-                    current_syscall_error._type = seL4_TruncatedMessage;
+                    current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -167,7 +167,7 @@ fn decode_cnode_rotate(
     if length < 8 || get_extra_cap_by_index(0).is_none() || get_extra_cap_by_index(1).is_none() {
         debug!("CNode Rotate: Target cap invalid.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -197,14 +197,14 @@ fn decode_cnode_rotate(
     if pivot_slot.get_ptr() == src_slot.get_ptr() || pivot_slot.get_ptr() == dest_slot.get_ptr() {
         debug!("CNode Rotate: Pivot slot the same as source or dest slot.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if src_slot.get_ptr() != dest_slot.get_ptr() {
         if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
             unsafe {
-                current_syscall_error._type = seL4_DeleteFirst;
+                current_syscall_error._type = SEL4_DELETE_FIRST;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -212,7 +212,7 @@ fn decode_cnode_rotate(
 
     if src_slot.capability.get_tag() == cap_tag::cap_null_cap {
         unsafe {
-            current_syscall_error._type = seL4_FailedLookup;
+            current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = 1;
             current_lookup_fault = lookup_fault_missing_capability::new(src_depth as u64).unsplay();
         }
@@ -221,7 +221,7 @@ fn decode_cnode_rotate(
 
     if pivot_slot.capability.get_tag() == cap_tag::cap_null_cap {
         unsafe {
-            current_syscall_error._type = seL4_FailedLookup;
+            current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = 0;
             current_lookup_fault =
                 lookup_fault_missing_capability::new(pivot_depth as u64).unsplay();

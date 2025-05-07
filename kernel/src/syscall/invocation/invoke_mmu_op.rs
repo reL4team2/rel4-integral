@@ -45,7 +45,7 @@ pub fn invoke_page_table_unmap(capability: &mut cap_page_table_cap) -> exception
             capability.get_capPTMappedAddress() as usize,
             pt,
         );
-        clear_memory(pt.get_mut_ptr() as *mut u8, seL4_PageTableBits)
+        clear_memory(pt.get_mut_ptr() as *mut u8, SEL4_PAGE_TABLE_BITS)
     }
     capability.set_capPTIsMapped(0);
     exception_t::EXCEPTION_NONE
@@ -58,7 +58,7 @@ pub fn invoke_page_table_map(
     vaddr: usize,
 ) -> exception_t {
     let paddr = pptr_to_paddr(pt_cap.get_capPTBasePtr() as usize);
-    let pte = PTE::new(paddr >> seL4_PageBits, PTEFlags::V);
+    let pte = PTE::new(paddr >> SEL4_PAGE_BITS, PTEFlags::V);
     *pt_slot = pte;
     pt_cap.set_capPTIsMapped(1);
     pt_cap.set_capPTMappedASID(asid as u64);
@@ -75,7 +75,7 @@ pub fn invoke_page_table_map(
 //     vaddr: usize,
 // ) -> exception_t {
 //     let paddr = pptr_to_paddr(pt_cap.get_pt_base_ptr());
-//     let pde = PDE::new_small(paddr >> seL4_PageBits);
+//     let pde = PDE::new_small(paddr >> SEL4_PAGE_BITS);
 //     *pd_slot = pde;
 //     pt_cap.set_pt_is_mapped(1);
 //     pt_cap.set_pt_mapped_asid(asid);
@@ -105,7 +105,7 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
 }
 
 pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
-    if cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize != asidInvalid {
+    if cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize != ASID_INVALID {
         match unmap_page(
             cap::cap_frame_cap(&frame_slot.capability).get_capFSize() as usize,
             cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize,
@@ -120,7 +120,7 @@ pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
         }
     }
     cap::cap_frame_cap(&frame_slot.capability).set_capFMappedAddress(0);
-    cap::cap_frame_cap(&frame_slot.capability).set_capFMappedASID(asidInvalid as u64);
+    cap::cap_frame_cap(&frame_slot.capability).set_capFMappedASID(ASID_INVALID as u64);
     exception_t::EXCEPTION_NONE
 }
 
@@ -267,14 +267,14 @@ pub fn invoke_asid_control(
     cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(max_free_index(
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
-    clear_memory(frame_ptr as *mut u8, pageBitsForSize(RISCV_4K_Page));
+    clear_memory(frame_ptr as *mut u8, pageBitsForSize(RISCV_4K_PAGE));
     cte_insert(
         &cap_asid_pool_cap::new(asid_base as u64, frame_ptr as u64).unsplay(),
         parent_slot,
         slot,
     );
-    assert_eq!(asid_base & MASK!(asidLowBits), 0);
-    set_asid_pool_by_index(asid_base >> asidLowBits, frame_ptr);
+    assert_eq!(asid_base & MASK!(ASID_LOW_BITS), 0);
+    set_asid_pool_by_index(asid_base >> ASID_LOW_BITS, frame_ptr);
     exception_t::EXCEPTION_NONE
 }
 
@@ -290,6 +290,6 @@ pub fn invoke_asid_pool(
     cap::cap_page_table_cap(&vspace_slot.capability).set_capPTMappedASID(asid as u64);
 
     copyGlobalMappings(region_base);
-    pool.set_vspace_by_index(asid & MASK!(asidLowBits), region_base);
+    pool.set_vspace_by_index(asid & MASK!(ASID_LOW_BITS), region_base);
     exception_t::EXCEPTION_NONE
 }

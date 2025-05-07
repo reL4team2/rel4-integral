@@ -31,14 +31,14 @@ pub trait Transfer {
         &mut self,
         endpoint: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
+        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
     );
 
     fn set_transfer_caps_with_buf(
         &mut self,
         endpoint: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
+        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
         ipc_buffer: Option<&mut seL4_IPCBuffer>,
     );
 
@@ -96,7 +96,7 @@ impl Transfer for tcb_t {
                 #[cfg(not(feature = "kernel_mcs"))]
                 {
                     self.tcbFault = seL4_Fault_NullFault::new().unsplay();
-                    let slot = self.get_cspace(tcbReply);
+                    let slot = self.get_cspace(TCB_REPLY);
                     let caller_slot_ptr = slot.cteMDBNode.get_mdbNext() as usize;
                     if caller_slot_ptr != 0 {
                         convert_to_mut_type_ref::<cte_t>(caller_slot_ptr).delete_one()
@@ -111,7 +111,7 @@ impl Transfer for tcb_t {
         &mut self,
         ep: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
+        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
     ) {
         info.set_extraCaps(0);
         info.set_capsUnwrapped(0);
@@ -122,7 +122,7 @@ impl Transfer for tcb_t {
         let buffer = ipc_buffer.unwrap();
         let mut dest_slot = self.get_receive_slot();
         let mut i = 0;
-        while i < seL4_MsgMaxExtraCaps && current_extra_caps[i] as usize != 0 {
+        while i < SEL4_MSG_MAX_EXTRA_CAPS && current_extra_caps[i] as usize != 0 {
             let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
             let capability_cpy = &slot.capability.clone();
             if capability_cpy.get_tag() == cap_tag::cap_endpoint_cap
@@ -157,7 +157,7 @@ impl Transfer for tcb_t {
         &mut self,
         ep: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; seL4_MsgMaxExtraCaps],
+        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
         ipc_buffer: Option<&mut seL4_IPCBuffer>,
     ) {
         info.set_extraCaps(0);
@@ -169,7 +169,7 @@ impl Transfer for tcb_t {
         let buffer = ipc_buffer.unwrap();
         let mut dest_slot = self.get_receive_slot();
         let mut i = 0;
-        while i < seL4_MsgMaxExtraCaps && current_extra_caps[i] as usize != 0 {
+        while i < SEL4_MSG_MAX_EXTRA_CAPS && current_extra_caps[i] as usize != 0 {
             let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
             let capability_cpy = &slot.capability.clone();
             if capability_cpy.get_tag() == cap_tag::cap_endpoint_cap
@@ -282,7 +282,7 @@ impl Transfer for tcb_t {
     ) {
         let mut tag =
             seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
-        let mut current_extra_caps = [0; seL4_MsgMaxExtraCaps];
+        let mut current_extra_caps = [0; SEL4_MSG_MAX_EXTRA_CAPS];
         if can_grant {
             let status = self.lookup_extra_caps(&mut current_extra_caps);
             if unlikely(status != exception_t::EXCEPTION_NONE) {
@@ -308,7 +308,7 @@ impl Transfer for tcb_t {
             seL4_Fault_tag::seL4_Fault_UnknownSyscall => {
                 self.copy_fault_mrs_for_reply(
                     receiver,
-                    MessageID_Syscall,
+                    MESSAGE_ID_SYSCALL,
                     core::cmp::min(length, N_SYSCALL_MESSAGE),
                 );
                 return label as usize == 0;
@@ -316,7 +316,7 @@ impl Transfer for tcb_t {
             seL4_Fault_tag::seL4_Fault_UserException => {
                 self.copy_fault_mrs_for_reply(
                     receiver,
-                    MessageID_Exception,
+                    MESSAGE_ID_EXCEPTION,
                     core::cmp::min(length, N_EXCEPTON_MESSAGE),
                 );
                 return label as usize == 0;
@@ -325,7 +325,7 @@ impl Transfer for tcb_t {
             seL4_Fault_tag::seL4_Fault_Timeout => {
                 self.copy_fault_mrs_for_reply(
                     receiver,
-                    MessageID_TimeoutReply,
+                    MESSAGE_ID_TIMEOUT_REPLY,
                     core::cmp::min(length, N_TIMEOUT_MESSAGE),
                 );
                 return label as usize == 0;

@@ -1,5 +1,5 @@
 use crate::arch::fastpath_restore;
-use crate::syscall::{slow_path, SysCall, SysReplyRecv};
+use crate::syscall::{slow_path, SYS_CALL, SYS_REPLY_RECV};
 use crate::MASK;
 use core::intrinsics::{likely, unlikely};
 #[cfg(feature = "kernel_mcs")]
@@ -45,20 +45,20 @@ pub fn lookup_fp(_cap: &cap, cptr: usize) -> cap {
         radixBits = cnode_cap.get_capCNodeRadix() as usize;
         cptr2 = cptr << bits;
         capGuard = cnode_cap.get_capCNodeGuard() as usize;
-        if likely(guardBits != 0) && unlikely(cptr2 >> (wordBits - guardBits) != capGuard) {
+        if likely(guardBits != 0) && unlikely(cptr2 >> (WORD_BITS - guardBits) != capGuard) {
             return cap_null_cap::new().unsplay();
         }
 
-        radix = cptr2 << guardBits >> (wordBits - radixBits);
+        radix = cptr2 << guardBits >> (WORD_BITS - radixBits);
         slot = unsafe { (cnode_cap.get_capCNodePtr() as *mut cte_t).add(radix) };
         capability = unsafe { (*slot).capability.clone() };
         bits += guardBits + radixBits;
 
-        if likely(!(bits < wordBits && capability.clone().get_tag() == cap_tag::cap_cnode_cap)) {
+        if likely(!(bits < WORD_BITS && capability.clone().get_tag() == cap_tag::cap_cnode_cap)) {
             break;
         }
     }
-    if bits > wordBits {
+    if bits > WORD_BITS {
         return cap_null_cap::new().unsplay();
     }
     return capability;
@@ -119,7 +119,7 @@ pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
 #[inline]
 #[no_mangle]
 pub fn fastpath_mi_check(msgInfo: usize) -> bool {
-    (msgInfo & MASK!(seL4_MsgLengthBits + seL4_MsgExtraCapBits)) > 4
+    (msgInfo & MASK!(SEL4_MSG_LENGTH_BITS + SEL4_MSG_EXTRA_CAP_BITS)) > 4
 }
 
 #[inline]
@@ -140,54 +140,54 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     if fastpath_mi_check(msgInfo)
         || current.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault
     {
-        slow_path(SysCall as usize);
+        slow_path(SYS_CALL as usize);
     }
-    let lookup_fp_ret = &lookup_fp(&current.get_cspace(tcbCTable).capability, cptr);
+    let lookup_fp_ret = &lookup_fp(&current.get_cspace(TCB_CTABLE).capability, cptr);
 
     if unlikely(
         !(lookup_fp_ret.clone().get_tag() == cap_tag::cap_endpoint_cap)
             || (cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0),
     ) {
-        slow_path(SysCall as usize);
+        slow_path(SYS_CALL as usize);
     }
     let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
     let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
 
     if unlikely(ep.get_ep_state() != EPState::Recv) {
-        slow_path(SysCall as usize);
+        slow_path(SYS_CALL as usize);
     }
 
     let dest = convert_to_mut_type_ref::<tcb_t>(ep.get_epQueue_head() as usize);
 
     if unlikely(!isValidVTableRoot_fp(
-        &dest.get_cspace(tcbVTable).capability.clone(),
+        &dest.get_cspace(TCB_VTABLE).capability.clone(),
     )) {
-        slow_path(SysCall as usize);
+        slow_path(SYS_CALL as usize);
     }
-    let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(tcbVTable).capability);
+    let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(TCB_VTABLE).capability);
 
     let dom = 0;
     if unlikely(dest.tcbPriority < current.tcbPriority && !is_highest_prio(dom, dest.tcbPriority)) {
-        slow_path(SysCall as usize);
+        slow_path(SYS_CALL as usize);
     }
     if unlikely((ep_cap.get_capCanGrant() == 0) && (ep_cap.get_capCanGrantReply() == 0)) {
-        slow_path(SysCall as usize);
+        slow_path(SYS_CALL as usize);
     }
     #[cfg(feature = "kernel_mcs")]
     {
         if unlikely(dest.tcbSchedContext != 0) {
-            slow_path(SysCall as usize);
+            slow_path(SYS_CALL as usize);
         }
         assert!(dest.tcbState.get_tcbQueued() == 0);
         assert!(dest.tcbState.get_tcbInReleaseQueue() == 0);
         let reply = dest.tcbState.get_replyObject();
         if unlikely(reply == 0) {
-            slow_path(SysCall as usize);
+            slow_path(SYS_CALL as usize);
         }
     }
     #[cfg(feature = "enable_smp")]
     if unlikely(get_currenct_thread().tcbAffinity != dest.tcbAffinity) {
-        slow_path(SysCall as usize);
+        slow_path(SYS_CALL as usize);
     }
 
     // debug!("enter fast path");
@@ -231,8 +231,8 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     }
     #[cfg(not(feature = "kernel_mcs"))]
     {
-        let reply_slot = current.get_cspace_mut_ref(tcbReply);
-        let caller_slot = dest.get_cspace_mut_ref(tcbCaller);
+        let reply_slot = current.get_cspace_mut_ref(TCB_REPLY);
+        let caller_slot = dest.get_cspace_mut_ref(TCB_CALLER);
         let reply_can_grant = dest.tcbState.get_blockingIPCCanGrant();
 
         caller_slot.capability =
@@ -268,31 +268,31 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     let fault_type = current.tcbFault.get_tag();
 
     if fastpath_mi_check(msgInfo) || fault_type != seL4_Fault_tag::seL4_Fault_NullFault {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
-    let lookup_fp_ret = &lookup_fp(&current.get_cspace(tcbCTable).capability, cptr);
+    let lookup_fp_ret = &lookup_fp(&current.get_cspace(TCB_CTABLE).capability, cptr);
 
     if unlikely(
         lookup_fp_ret.clone().get_tag() != cap_tag::cap_endpoint_cap
             || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0,
     ) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
     let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
     if let Some(ntfn) = convert_to_option_mut_type_ref::<notification>(current.tcbBoundNotification)
     {
         if ntfn.get_ntfn_state() == NtfnState::Active {
-            slow_path(SysReplyRecv as usize);
+            slow_path(SYS_REPLY_RECV as usize);
         }
     }
 
     let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
     if unlikely(ep.get_ep_state() == EPState::Send) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
 
-    let caller_slot = current.get_cspace_mut_ref(tcbCaller);
+    let caller_slot = current.get_cspace_mut_ref(TCB_CALLER);
     let caller_cap = &cap::cap_reply_cap(&caller_slot.capability);
 
     if unlikely(
@@ -301,24 +301,24 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
             .get_tag()
             != cap_tag::cap_reply_cap,
     ) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
 
     let caller = convert_to_mut_type_ref::<tcb_t>(caller_cap.get_capTCBPtr() as usize);
     if unlikely(caller.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
 
     if unlikely(!isValidVTableRoot_fp(
-        &caller.get_cspace(tcbVTable).capability.clone(),
+        &caller.get_cspace(TCB_VTABLE).capability.clone(),
     )) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
-    let new_vtable = &cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
+    let new_vtable = &cap::cap_page_table_cap(&caller.get_cspace(TCB_VTABLE).capability);
 
     let dom = 0;
     if unlikely(!is_highest_prio(dom, caller.tcbPriority)) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
     thread_state_ptr_mset_blockingObject_tsType(
         &mut current.tcbState,
@@ -375,37 +375,37 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     let fault_type = current.tcbFault.get_tag();
 
     if fastpath_mi_check(msgInfo) || fault_type != seL4_Fault_tag::seL4_Fault_NullFault {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
-    let lookup_fp_ret = &lookup_fp(&current.get_cspace(tcbCTable).capability, cptr);
+    let lookup_fp_ret = &lookup_fp(&current.get_cspace(TCB_CTABLE).capability, cptr);
 
     if unlikely(
         lookup_fp_ret.clone().get_tag() != cap_tag::cap_endpoint_cap
             || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0,
     ) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
     let ep_cap = cap::cap_endpoint_cap(lookup_fp_ret);
 
     /* lookup the reply object */
-    let lookup_fp_ret = &lookup_fp(&current.get_cspace(tcbCTable).capability, reply);
+    let lookup_fp_ret = &lookup_fp(&current.get_cspace(TCB_CTABLE).capability, reply);
     let reply_cap = cap::cap_reply_cap(lookup_fp_ret);
 
     /* check it's a reply object */
     if unlikely(reply_cap.clone().unsplay().get_tag() != cap_tag::cap_endpoint_cap) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
 
     if let Some(ntfn) = convert_to_option_mut_type_ref::<notification>(current.tcbBoundNotification)
     {
         if ntfn.get_ntfn_state() == NtfnState::Active {
-            slow_path(SysReplyRecv as usize);
+            slow_path(SYS_REPLY_RECV as usize);
         }
     }
 
     let ep = convert_to_mut_type_ref::<endpoint>(ep_cap.get_capEPPtr() as usize);
     if unlikely(ep.get_ep_state() == EPState::Send) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
     /* Get the reply address */
     let reply_ptr = convert_to_mut_type_ref::<reply_t>(reply_cap.get_capReplyPtr() as usize);
@@ -416,28 +416,28 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
             || reply_ptr.replyNext.get_isHead() == 0
             || reply_ptr.replyNext.get_callStackPtr() as usize != current.tcbSchedContext,
     ) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
     let caller = convert_to_mut_type_ref::<tcb_t>(reply_ptr.replyTCB);
 
     if unlikely(caller.tcbFault.get_tag() != seL4_Fault_tag::seL4_Fault_NullFault) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
 
     if unlikely(!isValidVTableRoot_fp(
-        &caller.get_cspace(tcbVTable).capability.clone(),
+        &caller.get_cspace(TCB_VTABLE).capability.clone(),
     )) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
-    let new_vtable = cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
+    let new_vtable = cap::cap_page_table_cap(&caller.get_cspace(TCB_VTABLE).capability);
 
     let dom = 0;
     if unlikely(!is_highest_prio(dom, caller.tcbPriority)) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
 
     if unlikely(caller.tcbSchedContext != 0) {
-        slow_path(SysReplyRecv as usize);
+        slow_path(SYS_REPLY_RECV as usize);
     }
     assert!(current.tcbState.get_replyObject() == 0);
 

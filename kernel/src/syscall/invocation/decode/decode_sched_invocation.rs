@@ -5,7 +5,7 @@ use sel4_common::{
     arch::{us_to_ticks, MessageLabel},
     platform::time_def::time_t,
     sel4_config::{
-        seL4_IllegalOperation, seL4_InvalidCapability, seL4_RangeError, seL4_TruncatedMessage,
+        SEL4_ILLEGAL_OPERATION, SEL4_INVALID_CAPABILITY, SEL4_RANGE_ERROR, SEL4_TRUNCATED_MESSAGE,
         TIME_ARG_SIZE,
     },
     structures::{exception_t, seL4_IPCBuffer},
@@ -53,7 +53,7 @@ pub fn decode_sched_context_invocation(
             if sc.scTcb == unsafe { ksCurThread } {
                 debug!("SchedContext UnbindObject: cannot unbind sc of current thread");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -64,7 +64,7 @@ pub fn decode_sched_context_invocation(
         _ => {
             debug!("SchedContext invocation: Illegal operation attempted.");
             unsafe {
-                current_syscall_error._type = seL4_IllegalOperation;
+                current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -81,7 +81,7 @@ pub fn decode_sched_control_invocation(
             if global_ops!(current_extra_caps.excaprefs[0] == 0) {
                 debug!("SchedControl_ConfigureFlags: Truncated message.");
                 unsafe {
-                    current_syscall_error._type = seL4_TruncatedMessage;
+                    current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -89,7 +89,7 @@ pub fn decode_sched_control_invocation(
             if length < (TIME_ARG_SIZE * 2) + 3 {
                 debug!("SchedControl_configureFlags: truncated message.");
                 unsafe {
-                    current_syscall_error._type = seL4_TruncatedMessage;
+                    current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -108,7 +108,7 @@ pub fn decode_sched_control_invocation(
             if unlikely(targetCap.get_tag() != cap_tag::cap_sched_context_cap) {
                 debug!("SchedControl_ConfigureFlags: target cap not a scheduling context cap");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 1;
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
@@ -116,7 +116,7 @@ pub fn decode_sched_control_invocation(
             if budget_us > max_period_us() || budget_ticks < min_budget() {
                 debug!("SchedControl_ConfigureFlags: budget out of range.");
                 unsafe {
-                    current_syscall_error._type = seL4_RangeError;
+                    current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = min_budget_us();
                     current_syscall_error.rangeErrorMax = max_period_us();
                 }
@@ -127,7 +127,7 @@ pub fn decode_sched_control_invocation(
             if period_us > max_period_us() || period_ticks < min_budget() {
                 debug!("SchedControl_ConfigureFlags: period out of range.");
                 unsafe {
-                    current_syscall_error._type = seL4_RangeError;
+                    current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = min_budget_us();
                     current_syscall_error.rangeErrorMax = max_period_us();
                 }
@@ -138,7 +138,7 @@ pub fn decode_sched_control_invocation(
             if budget_ticks > period_ticks {
                 debug!("SchedControl_ConfigureFlags: budget must be <= period");
                 unsafe {
-                    current_syscall_error._type = seL4_RangeError;
+                    current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = min_budget_us();
                     current_syscall_error.rangeErrorMax = period_us;
                 }
@@ -149,7 +149,7 @@ pub fn decode_sched_control_invocation(
                 > refill_absolute_max(cap::cap_sched_context_cap(&targetCap))
             {
                 unsafe {
-                    current_syscall_error._type = seL4_RangeError;
+                    current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = 0;
                     current_syscall_error.rangeErrorMax =
                         refill_absolute_max(cap::cap_sched_context_cap(&targetCap)) - MIN_REFILLS;
@@ -176,7 +176,7 @@ pub fn decode_sched_control_invocation(
         _ => {
             debug!("SchedControl invocation: Illegal operation attempted.");
             unsafe {
-                current_syscall_error._type = seL4_IllegalOperation;
+                current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
             }
         }
     }
@@ -187,7 +187,7 @@ pub fn decode_sched_context_unbind_object(sc: &mut sched_context) -> exception_t
     if get_extra_cap_by_index(0).is_none() {
         debug!("SchedContext_Unbind: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -197,14 +197,14 @@ pub fn decode_sched_context_unbind_object(sc: &mut sched_context) -> exception_t
             if sc.scTcb != data.get_capTCBPtr() as usize {
                 debug!("SchedContext UnbindObject: object not bound");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             if sc.scTcb == unsafe { ksCurThread } {
                 debug!("SchedContext UnbindObject: cannot unbind sc of current thread");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -213,7 +213,7 @@ pub fn decode_sched_context_unbind_object(sc: &mut sched_context) -> exception_t
             if sc.scNotification != data.get_capNtfnPtr() as usize {
                 debug!("SchedContext UnbindObject: object not bound");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -221,7 +221,7 @@ pub fn decode_sched_context_unbind_object(sc: &mut sched_context) -> exception_t
         _ => {
             debug!("SchedContext_Unbind: invalid cap");
             unsafe {
-                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 1;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -234,7 +234,7 @@ pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
     if get_extra_cap_by_index(0).is_none() {
         debug!("SchedContext_Bind: Truncated Message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -244,7 +244,7 @@ pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
             if sc.scTcb != 0 {
                 debug!("SchedContext_Bind: sched context already bound.");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -253,7 +253,7 @@ pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
             {
                 debug!("SchedContext_Bind: tcb already bound.");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -263,7 +263,7 @@ pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
             {
                 debug!("SchedContext_Bind: tcb blocked and scheduling context not schedulable.");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -274,7 +274,7 @@ pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
             if sc.scNotification != 0 {
                 debug!("SchedContext_Bind: sched context already bound.");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -284,7 +284,7 @@ pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
             {
                 debug!("SchedContext_Bind: notification already bound");
                 unsafe {
-                    current_syscall_error._type = seL4_IllegalOperation;
+                    current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -294,7 +294,7 @@ pub fn decode_sched_context_bind(sc: &mut sched_context) -> exception_t {
         _ => {
             debug!("SchedContext_Bind: invalid cap.");
             unsafe {
-                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 1;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -307,14 +307,14 @@ pub fn decode_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
     if sc.scTcb == 0 {
         debug!("SchedContext_YieldTo: cannot yield to an inactive sched context");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if sc.scTcb == thread.get_ptr() {
         debug!("SchedContext_YieldTo: cannot seL4_SchedContext_YieldTo on self");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -325,7 +325,7 @@ pub fn decode_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
             convert_to_mut_type_ref::<tcb_t>(sc.scTcb).tcbPriority
         );
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -335,7 +335,7 @@ pub fn decode_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
             "SchedContext_YieldTo: cannot seL4_SchedContext_YieldTo to more than on SC at a time"
         );
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }

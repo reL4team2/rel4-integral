@@ -33,14 +33,14 @@ impl ObjectType {
         }
         match self {
             ObjectType::UnytpedObject => user_object_size,
-            ObjectType::TCBObject => seL4_TCBBits,
-            ObjectType::EndpointObject => seL4_EndpointBits,
-            ObjectType::NotificationObject => seL4_NotificationBits,
-            ObjectType::CapTableObject => seL4_SlotBits + user_object_size,
+            ObjectType::TCBObject => SEL4_TCB_BITS,
+            ObjectType::EndpointObject => SEL4_ENDPOINT_BITS,
+            ObjectType::NotificationObject => SEL4_NOTIFICATION_BITS,
+            ObjectType::CapTableObject => SEL4_SLOT_BITS + user_object_size,
             #[cfg(feature = "kernel_mcs")]
             ObjectType::SchedContextObject => user_object_size,
             #[cfg(feature = "kernel_mcs")]
-            ObjectType::ReplyObject => seL4_ReplyBits,
+            ObjectType::ReplyObject => SEL4_REPLY_BITS,
             _ => panic!("unsupported cap type:{}", (*self) as usize),
         }
     }

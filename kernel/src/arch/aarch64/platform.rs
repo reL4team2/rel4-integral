@@ -143,7 +143,7 @@ fn clean_invalidate_d_by_level(level: usize) {
     let lsize = read_cache_size(level);
     let lbits = (lsize & (1 << 3 - 1)) + 4;
     let assoc = ((lsize >> 3) & (1 << 10 - 1)) + 1;
-    let assoc_bits = wordBits - (assoc - 1).leading_zeros() as usize;
+    let assoc_bits = WORD_BITS - (assoc - 1).leading_zeros() as usize;
     let nsets = ((lsize >> 13) & (1 << 15 - 1)) + 1;
 
     for w in 0..assoc {

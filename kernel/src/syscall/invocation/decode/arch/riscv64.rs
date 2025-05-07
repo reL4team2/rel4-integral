@@ -8,9 +8,9 @@ use core::intrinsics::unlikely;
 use log::debug;
 use sel4_common::arch::MessageLabel;
 use sel4_common::sel4_config::{
-    asidInvalid, asidLowBits, nASIDPools, seL4_AlignmentError, seL4_DeleteFirst, seL4_FailedLookup,
-    seL4_IllegalOperation, seL4_InvalidArgument, seL4_InvalidCapability, seL4_PageBits,
-    seL4_RevokeFirst, seL4_TruncatedMessage,
+    ASID_INVALID, ASID_LOW_BITS, N_ASID_POOLS, SEL4_ALIGNMENT_ERROR, SEL4_DELETE_FIRST,
+    SEL4_FAILED_LOOKUP, SEL4_ILLEGAL_OPERATION, SEL4_INVALID_ARGUMENT, SEL4_INVALID_CAPABILITY,
+    SEL4_PAGE_BITS, SEL4_REVOKE_FIRST, SEL4_TRUNCATED_MESSAGE,
 };
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_tag};
@@ -35,9 +35,9 @@ use crate::{
     },
 };
 
-use sel4_common::sel4_config::{seL4_ASIDPoolBits, seL4_RangeError, USER_TOP};
+use sel4_common::sel4_config::{SEL4_ASID_POOL_BITS, SEL4_RANGE_ERROR, USER_TOP};
 
-use sel4_common::platform::{irqInvalid, maxIRQ};
+use sel4_common::platform::{maxIRQ, IRQ_INVALID};
 
 use crate::{
     interrupt::is_irq_active,
@@ -75,7 +75,7 @@ fn decode_page_table_invocation(
         _ => {
             debug!("RISCVPageTable: Illegal Operation");
             unsafe {
-                current_syscall_error._type = seL4_IllegalOperation;
+                current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -105,7 +105,7 @@ fn decode_frame_invocation(
         _ => {
             debug!("invalid operation label:{:?}", label);
             unsafe {
-                current_syscall_error._type = seL4_IllegalOperation;
+                current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
             }
             exception_t::EXCEPTION_SYSCALL_ERROR
         }
@@ -115,7 +115,7 @@ fn decode_frame_invocation(
 fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuffer) -> exception_t {
     if label != MessageLabel::RISCVASIDControlMakePool {
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -124,7 +124,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         length < 2 || get_extra_cap_by_index(0).is_none() || get_extra_cap_by_index(1).is_none(),
     ) {
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -139,20 +139,20 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         i += 1;
     }
 
-    if i == nASIDPools {
+    if i == N_ASID_POOLS {
         unsafe {
-            current_syscall_error._type = seL4_DeleteFirst;
+            current_syscall_error._type = SEL4_DELETE_FIRST;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let asid_base = i << asidLowBits;
+    let asid_base = i << ASID_LOW_BITS;
     if untyped_cap.get_tag() != cap_tag::cap_untyped_cap
-        || cap::cap_untyped_cap(&untyped_cap).get_capBlockSize() as usize != seL4_ASIDPoolBits
+        || cap::cap_untyped_cap(&untyped_cap).get_capBlockSize() as usize != SEL4_ASID_POOL_BITS
         || cap::cap_untyped_cap(&untyped_cap).get_capIsDevice() != 0
     {
         unsafe {
-            current_syscall_error._type = seL4_InvalidCapability;
+            current_syscall_error._type = SEL4_INVALID_CAPABILITY;
             current_syscall_error.invalidCapNumber = 1;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -161,7 +161,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
     let status = parent_slot.ensure_no_children();
     if status != exception_t::EXCEPTION_NONE {
         unsafe {
-            current_syscall_error._type = seL4_RevokeFirst;
+            current_syscall_error._type = SEL4_REVOKE_FIRST;
         }
         return status;
     }
@@ -176,7 +176,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
 
     if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
         unsafe {
-            current_syscall_error._type = seL4_DeleteFirst;
+            current_syscall_error._type = SEL4_DELETE_FIRST;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -188,14 +188,14 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     // debug!("in cap_asid_pool_cap");
     if label != MessageLabel::RISCVASIDPoolAssign {
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
     if unlikely(get_extra_cap_by_index(0).is_none()) {
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -209,30 +209,30 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     ) {
         debug!("RISCVASIDPool: Invalid vspace root.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidCapability;
+            current_syscall_error._type = SEL4_INVALID_CAPABILITY;
             current_syscall_error.invalidCapNumber = 1;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
     let asid = cap::cap_asid_pool_cap(&cte.capability).get_capASIDBase() as usize;
-    if let Some(pool) = get_asid_pool_by_index(asid >> asidLowBits) {
+    if let Some(pool) = get_asid_pool_by_index(asid >> ASID_LOW_BITS) {
         if pool.get_ptr() != cap::cap_asid_pool_cap(&cte.capability).get_capASIDPool() as usize {
             unsafe {
-                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 0;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
 
         let mut i = 0;
-        while i < BIT!(asidLowBits) && (asid + i == 0 || pool.get_vspace_by_index(i).is_some()) {
+        while i < BIT!(ASID_LOW_BITS) && (asid + i == 0 || pool.get_vspace_by_index(i).is_some()) {
             i += 1;
         }
 
-        if i == BIT!(asidLowBits) {
+        if i == BIT!(ASID_LOW_BITS) {
             unsafe {
-                current_syscall_error._type = seL4_DeleteFirst;
+                current_syscall_error._type = SEL4_DELETE_FIRST;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -242,7 +242,7 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
         invoke_asid_pool(asid + i, pool, vspace_slot)
     } else {
         unsafe {
-            current_syscall_error._type = seL4_FailedLookup;
+            current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = 0;
             current_lookup_fault = lookup_fault_invalid_root::new().unsplay();
         }
@@ -254,7 +254,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     if length < 3 || get_extra_cap_by_index(0).is_none() {
         debug!("RISCVPageMap: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -268,7 +268,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         let vtop = vaddr + BIT!(pageBitsForSize(frame_size)) - 1;
         if unlikely(vtop >= USER_TOP) {
             unsafe {
-                current_syscall_error._type = seL4_InvalidArgument;
+                current_syscall_error._type = SEL4_INVALID_ARGUMENT;
                 current_syscall_error.invalidCapNumber = 0;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -276,7 +276,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
 
         if unlikely(!check_vp_alignment(frame_size, vaddr)) {
             unsafe {
-                current_syscall_error._type = seL4_AlignmentError;
+                current_syscall_error._type = SEL4_ALIGNMENT_ERROR;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -286,7 +286,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             unsafe {
                 current_lookup_fault =
                     lookup_fault_missing_capability::new(lu_ret.ptBitsLeft as u64).unsplay();
-                current_syscall_error._type = seL4_FailedLookup;
+                current_syscall_error._type = SEL4_FAILED_LOOKUP;
                 current_syscall_error.failedLookupWasSource = false as usize;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -294,11 +294,11 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
 
         let pt_slot = convert_to_mut_type_ref::<PTE>(lu_ret.ptSlot as usize);
         let frame_asid = cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize;
-        if frame_asid != asidInvalid {
+        if frame_asid != ASID_INVALID {
             if frame_asid != asid {
                 debug!("RISCVPageMap: Attempting to remap a frame that does not belong to the passed address space");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 1;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -308,7 +308,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             {
                 debug!("RISCVPageMap: attempting to map frame into multiple addresses");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidArgument;
+                    current_syscall_error._type = SEL4_INVALID_ARGUMENT;
                     current_syscall_error.invalidArgumentNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -317,7 +317,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             if pt_slot.is_pte_table() {
                 debug!("RISCVPageMap: no mapping to remap.");
                 unsafe {
-                    current_syscall_error._type = seL4_DeleteFirst;
+                    current_syscall_error._type = SEL4_DELETE_FIRST;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -325,7 +325,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             if pt_slot.get_valid() != 0 {
                 debug!("Virtual address already mapped");
                 unsafe {
-                    current_syscall_error._type = seL4_DeleteFirst;
+                    current_syscall_error._type = SEL4_DELETE_FIRST;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -348,7 +348,7 @@ fn decode_page_table_unmap(pt_cte: &mut cte_t) -> exception_t {
     if !pt_cte.is_final_cap() {
         debug!("RISCVPageTableUnmap: cannot unmap if more than once cap exists");
         unsafe {
-            current_syscall_error._type = seL4_RevokeFirst;
+            current_syscall_error._type = SEL4_REVOKE_FIRST;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -362,7 +362,7 @@ fn decode_page_table_unmap(pt_cte: &mut cte_t) -> exception_t {
         {
             debug!("RISCVPageTableUnmap: cannot call unmap on top level PageTable");
             unsafe {
-                current_syscall_error._type = seL4_RevokeFirst;
+                current_syscall_error._type = SEL4_REVOKE_FIRST;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         } else {
@@ -383,7 +383,7 @@ fn decode_page_table_map(
     if unlikely(length < 2 || get_extra_cap_by_index(0).is_none()) {
         debug!("RISCVPageTableMap: truncated message");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -391,7 +391,7 @@ fn decode_page_table_map(
     if unlikely(capability.get_capPTIsMapped() != 0) {
         debug!("RISCVPageTable: PageTable is already mapped.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidCapability;
+            current_syscall_error._type = SEL4_INVALID_CAPABILITY;
             current_syscall_error.invalidCapNumber = 0;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -401,7 +401,7 @@ fn decode_page_table_map(
     if unlikely(vaddr >= USER_TOP) {
         debug!("RISCVPageTableMap: Virtual address cannot be in kernel window.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidCapNumber = 0;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -412,10 +412,10 @@ fn decode_page_table_map(
         let lu_ret = lvl1pt.lookup_pt_slot(vaddr);
         let lu_slot = convert_to_mut_type_ref::<PTE>(lu_ret.ptSlot as usize);
         #[cfg(target_arch = "riscv64")]
-        if lu_ret.ptBitsLeft == seL4_PageBits || lu_slot.get_valid() != 0 {
+        if lu_ret.ptBitsLeft == SEL4_PAGE_BITS || lu_slot.get_valid() != 0 {
             debug!("RISCVPageTableMap: All objects mapped at this address");
             unsafe {
-                current_syscall_error._type = seL4_DeleteFirst;
+                current_syscall_error._type = SEL4_DELETE_FIRST;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -428,11 +428,11 @@ fn decode_page_table_map(
 
 fn get_vspace(lvl1pt_cap: &cap) -> Option<(&mut PTE, usize)> {
     if lvl1pt_cap.clone().get_tag() != cap_tag::cap_page_table_cap
-        || cap::cap_page_table_cap(lvl1pt_cap).get_capPTIsMapped() as usize == asidInvalid
+        || cap::cap_page_table_cap(lvl1pt_cap).get_capPTIsMapped() as usize == ASID_INVALID
     {
         debug!("RISCVMMUInvocation: Invalid top-level PageTable.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidCapability;
+            current_syscall_error._type = SEL4_INVALID_CAPABILITY;
             current_syscall_error.invalidCapNumber = 1;
         }
         return None;
@@ -447,7 +447,7 @@ fn get_vspace(lvl1pt_cap: &cap) -> Option<(&mut PTE, usize)> {
         debug!("RISCVMMUInvocation: ASID lookup failed");
         unsafe {
             current_lookup_fault = find_ret.lookup_fault.unwrap();
-            current_syscall_error._type = seL4_FailedLookup;
+            current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = 0;
         }
         return None;
@@ -456,7 +456,7 @@ fn get_vspace(lvl1pt_cap: &cap) -> Option<(&mut PTE, usize)> {
     if find_ret.vspace_root.unwrap() as usize != lvl1pt.get_ptr() {
         debug!("RISCVMMUInvocation: ASID lookup failed");
         unsafe {
-            current_syscall_error._type = seL4_InvalidCapability;
+            current_syscall_error._type = SEL4_INVALID_CAPABILITY;
             current_syscall_error.invalidCapNumber = 1;
         }
         return None;
@@ -465,9 +465,9 @@ fn get_vspace(lvl1pt_cap: &cap) -> Option<(&mut PTE, usize)> {
 }
 
 pub(crate) fn check_irq(irq: usize) -> exception_t {
-    if irq > maxIRQ || irq == irqInvalid {
+    if irq > maxIRQ || irq == IRQ_INVALID {
         unsafe {
-            current_syscall_error._type = seL4_RangeError;
+            current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 1;
             current_syscall_error.rangeErrorMax = maxIRQ;
             debug!(
@@ -489,7 +489,7 @@ pub fn arch_decode_irq_control_invocation(
     if label == MessageLabel::RISCVIRQIssueIRQHandlerTrigger {
         if length < 4 || get_extra_cap_by_index(0).is_none() {
             unsafe {
-                current_syscall_error._type = seL4_TruncatedMessage;
+                current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -504,7 +504,7 @@ pub fn arch_decode_irq_control_invocation(
         }
         if is_irq_active(irq) {
             unsafe {
-                current_syscall_error._type = seL4_RevokeFirst;
+                current_syscall_error._type = SEL4_REVOKE_FIRST;
             }
             debug!("Rejecting request for IRQ {}. Already active.", irq);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -522,7 +522,7 @@ pub fn arch_decode_irq_control_invocation(
         )
     } else {
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }

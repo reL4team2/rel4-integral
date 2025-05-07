@@ -3,7 +3,7 @@ use core::intrinsics::unlikely;
 
 use sel4_common::{
     arch::{riscv_get_read_from_vm_rights, riscv_get_write_from_vm_rights, vm_rights_t},
-    sel4_config::{seL4_PageBits, seL4_PageTableBits, CONFIG_PT_LEVELS, PT_INDEX_BITS},
+    sel4_config::{CONFIG_PT_LEVELS, PT_INDEX_BITS, SEL4_PAGE_BITS, SEL4_PAGE_TABLE_BITS},
     structures::exception_t,
     utils::{convert_to_mut_type_ref, convert_to_type_ref},
     BIT, MASK,
@@ -66,7 +66,7 @@ impl PTE {
         if read {
             flag |= PTEFlags::R;
         }
-        Self::new(paddr >> seL4_PageBits, flag)
+        Self::new(paddr >> SEL4_PAGE_BITS, flag)
     }
 
     ///创建内核态页表项（`Global=1`、`User=0`）
@@ -127,12 +127,12 @@ impl PTE {
 
     #[inline]
     pub fn get_pte_from_ppn_mut(&self) -> &'static mut Self {
-        convert_to_mut_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << seL4_PageTableBits))
+        convert_to_mut_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << SEL4_PAGE_TABLE_BITS))
     }
 
     #[inline]
     pub fn get_pte_from_ppn(&self) -> &'static Self {
-        convert_to_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << seL4_PageTableBits))
+        convert_to_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << SEL4_PAGE_TABLE_BITS))
     }
 
     #[inline]
@@ -165,9 +165,9 @@ impl PTE {
         let mut level = CONFIG_PT_LEVELS - 1;
         let mut pt = self as *mut PTE;
         let mut ret = lookupPTSlot_ret_t {
-            ptBitsLeft: PT_INDEX_BITS * level + seL4_PageBits,
+            ptBitsLeft: PT_INDEX_BITS * level + SEL4_PAGE_BITS,
             ptSlot: unsafe {
-                pt.add((vptr >> (PT_INDEX_BITS * level + seL4_PageBits)) & MASK!(PT_INDEX_BITS))
+                pt.add((vptr >> (PT_INDEX_BITS * level + SEL4_PAGE_BITS)) & MASK!(PT_INDEX_BITS))
             },
         };
 

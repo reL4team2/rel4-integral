@@ -3,7 +3,7 @@ use sel4_common::{
         config::{PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_TOP},
         vm_rights_t,
     },
-    sel4_config::{seL4_LargePageBits, ARM_Large_Page, ARM_Small_Page, PUD_INDEX_BITS},
+    sel4_config::{ARM_LARGE_PAGE, ARM_SMALL_PAGE, PUD_INDEX_BITS, SEL4_LARGE_PAGE_BITS},
     structures_gen::{cap, cap_frame_cap, cap_page_table_cap, cap_vspace_cap},
     utils::convert_to_mut_type_ref,
     BIT,
@@ -48,7 +48,7 @@ pub const RESERVED: usize = 3;
 
 //     /* map the kernel window using large pages */
 //     vaddr = PPTR_BASE;
-//     for (paddr = PADDR_BASE; paddr < PADDR_TOP; paddr += BIT(seL4_LargePageBits)) {
+//     for (paddr = PADDR_BASE; paddr < PADDR_TOP; paddr += BIT(SEL4_LARGE_PAGE_BITS)) {
 //         armKSGlobalKernelPDs[get_pud_index(vaddr)][get_pd_index(vaddr)] = pde_pde_large_new(
 //                                                                               1, // UXN
 //                                                                               paddr,
@@ -58,7 +58,7 @@ pub const RESERVED: usize = 3;
 //                                                                               0,                        /* VMKernelOnly */
 //                                                                               NORMAL
 //                                                                           );
-//         vaddr += BIT(seL4_LargePageBits);
+//         vaddr += BIT(SEL4_LARGE_PAGE_BITS);
 //     }
 
 //     /* put the PD into the PUD for device window */
@@ -99,8 +99,8 @@ pub fn rust_map_kernel_window() {
             PTE::pte_new_page(1, paddr, 0, 1, 0, 0, mair_types::NORMAL as usize),
         );
 
-        vaddr += BIT!(seL4_LargePageBits);
-        paddr += BIT!(seL4_LargePageBits)
+        vaddr += BIT!(SEL4_LARGE_PAGE_BITS);
+        paddr += BIT!(SEL4_LARGE_PAGE_BITS)
     }
 
     //     /* put the PD into the PUD for device window */
@@ -253,9 +253,9 @@ pub fn create_it_frame_cap(
 ) -> cap_frame_cap {
     let frame_size;
     if use_large {
-        frame_size = ARM_Large_Page;
+        frame_size = ARM_LARGE_PAGE;
     } else {
-        frame_size = ARM_Small_Page;
+        frame_size = ARM_SMALL_PAGE;
     }
     cap_frame_cap::new(
         asid as u64,

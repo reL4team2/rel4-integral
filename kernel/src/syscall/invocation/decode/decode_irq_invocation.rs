@@ -27,7 +27,7 @@ pub fn decode_irq_control_invocation(
     if label == MessageLabel::IRQIssueIRQHandler {
         if length < 3 || get_extra_cap_by_index(0).is_none() {
             unsafe {
-                current_syscall_error._type = seL4_TruncatedMessage;
+                current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -42,7 +42,7 @@ pub fn decode_irq_control_invocation(
         }
         if is_irq_active(irq) {
             unsafe {
-                current_syscall_error._type = seL4_RevokeFirst;
+                current_syscall_error._type = SEL4_REVOKE_FIRST;
             }
             debug!("Rejecting request for IRQ {}. Already active.", irq);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -55,7 +55,7 @@ pub fn decode_irq_control_invocation(
         let dest_slot = convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize);
         if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
             unsafe {
-                current_syscall_error._type = seL4_DeleteFirst;
+                current_syscall_error._type = SEL4_DELETE_FIRST;
             }
             debug!("Target slot for new IRQ Handler cap not empty");
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -82,7 +82,7 @@ pub fn decode_irq_handler_invocation(label: MessageLabel, irq: usize) -> excepti
         MessageLabel::IRQSetIRQHandler => {
             if get_extra_cap_by_index(0).is_none() {
                 unsafe {
-                    current_syscall_error._type = seL4_TruncatedMessage;
+                    current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
@@ -92,7 +92,7 @@ pub fn decode_irq_handler_invocation(label: MessageLabel, irq: usize) -> excepti
                 cap_Splayed::notification_cap(data) => {
                     if data.get_capNtfnCanSend() == 0 {
                         unsafe {
-                            current_syscall_error._type = seL4_InvalidCapability;
+                            current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                             current_syscall_error.invalidCapNumber = 0;
                         }
                         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -112,7 +112,7 @@ pub fn decode_irq_handler_invocation(label: MessageLabel, irq: usize) -> excepti
         _ => {
             debug!("IRQHandler: Illegal operation.");
             unsafe {
-                current_syscall_error._type = seL4_IllegalOperation;
+                current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
             }
             exception_t::EXCEPTION_SYSCALL_ERROR
         }

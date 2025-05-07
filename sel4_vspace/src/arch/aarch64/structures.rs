@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use crate::{vm_attributes_t, PTE};
 use sel4_common::{
-    sel4_config::asidLowBits, structures_gen::asid_map, utils::convert_to_mut_type_ref, BIT,
+    sel4_config::ASID_LOW_BITS, structures_gen::asid_map, utils::convert_to_mut_type_ref, BIT,
 };
 
 use super::machine::mair_types;
@@ -43,10 +43,10 @@ pub struct lookupPTSlot_ret_t {
     pub ptBitsLeft: usize,
 }
 
-/// 用于存放`asid`对应的根页表基址，是一个`usize`的数组，其中`asid`按低`asidLowBits`位进行索引
+/// 用于存放`asid`对应的根页表基址，是一个`usize`的数组，其中`asid`按低`ASID_LOW_BITS`位进行索引
 #[repr(C)]
 #[derive(Clone, Debug)]
-pub struct asid_pool_t([asid_map; BIT!(asidLowBits)]);
+pub struct asid_pool_t([asid_map; BIT!(ASID_LOW_BITS)]);
 
 /// Dereference for asid_pool_t.
 ///
@@ -61,7 +61,7 @@ impl DerefMut for asid_pool_t {
 ///
 /// Allow directly accessing values
 impl Deref for asid_pool_t {
-    type Target = [asid_map; BIT!(asidLowBits)];
+    type Target = [asid_map; BIT!(ASID_LOW_BITS)];
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -72,8 +72,8 @@ impl Deref for asid_pool_t {
 ///
 /// Addr should be virtual address.
 pub(super) fn asid_pool_from_addr(addr: usize) -> &'static mut asid_pool_t {
-    // ASID Pool's len is BIT!(asidLowBits)
-    // convert_to_mut_slice::<>(addr, BIT!(asidLowBits))
+    // ASID Pool's len is BIT!(ASID_LOW_BITS)
+    // convert_to_mut_slice::<>(addr, BIT!(ASID_LOW_BITS))
     assert_ne!(addr, 0);
     convert_to_mut_type_ref(addr)
 }

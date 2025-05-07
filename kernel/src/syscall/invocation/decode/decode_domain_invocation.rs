@@ -22,14 +22,14 @@ pub fn decode_domain_invocation(
 ) -> exception_t {
     if invLabel != MessageLabel::DomainSetSet {
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if length == 0 {
         debug!("Domain Configure: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -37,7 +37,7 @@ pub fn decode_domain_invocation(
     if domain >= 1 {
         debug!("Domain Configure: invalid domain ({} >= 1).", domain);
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidArgumentNumber = 0;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -45,7 +45,7 @@ pub fn decode_domain_invocation(
     if get_extra_cap_by_index(0).is_none() {
         debug!("Domain Configure: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -53,7 +53,7 @@ pub fn decode_domain_invocation(
     if unlikely(thread_cap.clone().unsplay().get_tag() != cap_tag::cap_thread_cap) {
         debug!("Domain Configure: thread cap required.");
         unsafe {
-            current_syscall_error._type = seL4_InvalidArgument;
+            current_syscall_error._type = SEL4_INVALID_ARGUMENT;
             current_syscall_error.invalidArgumentNumber = 1;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;

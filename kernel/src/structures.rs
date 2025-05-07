@@ -149,5 +149,5 @@ pub struct syscall_error_t {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct extra_caps_t {
-    pub excaprefs: [pptr_t; seL4_MsgMaxExtraCaps],
+    pub excaprefs: [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
 }

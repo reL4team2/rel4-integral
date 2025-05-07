@@ -1,9 +1,9 @@
 use log::debug;
 #[cfg(not(feature = "kernel_mcs"))]
-use sel4_common::sel4_config::{seL4_DeleteFirst, tcbCaller};
+use sel4_common::sel4_config::{SEL4_DELETE_FIRST, TCB_CALLER};
 use sel4_common::structures_gen::{cap, cap_tag, endpoint};
 use sel4_common::{
-    sel4_config::seL4_IllegalOperation, shared_types_bf_gen::seL4_CapRights,
+    sel4_config::SEL4_ILLEGAL_OPERATION, shared_types_bf_gen::seL4_CapRights,
     structures::exception_t, utils::convert_to_mut_type_ref,
 };
 use sel4_cspace::capability::cap_func;
@@ -28,7 +28,7 @@ pub fn invoke_cnode_copy(
     if dc_ret.capability.get_tag() == cap_tag::cap_null_cap {
         debug!("CNode Copy:Copy cap would be invalid.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -55,7 +55,7 @@ pub fn invoke_cnode_mint(
     if dc_ret.capability.get_tag() == cap_tag::cap_null_cap {
         debug!("CNode Mint:Mint cap would be invalid.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -75,7 +75,7 @@ pub fn invoke_cnode_mutate(
     if new_cap.get_tag() == cap_tag::cap_null_cap {
         debug!("CNode Mint:Mint cap would be invalid.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -90,12 +90,12 @@ pub fn invoke_cnode_save_caller(dest_slot: &mut cte_t) -> exception_t {
     if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
         debug!("CNode SaveCaller: Destination slot not empty.");
         unsafe {
-            current_syscall_error._type = seL4_DeleteFirst;
+            current_syscall_error._type = SEL4_DELETE_FIRST;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    let src_slot = get_currenct_thread().get_cspace_mut_ref(tcbCaller);
+    let src_slot = get_currenct_thread().get_cspace_mut_ref(TCB_CALLER);
     let capability = &src_slot.clone().capability;
     match capability.get_tag() {
         cap_tag::cap_null_cap => debug!("CNode SaveCaller: Reply cap not present."),
@@ -123,7 +123,7 @@ pub fn invoke_cnode_rotate(
     if new_src_cap.get_tag() == cap_tag::cap_null_cap {
         debug!("CNode Rotate: Source cap invalid");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -131,7 +131,7 @@ pub fn invoke_cnode_rotate(
     if new_pivot_cap.get_tag() == cap_tag::cap_null_cap {
         debug!("CNode Rotate: Pivot cap invalid");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -154,7 +154,7 @@ pub fn invoke_cnode_move(src_slot: &mut cte_t, dest_slot: &mut cte_t) -> excepti
     if src_cap.get_tag() == cap_tag::cap_null_cap {
         debug!("CNode Copy/Mint/Move/Mutate: Mutated cap would be invalid.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -169,7 +169,7 @@ pub fn invoke_cnode_cancel_badged_sends(dest_slot: &mut cte_t) -> exception_t {
     if !has_cancel_send_right(&dest_cap) {
         debug!("CNode CancelBadgedSends: Target cap invalid.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
