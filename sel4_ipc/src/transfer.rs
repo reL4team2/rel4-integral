@@ -260,7 +260,7 @@ impl Transfer for tcb_t {
                 if let Some(sc) =
                     convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
                 {
-                    let consumed = sc.schedContext_updateConsumed();
+                    let consumed = sc.sched_context_update_consumed();
                     receiver.set_mr(len, consumed)
                 } else {
                     len
@@ -348,7 +348,7 @@ impl Transfer for tcb_t {
                 ntfn.set_state(NtfnState::Idle as u64);
                 #[cfg(feature = "KERNEL_MCS")]
                 {
-                    maybeDonateSchedContext(self, ntfn);
+                    maybe_donate_sched_context(self, ntfn);
                     if let Some(tcbsc) =
                         convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
                     {
@@ -426,7 +426,7 @@ impl Transfer for tcb_t {
             if sc.refill_ready() && sc.refill_sufficient(0) {
                 possible_switch_to(receiver);
             } else {
-                if receiver.validTimeoutHandler()
+                if receiver.valid_timeout_handler()
                     && fault_type != seL4_Fault_tag::seL4_Fault_Timeout as u64
                 {
                     unsafe {

@@ -1,6 +1,6 @@
-use super::utils::RISCV_GET_LVL_PGSIZE_BITS;
+use super::utils::riscv_get_LVL_PGSIZE_BITS;
 use crate::arch::riscv64::pagetable::{KERNEL_LEVEL2_PAGE_TABLE, KERNEL_ROOT_PAGE_TABLE};
-use crate::{pptr_t, pptr_to_paddr, sfence, PTEFlags, PTE, RISCV_GET_PT_INDEX};
+use crate::{pptr_t, pptr_to_paddr, riscv_get_pt_index, sfence, PTEFlags, PTE};
 use sel4_common::structures_gen::{cap_frame_cap, cap_page_table_cap};
 use sel4_common::{
     arch::config::KDEV_BASE,
@@ -14,14 +14,14 @@ use sel4_common::{
 #[link_section = ".boot.text"]
 pub fn map_kernel_frame(paddr: usize, vaddr: usize, _vm_rights: vm_rights_t) {
     if vaddr >= KDEV_BASE {
-        let paddr = ROUND_DOWN!(paddr, RISCV_GET_LVL_PGSIZE_BITS(1));
+        let paddr = ROUND_DOWN!(paddr, riscv_get_LVL_PGSIZE_BITS(1));
         unsafe {
-            KERNEL_LEVEL2_PAGE_TABLE.map_next_table(RISCV_GET_PT_INDEX(vaddr, 0), paddr, true);
+            KERNEL_LEVEL2_PAGE_TABLE.map_next_table(riscv_get_pt_index(vaddr, 0), paddr, true);
         }
     } else {
-        let paddr = ROUND_DOWN!(paddr, RISCV_GET_LVL_PGSIZE_BITS(0));
+        let paddr = ROUND_DOWN!(paddr, riscv_get_LVL_PGSIZE_BITS(0));
         unsafe {
-            KERNEL_ROOT_PAGE_TABLE.map_next_table(RISCV_GET_PT_INDEX(vaddr, 0), paddr, true);
+            KERNEL_ROOT_PAGE_TABLE.map_next_table(riscv_get_pt_index(vaddr, 0), paddr, true);
         }
     }
 }

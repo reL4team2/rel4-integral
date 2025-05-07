@@ -8,7 +8,7 @@ use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::interface::cte_t;
 use sel4_task::get_currenct_thread;
 use sel4_vspace::asid_t;
-use sel4_vspace::setCurrentUserVSpaceRoot;
+use sel4_vspace::set_current_user_vspace_root;
 use sel4_vspace::ttbr_new;
 
 #[no_mangle]
@@ -35,6 +35,6 @@ pub fn set_vm_root_for_flush(vspace: usize, asid: asid_t) -> bool {
         return false;
     }
 
-    setCurrentUserVSpaceRoot(ttbr_new(asid, vspace));
+    set_current_user_vspace_root(ttbr_new(asid, vspace));
     true
 }

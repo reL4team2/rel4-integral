@@ -20,7 +20,7 @@ use sel4_common::{BIT, MASK};
 use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 use sel4_vspace::{
-    checkVPAlignment, find_vspace_for_asid, get_asid_pool_by_index, vm_attributes_t, PTE,
+    check_vp_alignment, find_vspace_for_asid, get_asid_pool_by_index, vm_attributes_t, PTE,
 };
 
 use crate::{
@@ -274,7 +274,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
 
-        if unlikely(!checkVPAlignment(frame_size, vaddr)) {
+        if unlikely(!check_vp_alignment(frame_size, vaddr)) {
             unsafe {
                 current_syscall_error._type = seL4_AlignmentError;
             }

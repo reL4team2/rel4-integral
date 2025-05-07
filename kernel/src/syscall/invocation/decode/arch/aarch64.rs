@@ -35,7 +35,7 @@ use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::interface::{cte_insert, cte_t};
 
 use sel4_vspace::{
-    asid_pool_t, asid_t, clean_by_va_pou, doFlush, find_vspace_for_asid, get_asid_pool_by_index,
+    asid_pool_t, asid_t, clean_by_va_pou, do_flush, find_vspace_for_asid, get_asid_pool_by_index,
     pptr_to_paddr, pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
 };
 
@@ -233,7 +233,7 @@ fn decode_page_clean_invocation(
         //     label
         // );
 
-        doFlush(label, start, end, pstart);
+        do_flush(label, start, end, pstart);
         if root_switched {
             get_currenct_thread()
                 .set_vm_root()
@@ -249,7 +249,7 @@ fn decode_page_clean_invocation(
             bool_t root_switched;
                 if (start < end) {
                     root_switched = setVMRootForFlush(vspaceRoot, asid);
-                    doFlush(invLabel, start, end, pstart);
+                    do_flush(invLabel, start, end, pstart);
                     if (root_switched) {
                         setVMRoot(NODE_STATE(ksCurThread));
                     }
@@ -608,7 +608,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //     Some(v) => v,
     //     _ => return exception_t::EXCEPTION_SYSCALL_ERROR,
     // };
-    // if unlikely(!checkVPAlignment(frame_size, vaddr)) {
+    // if unlikely(!check_vp_alignment(frame_size, vaddr)) {
     //     unsafe {
     //         current_syscall_error._type = seL4_AlignmentError;
     //     }
@@ -853,7 +853,7 @@ fn decode_vspace_flush_invocation(
 ) -> exception_t {
     if start < end {
         let root_switched = set_vm_root_for_flush(vspace, asid);
-        doFlush(label, start, end, pstart);
+        do_flush(label, start, end, pstart);
         if root_switched {
             let _ = get_currenct_thread().set_vm_root();
         }

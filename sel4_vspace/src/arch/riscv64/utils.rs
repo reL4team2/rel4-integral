@@ -10,7 +10,7 @@ use sel4_common::{BIT, MASK};
 /// VPN[0] <=> n = 2
 /// ```
 #[inline]
-pub fn RISCV_GET_PT_INDEX(addr: usize, n: usize) -> usize {
+pub fn riscv_get_pt_index(addr: usize, n: usize) -> usize {
     ((addr) >> (((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + seL4_PageBits))
         & MASK!(PT_INDEX_BITS)
 }
@@ -22,7 +22,7 @@ pub fn RISCV_GET_PT_INDEX(addr: usize, n: usize) -> usize {
 ///
 /// Get n levels page bit size
 #[inline]
-pub fn RISCV_GET_LVL_PGSIZE_BITS(n: usize) -> usize {
+pub fn riscv_get_LVL_PGSIZE_BITS(n: usize) -> usize {
     ((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + seL4_PageBits
 }
 
@@ -33,8 +33,8 @@ pub fn RISCV_GET_LVL_PGSIZE_BITS(n: usize) -> usize {
 ///
 /// Get n levels page size
 #[inline]
-pub fn RISCV_GET_LVL_PGSIZE(n: usize) -> usize {
-    BIT!(RISCV_GET_LVL_PGSIZE_BITS(n))
+pub fn riscv_get_lvl_pgsize(n: usize) -> usize {
+    BIT!(riscv_get_LVL_PGSIZE_BITS(n))
 }
 
 ///在`reL4`内核页表中，内核代码，在内核地址空间中被映射了两次，

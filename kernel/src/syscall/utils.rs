@@ -237,7 +237,7 @@ pub fn ensureEmptySlot(slot: *mut cte_t) -> exception_t {
 }
 
 pub fn mask_cap_rights(rights: seL4_CapRights, capability: &cap) -> cap {
-    if capability.isArchCap() {
+    if capability.is_arch_cap() {
         return arch_mask_cap_rights(rights, capability);
     }
     match capability.clone().splay() {

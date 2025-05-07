@@ -10,7 +10,7 @@ use sel4_common::{
 };
 
 use crate::{
-    arch::riscv64::{sfence, utils::RISCV_GET_PT_INDEX},
+    arch::riscv64::{sfence, utils::riscv_get_pt_index},
     asid_t, find_vspace_for_asid, lookupPTSlot_ret_t, vptr_t, PTE,
 };
 
@@ -95,10 +95,10 @@ impl PTE {
         }
         assert_ne!(find_ret.vspace_root.unwrap(), target_pt);
         let mut pt = find_ret.vspace_root.unwrap();
-        let mut ptSlot = unsafe { &mut *(pt.add(RISCV_GET_PT_INDEX(vptr, 0))) };
+        let mut ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr, 0))) };
         let mut i = 0;
         while i < CONFIG_PT_LEVELS - 1 && pt != target_pt {
-            ptSlot = unsafe { &mut *(pt.add(RISCV_GET_PT_INDEX(vptr, i))) };
+            ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr, i))) };
             if unlikely(ptSlot.is_pte_table()) {
                 return;
             }

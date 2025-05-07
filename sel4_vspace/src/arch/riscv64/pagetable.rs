@@ -12,9 +12,8 @@ use sel4_common::{
 };
 
 use super::{
-    kpptr_to_paddr, map_kernel_devices, setVSpaceRoot,
-    utils::{RISCV_GET_LVL_PGSIZE_BITS, RISCV_GET_PT_INDEX},
-    RISCV_GET_LVL_PGSIZE,
+    kpptr_to_paddr, map_kernel_devices, riscv_get_lvl_pgsize, set_vspace_root,
+    utils::{riscv_get_LVL_PGSIZE_BITS, riscv_get_pt_index},
 };
 
 ///页表采用`SV39`，该变量是内核使用的页表的根页表（一级页表）
@@ -91,25 +90,25 @@ pub fn rust_map_kernel_window() {
 
     // 物理地址到内核地址空间的直接映射，用`1GB`大页的方式映射
     for (pptr, paddr) in (PPTR_BASE..PPTR_TOP)
-        .step_by(RISCV_GET_LVL_PGSIZE(0))
-        .zip((PADDR_BASE..PADDR_TOP).step_by(RISCV_GET_LVL_PGSIZE(0)))
+        .step_by(riscv_get_lvl_pgsize(0))
+        .zip((PADDR_BASE..PADDR_TOP).step_by(riscv_get_lvl_pgsize(0)))
     {
         unsafe {
-            KERNEL_ROOT_PAGE_TABLE.map_next_table(RISCV_GET_PT_INDEX(pptr, 0), paddr, true);
+            KERNEL_ROOT_PAGE_TABLE.map_next_table(riscv_get_pt_index(pptr, 0), paddr, true);
         }
     }
 
-    let mut pptr = ROUND_DOWN!(KERNEL_ELF_BASE, RISCV_GET_LVL_PGSIZE_BITS(0));
-    let mut paddr = ROUND_DOWN!(KERNEL_ELF_PADDR_BASE, RISCV_GET_LVL_PGSIZE_BITS(0));
+    let mut pptr = ROUND_DOWN!(KERNEL_ELF_BASE, riscv_get_LVL_PGSIZE_BITS(0));
+    let mut paddr = ROUND_DOWN!(KERNEL_ELF_PADDR_BASE, riscv_get_LVL_PGSIZE_BITS(0));
     // 将根页表`KERNEL_ELF_PADDR_BASE`和`KERNEL_ELF_BASE`处的页表项改为使用`kernel_image_level2_pt`映射
     unsafe {
         KERNEL_ROOT_PAGE_TABLE.map_next_table(
-            RISCV_GET_PT_INDEX(KERNEL_ELF_PADDR_BASE + PPTR_BASE_OFFSET, 0),
+            riscv_get_pt_index(KERNEL_ELF_PADDR_BASE + PPTR_BASE_OFFSET, 0),
             kpptr_to_paddr(KERNEL_LEVEL2_PAGE_TABLE.base()),
             false,
         );
         KERNEL_ROOT_PAGE_TABLE.map_next_table(
-            RISCV_GET_PT_INDEX(pptr, 0),
+            riscv_get_pt_index(pptr, 0),
             kpptr_to_paddr(KERNEL_LEVEL2_PAGE_TABLE.base()),
             false,
         );
@@ -117,12 +116,12 @@ pub fn rust_map_kernel_window() {
 
     let mut index = 0;
     // 做了 `0xFFFF_FFFF_8400_0000(KERNEL_ELF_BASE)~0xFFFF_FFFF_C4000_0000(KDEV_BASE)`到`0x8400_0000~0xC400_0000`的地址映射。
-    while pptr < PPTR_TOP + RISCV_GET_LVL_PGSIZE(0) {
+    while pptr < PPTR_TOP + riscv_get_lvl_pgsize(0) {
         unsafe {
             KERNEL_LEVEL2_PAGE_TABLE.map_next_table(index, paddr, true);
         }
-        pptr += RISCV_GET_LVL_PGSIZE(1);
-        paddr += RISCV_GET_LVL_PGSIZE(1);
+        pptr += riscv_get_lvl_pgsize(1);
+        paddr += riscv_get_lvl_pgsize(1);
         index += 1;
     }
     map_kernel_devices();
@@ -134,7 +133,7 @@ pub fn rust_map_kernel_window() {
 #[inline]
 pub fn activate_kernel_vspace() {
     unsafe {
-        setVSpaceRoot(kpptr_to_paddr(kernel_root_pageTable.as_ptr() as usize), 0);
+        set_vspace_root(kpptr_to_paddr(kernel_root_pageTable.as_ptr() as usize), 0);
     }
 }
 
@@ -144,7 +143,7 @@ pub fn activate_kernel_vspace() {
 /// when create a new process, a new page table will be alloced to the new process.
 #[no_mangle]
 pub fn copyGlobalMappings(Lvl1pt: usize) {
-    let mut i: usize = RISCV_GET_PT_INDEX(0x80000000, 0);
+    let mut i: usize = riscv_get_pt_index(0x80000000, 0);
     while i < BIT!(PT_INDEX_BITS) {
         unsafe {
             let newLvl1pt = (Lvl1pt + i * 8) as *mut usize;
@@ -162,7 +161,7 @@ pub fn copyGlobalMappings(Lvl1pt: usize) {
 ///
 /// `pptr`:分配的页面对应的虚拟地址(frame_base_ptr)
 #[no_mangle]
-pub fn unmapPage(
+pub fn unmap_page(
     page_size: usize,
     asid: asid_t,
     vptr: vptr_t,

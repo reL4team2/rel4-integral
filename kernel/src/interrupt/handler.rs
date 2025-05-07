@@ -6,19 +6,19 @@ use sel4_common::platform::{timer, Timer_func};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
-use sel4_task::{activateThread, schedule, timerTick};
+use sel4_task::{activateThread, schedule, timer_tick};
 
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_task::ksReprogram;
 #[cfg(feature = "KERNEL_MCS")]
-use sel4_task::{checkBudget, updateTimestamp};
+use sel4_task::{check_budget, update_timestamp};
 
 #[no_mangle]
 pub fn handle_interrupt_entry() -> exception_t {
     #[cfg(feature = "KERNEL_MCS")]
     {
-        updateTimestamp();
-        checkBudget();
+        update_timestamp();
+        check_budget();
     }
     let irq = get_active_irq();
 
@@ -71,7 +71,7 @@ pub fn handle_interrput(irq: usize) {
                 timer.ackDeadlineIRQ();
                 unsafe { ksReprogram = true };
             }
-            timerTick();
+            timer_tick();
             timer.resetTimer();
         }
         #[cfg(feature = "ENABLE_SMP")]

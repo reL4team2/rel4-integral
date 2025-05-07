@@ -17,11 +17,11 @@ mod utils;
 pub use arch::aarch64::*;
 #[cfg(target_arch = "riscv64")]
 pub use arch::riscv64::*;
-pub use arch::unmapPage;
+pub use arch::unmap_page;
 pub use asid::*;
 pub use boot::*;
 pub use pagetable::PageTable;
 // pub use pte::PTE;
 pub use structures::*;
-pub use utils::checkVPAlignment;
+pub use utils::check_vp_alignment;
 // pub use riscv::*;

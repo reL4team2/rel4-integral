@@ -65,7 +65,7 @@ block asid_pool_cap {
     field_high  capASIDPool     37
 }
 
--- NB: odd numbers are arch caps (see isArchCap())
+-- NB: odd numbers are arch caps (see is_arch_cap())
 tagged_union cap capType {
     -- 5-bit tag caps
     tag null_cap            0

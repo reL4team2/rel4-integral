@@ -5,20 +5,20 @@ use sel4_common::{
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
 };
 use sel4_task::{
-    checkBudget, commitTime, get_currenct_thread, ksCurThread, possible_switch_to,
+    check_budget, commit_time, get_currenct_thread, ksCurThread, possible_switch_to,
     reply::reply_t,
-    rescheduleRequired,
+    reschedule_required,
     sched_context::{sched_context, MIN_REFILLS},
-    seL4_SchedContext_Sporadic, tcb_t,
+    tcb_t, SCHED_CONTEXT_SPORADIC,
 };
 
 pub fn invokeSchedContext_UnbindObject(sc: &mut sched_context, capability: cap) -> exception_t {
     match capability.get_tag() {
         cap_tag::cap_thread_cap => {
-            sc.schedContext_unbindTCB(convert_to_mut_type_ref::<tcb_t>(sc.scTcb));
+            sc.sched_context_unbind_tcb(convert_to_mut_type_ref::<tcb_t>(sc.scTcb));
         }
         cap_tag::cap_notification_cap => {
-            sc.schedContext_unbindNtfn();
+            sc.sched_context_unbind_ntfn();
         }
         _ => {
             panic!("invalid cap type");
@@ -29,14 +29,12 @@ pub fn invokeSchedContext_UnbindObject(sc: &mut sched_context, capability: cap) 
 
 pub fn invoke_sched_context_bind(sc: &mut sched_context, capability: &cap) -> exception_t {
     match capability.clone().splay() {
-        cap_Splayed::thread_cap(data) => sc.schedContext_bindTCB(convert_to_mut_type_ref::<tcb_t>(
-            data.get_capTCBPtr() as usize,
-        )),
-        cap_Splayed::notification_cap(data) => {
-            sc.schedContext_bindNtfn(convert_to_mut_type_ref::<notification_t>(
-                data.get_capNtfnPtr() as usize,
-            ))
-        }
+        cap_Splayed::thread_cap(data) => sc.sched_context_bind_tcb(
+            convert_to_mut_type_ref::<tcb_t>(data.get_capTCBPtr() as usize),
+        ),
+        cap_Splayed::notification_cap(data) => sc.sched_context_bind_ntfn(
+            convert_to_mut_type_ref::<notification_t>(data.get_capNtfnPtr() as usize),
+        ),
         _ => {
             panic!("invalid cap type of invoke sched context bind")
         }
@@ -44,8 +42,8 @@ pub fn invoke_sched_context_bind(sc: &mut sched_context, capability: &cap) -> ex
     exception_t::EXCEPTION_NONE
 }
 pub fn invoke_sched_context_unbind(sc: &mut sched_context) -> exception_t {
-    sc.schedContext_unbindAllTCBs();
-    sc.schedContext_unbindNtfn();
+    sc.sched_context_unbind_all_tcbs();
+    sc.sched_context_unbind_ntfn();
     if sc.scReply != 0 {
         convert_to_mut_type_ref::<reply_t>(sc.scReply).replyNext = call_stack::new(0, 0);
         sc.scReply = 0;
@@ -54,7 +52,7 @@ pub fn invoke_sched_context_unbind(sc: &mut sched_context) -> exception_t {
 }
 pub fn invoke_sched_context_consumed(sc: &mut sched_context) -> exception_t {
     // TODO: MCS
-    sc.setConsumed();
+    sc.set_consumed();
     exception_t::EXCEPTION_NONE
 }
 pub fn invoke_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
@@ -62,7 +60,7 @@ pub fn invoke_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
         convert_to_mut_type_ref::<tcb_t>(sc.scYieldFrom).schedContext_completeYieldTo();
         assert!(sc.scYieldFrom == 0);
     }
-    sc.schedContext_resume();
+    sc.sched_context_resume();
     let mut return_now = true;
     let tcb = convert_to_mut_type_ref::<tcb_t>(sc.scTcb);
     if tcb.is_schedulable() {
@@ -75,12 +73,12 @@ pub fn invoke_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
             tcb.sched_dequeue();
             get_currenct_thread().sched_enqueue();
             tcb.sched_enqueue();
-            rescheduleRequired();
+            reschedule_required();
             return_now = false;
         }
     }
     if return_now == true {
-        sc.setConsumed();
+        sc.set_consumed();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -94,16 +92,16 @@ pub fn invoke_sched_control_configure_flags(
     flags: usize,
 ) -> exception_t {
     target.scBadge = badge;
-    target.scSporadic = (flags & seL4_SchedContext_Sporadic) != 0;
+    target.scSporadic = (flags & SCHED_CONTEXT_SPORADIC) != 0;
 
     if let Some(tcb) = convert_to_option_mut_type_ref::<tcb_t>(target.scTcb) {
         /* remove from scheduler */
-        tcb.Release_Remove();
+        tcb.release_remove();
         tcb.sched_dequeue();
         /* bill the current consumed amount before adjusting the params */
         if target.is_current() {
-            assert!(checkBudget());
-            commitTime();
+            assert!(check_budget());
+            commit_time();
         }
     }
 
@@ -122,14 +120,14 @@ pub fn invoke_sched_control_configure_flags(
 
     assert!(target.scRefillMax > 0);
     if target.scTcb != 0 {
-        target.schedContext_resume();
+        target.sched_context_resume();
         if convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
             && target.scTcb != unsafe { ksCurThread }
         {
             possible_switch_to(convert_to_mut_type_ref::<tcb_t>(target.scTcb));
         }
         if target.scTcb == unsafe { ksCurThread } {
-            rescheduleRequired();
+            reschedule_required();
         }
     }
     exception_t::EXCEPTION_NONE

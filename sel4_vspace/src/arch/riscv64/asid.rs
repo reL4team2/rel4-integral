@@ -40,7 +40,7 @@ pub fn delete_asid(
         let poolPtr = riscvKSASIDTable[asid >> asidLowBits];
         if poolPtr as usize != 0 && (*poolPtr).array[asid & MASK!(asidLowBits)] == vspace {
             #[cfg(target_arch = "riscv64")]
-            hwASIDFlush(asid);
+            hw_asid_flush(asid);
             (*poolPtr).array[asid & MASK!(asidLowBits)] = 0 as *mut PTE;
             set_vm_root(&default_vspace_cap)
         } else {
@@ -124,7 +124,7 @@ pub fn delete_asid_pool(
 
 ///清除`TLB`中对应`asid`的项
 #[inline]
-pub fn hwASIDFlush(asid: asid_t) {
+pub fn hw_asid_flush(asid: asid_t) {
     unsafe {
         asm!("sfence.vma x0, {0}",in(reg) asid);
     }

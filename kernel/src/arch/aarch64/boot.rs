@@ -2,7 +2,7 @@ use log::debug;
 use sel4_common::arch::config::KERNEL_ELF_BASE;
 use sel4_common::println;
 use sel4_common::{sel4_config::PAGE_BITS, BIT};
-use sel4_task::{create_idle_thread, tcb_t, SchedulerAction_ResumeCurrentThread};
+use sel4_task::{create_idle_thread, tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 
 use crate::arch::aarch64::platform::{clean_invalidate_l1_caches, init_cpu, invalidate_local_tlb};
@@ -169,7 +169,7 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
 
     unsafe { clh_lock_acquire(cpu_id(), false) };
     ksNumCPUs.lock().add_assign(1);
-    init_core_state(SchedulerAction_ResumeCurrentThread as *mut tcb_t);
+    init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
 
     true
 }

@@ -9,7 +9,7 @@ use crate::{
 #[cfg(feature = "KERNEL_MCS")]
 pub const TICKS_IN_US: usize = (TIMER_CLOCK_HZ / (US_IN_MS * MS_IN_S));
 #[cfg(feature = "KERNEL_MCS")]
-pub fn getKernelWcetUs() -> time_t {
+pub fn get_kernel_wcet_us() -> time_t {
     10
 }
 #[cfg(feature = "KERNEL_MCS")]

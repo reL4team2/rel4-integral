@@ -1,7 +1,7 @@
 use crate::{arch::aarch64::machine::clean_by_va_pou, vm_attributes_t, PTE};
 
 use super::utils::paddr_to_pptr;
-use super::{mair_types, seL4_VSpaceIndexBits, UPT_LEVELS};
+use super::{mair_types, UPT_LEVELS, VSPACE_INDEX_BITS};
 use crate::{lookupPTSlot_ret_t, vptr_t};
 use sel4_common::utils::ptr_to_mut;
 use sel4_common::MASK;
@@ -154,8 +154,8 @@ impl PTE {
         attr: vm_attributes_t,
         page_size: usize,
     ) -> Self {
-        let nonexecutable = attr.get_armExecuteNever();
-        let cacheable = attr.get_armPageCacheable();
+        let nonexecutable = attr.get_arm_execute_never();
+        let cacheable = attr.get_arm_page_cachable();
         let mut attrindx = mair_types::DEVICE_nGnRnE as usize;
         if cacheable {
             attrindx = mair_types::NORMAL as usize;
@@ -221,7 +221,7 @@ impl PTE {
         let mut pt = self.0 as *mut PTE;
         let mut level: usize = UPT_LEVELS - 1;
         let ptBitsLeft = PT_INDEX_BITS * level + seL4_PageBits;
-        pt = unsafe { pt.add((vptr >> ptBitsLeft) & MASK!(seL4_VSpaceIndexBits)) };
+        pt = unsafe { pt.add((vptr >> ptBitsLeft) & MASK!(VSPACE_INDEX_BITS)) };
         let mut ret: lookupPTSlot_ret_t = lookupPTSlot_ret_t {
             ptSlot: pt,
             ptBitsLeft: ptBitsLeft,

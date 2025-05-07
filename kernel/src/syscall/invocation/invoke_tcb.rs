@@ -8,7 +8,7 @@ use sel4_common::{
 };
 use sel4_cspace::interface::{cte_insert, cte_t, same_object_as};
 use sel4_ipc::Transfer;
-use sel4_task::{get_currenct_thread, rescheduleRequired, set_thread_state, tcb_t, ThreadState};
+use sel4_task::{get_currenct_thread, reschedule_required, set_thread_state, tcb_t, ThreadState};
 
 use crate::syscall::{do_bind_notification, safe_unbind_notification, utils::get_syscall_arg};
 
@@ -104,7 +104,7 @@ pub fn invoke_tcb_write_registers(
         dest.restart();
     }
     if dest.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -135,7 +135,7 @@ pub fn invoke_tcb_copy_registers(
         }
     }
     if dest.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -349,7 +349,7 @@ pub fn invoke_tcb_set_ipc_buffer(
         }
     }
     if target.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -370,7 +370,7 @@ pub fn invoke_tcb_unbind_notification(tcb: &mut tcb_t) -> exception_t {
 pub fn invoke_tcb_set_tls_base(thread: &mut tcb_t, base: usize) -> exception_t {
     thread.tcbArch.set_register(ArchReg::TlsBase, base);
     if thread.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -389,7 +389,7 @@ pub fn invoke_tcb_set_affinity(thread: &mut tcb_t, affinitiy: usize) -> exceptio
     }
 
     if thread.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }

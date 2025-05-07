@@ -74,12 +74,12 @@ use sel4_common::utils::ptr_to_mut;
 use sel4_ipc::Transfer;
 use sel4_ipc::{endpoint_func, notification_func};
 #[cfg(not(feature = "KERNEL_MCS"))]
-use sel4_task::rescheduleRequired;
+use sel4_task::reschedule_required;
 use sel4_task::{
     activateThread, get_currenct_thread, schedule, set_thread_state, tcb_t, ThreadState,
 };
 #[cfg(feature = "KERNEL_MCS")]
-use sel4_task::{chargeBudget, get_current_sc, ksConsumed, mcs_preemption_point};
+use sel4_task::{charge_budget, get_current_sc, ksConsumed, mcs_preemption_point};
 pub use utils::*;
 
 use crate::arch::restore_user_context;
@@ -160,15 +160,15 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
 pub fn handlesyscall(_syscall: usize) -> exception_t {
     use core::intrinsics::likely;
 
-    use sel4_task::{checkBudgetRestart, updateTimestamp};
+    use sel4_task::{check_budget_restart, update_timestamp};
 
     let syscall: isize = _syscall as isize;
     // if hart_id() == 0 {
     //     debug!("handle syscall: {}", syscall);
     // }
     // sel4_common::println!("handle syscall {}", syscall);
-    updateTimestamp();
-    if likely(checkBudgetRestart()) {
+    update_timestamp();
+    if likely(check_budget_restart()) {
         match syscall {
             SysSend => {
                 let ret = handle_invocation(
@@ -361,7 +361,7 @@ pub fn handle_fault(thread: &mut tcb_t) {
 pub fn handleTimeout(tptr: &mut tcb_t) {
     use sel4_common::sel4_config::tcbTimeoutHandler;
 
-    assert!(tptr.validTimeoutHandler());
+    assert!(tptr.valid_timeout_handler());
     let cte = tptr.get_cspace(tcbTimeoutHandler);
     send_fault_ipc(tptr, &cte.capability, false);
 }
@@ -374,7 +374,7 @@ pub fn endTimeslice(can_timeout_fault: bool) {
     unsafe {
         let thread = get_currenct_thread();
         let sched_context = get_current_sc();
-        if can_timeout_fault && !sched_context.is_round_robin() && thread.validTimeoutHandler() {
+        if can_timeout_fault && !sched_context.is_round_robin() && thread.valid_timeout_handler() {
             current_fault = seL4_Fault_Timeout::new(sched_context.scBadge as u64).unsplay();
             handleTimeout(thread);
         } else if sched_context.refill_ready() && sched_context.refill_sufficient(0) {
@@ -560,7 +560,7 @@ fn handle_yield() {
     {
         unsafe {
             let consumed = get_current_sc().scConsumed + ksConsumed;
-            chargeBudget((*get_current_sc().refill_head()).rAmount, false);
+            charge_budget((*get_current_sc().refill_head()).rAmount, false);
             get_current_sc().scConsumed = consumed;
         }
     }
@@ -577,6 +577,6 @@ fn handle_yield() {
         #[cfg(not(feature = "ENABLE_SMP"))]
         get_currenct_thread().sched_append();
 
-        rescheduleRequired();
+        reschedule_required();
     }
 }

@@ -5,7 +5,7 @@ use core::{
 
 use sel4_common::{
     arch::{
-        getKernelWcetTicks, getKernelWcetUs, getMaxTicksToUs, getMaxUsToTicks, ticksToUs,
+        getMaxTicksToUs, getMaxUsToTicks, get_kernel_wcet_ticks, get_kernel_wcet_us, ticksToUs,
         usToTicks, ArchReg::MsgInfo,
     },
     message_info::seL4_MessageInfo_func,
@@ -19,7 +19,7 @@ use sel4_common::{
 
 use crate::{
     get_currenct_thread, get_current_sc, ksCurSC, ksCurTime, ksReprogram, ksSchedulerAction,
-    rescheduleRequired, tcb_t,
+    reschedule_required, tcb_t,
 };
 
 pub type sched_context_t = sched_context;
@@ -48,17 +48,17 @@ pub struct refill {
     pub rTime: ticks_t,
     pub rAmount: ticks_t,
 }
-pub fn MIN_BUDGET_US() -> time_t {
-    2 * getKernelWcetUs() * CONFIG_KERNEL_WCET_SCALE
+pub fn min_budget_us() -> time_t {
+    2 * get_kernel_wcet_us() * CONFIG_KERNEL_WCET_SCALE
 }
-pub fn MIN_BUDGET() -> time_t {
-    2 * getKernelWcetTicks() * CONFIG_KERNEL_WCET_SCALE
+pub fn min_budget() -> time_t {
+    2 * get_kernel_wcet_ticks() * CONFIG_KERNEL_WCET_SCALE
 }
-pub fn MAX_PERIOD_US() -> time_t {
+pub fn max_period_us() -> time_t {
     getMaxUsToTicks() / 8
 }
-pub fn MAX_RELEASE_TIME() -> time_t {
-    UINT64_MAX - 5 * usToTicks(MAX_PERIOD_US())
+pub fn max_release_time() -> time_t {
+    UINT64_MAX - 5 * usToTicks(max_period_us())
 }
 pub fn refill_absolute_max(sc_cap: &cap_sched_context_cap) -> usize {
     return (BIT!(sc_cap.get_capSCSizeBits() as usize) - size_of::<sched_context_t>())
@@ -98,7 +98,7 @@ impl sched_context {
     #[inline]
     pub fn postpone(&self) {
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).sched_dequeue();
-        convert_to_mut_type_ref::<tcb_t>(self.scTcb).Release_Enqueue();
+        convert_to_mut_type_ref::<tcb_t>(self.scTcb).release_enqueue();
         unsafe { ksReprogram = true };
     }
     #[inline]
@@ -159,7 +159,7 @@ impl sched_context {
         self.scRefillHead = 0;
         self.scRefillTail = 0;
         self.scRefillMax = max_refills;
-        assert!(budget >= MIN_BUDGET());
+        assert!(budget >= min_budget());
         unsafe {
             (*self.refill_head()).rAmount = budget;
             (*self.refill_head()).rTime = ksCurTime;
@@ -197,7 +197,7 @@ impl sched_context {
     }
     #[inline]
     pub fn refill_ready(&mut self) -> bool {
-        unsafe { (*self.refill_head()).rTime <= ksCurTime + getKernelWcetTicks() }
+        unsafe { (*self.refill_head()).rTime <= ksCurTime + get_kernel_wcet_ticks() }
     }
     #[inline]
     pub fn refill_index(&self, index: usize) -> *mut refill_t {
@@ -235,7 +235,7 @@ impl sched_context {
     }
     #[inline]
     pub fn refill_sufficient(&mut self, usage: ticks_t) -> bool {
-        self.refill_capacity(usage) >= MIN_BUDGET()
+        self.refill_capacity(usage) >= min_budget()
     }
     #[inline]
     pub fn refill_update(
@@ -290,7 +290,7 @@ impl sched_context {
         }
     }
 
-    pub fn schedContext_resume(&mut self) {
+    pub fn sched_context_resume(&mut self) {
         assert!(self.get_ptr() == 0 || self.scTcb != 0);
         if likely(self.get_ptr() != 0)
             && convert_to_mut_type_ref::<tcb_t>(self.scTcb).is_schedulable()
@@ -306,7 +306,7 @@ impl sched_context {
             }
         }
     }
-    pub fn schedContext_bindTCB(&mut self, tcb: &mut tcb_t) {
+    pub fn sched_context_bind_tcb(&mut self, tcb: &mut tcb_t) {
         assert!(self.scTcb == 0);
         assert!(tcb.tcbSchedContext == 0);
         tcb.tcbSchedContext = self.get_ptr();
@@ -314,61 +314,61 @@ impl sched_context {
         if self.sc_sporadic() && self.sc_active() && !self.is_current() {
             self.refill_unblock_check()
         }
-        self.schedContext_resume();
+        self.sched_context_resume();
         if tcb.is_schedulable() {
             tcb.sched_enqueue();
-            rescheduleRequired();
+            reschedule_required();
         }
     }
-    pub fn schedContext_unbindTCB(&mut self, tcb: &mut tcb_t) {
+    pub fn sched_context_unbind_tcb(&mut self, tcb: &mut tcb_t) {
         assert!(self.scTcb == tcb.get_ptr());
         if tcb.is_current() {
-            rescheduleRequired();
+            reschedule_required();
         }
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).sched_dequeue();
-        convert_to_mut_type_ref::<tcb_t>(self.scTcb).Release_Remove();
+        convert_to_mut_type_ref::<tcb_t>(self.scTcb).release_remove();
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).tcbSchedContext = 0;
         self.scTcb = 0;
     }
-    pub fn schedContext_unbindAllTCBs(&mut self) {
+    pub fn sched_context_unbind_all_tcbs(&mut self) {
         if self.scTcb != 0 {
-            self.schedContext_unbindTCB(convert_to_mut_type_ref::<tcb_t>(self.scTcb));
+            self.sched_context_unbind_tcb(convert_to_mut_type_ref::<tcb_t>(self.scTcb));
         }
     }
-    pub fn schedContext_donate(&mut self, to: &mut tcb_t) {
+    pub fn sched_context_donate(&mut self, to: &mut tcb_t) {
         assert!(self.get_ptr() != 0);
         assert!(to.get_ptr() != 0);
         assert!(to.tcbSchedContext == 0);
         if let Some(from) = convert_to_option_mut_type_ref::<tcb_t>(self.scTcb) {
             from.sched_dequeue();
-            from.Release_Remove();
+            from.release_remove();
             from.tcbSchedContext = 0;
             if from.is_current() || from.get_ptr() == unsafe { ksSchedulerAction } {
-                rescheduleRequired();
+                reschedule_required();
             }
         }
         self.scTcb = to.get_ptr();
         to.tcbSchedContext = self.get_ptr()
     }
-    pub fn schedContext_bindNtfn(&mut self, ntfn: &mut notification_t) {
+    pub fn sched_context_bind_ntfn(&mut self, ntfn: &mut notification_t) {
         ntfn.set_ntfnSchedContext(self.get_ptr() as u64);
         self.scNotification = ntfn as *mut _ as usize;
     }
-    pub fn schedContext_unbindNtfn(&mut self) {
+    pub fn sched_context_unbind_ntfn(&mut self) {
         if self.scNotification != 0 {
             convert_to_mut_type_ref::<notification>(self.scNotification).set_ntfnSchedContext(0);
             self.scNotification = 0;
         }
     }
-    pub fn setConsumed(&mut self) {
-        let consumed = self.schedContext_updateConsumed();
+    pub fn set_consumed(&mut self) {
+        let consumed = self.sched_context_update_consumed();
         let length = get_currenct_thread().set_mr(0, consumed);
         get_currenct_thread().tcbArch.set_register(
             MsgInfo,
             seL4_MessageInfo::new(0, 0, 0, length as u64).to_word(),
         );
     }
-    pub fn schedContext_updateConsumed(&mut self) -> time_t {
+    pub fn sched_context_update_consumed(&mut self) -> time_t {
         let consumed: ticks_t = self.scConsumed;
         if consumed >= getMaxTicksToUs() {
             self.scConsumed -= getMaxTicksToUs();
@@ -384,7 +384,7 @@ pub fn refill_budget_check(mut usage: ticks_t) {
         let sc = get_current_sc();
         assert!(!sc.is_round_robin());
 
-        while (*sc.refill_head()).rAmount <= usage && (*sc.refill_head()).rTime < MAX_RELEASE_TIME()
+        while (*sc.refill_head()).rAmount <= usage && (*sc.refill_head()).rTime < max_release_time()
         {
             usage -= (*sc.refill_head()).rAmount;
 
@@ -396,7 +396,7 @@ pub fn refill_budget_check(mut usage: ticks_t) {
                 sc.schedule_used((*old_head).rTime, (*old_head).rAmount);
             }
         }
-        if usage > 0 && (*sc.refill_head()).rTime < MAX_RELEASE_TIME() {
+        if usage > 0 && (*sc.refill_head()).rTime < max_release_time() {
             assert!((*sc.refill_head()).rAmount > usage);
             let new_rTime = (*sc.refill_head()).rTime + sc.scPeriod;
             let new_rAmount = usage;
@@ -405,7 +405,7 @@ pub fn refill_budget_check(mut usage: ticks_t) {
             (*sc.refill_head()).rTime += usage;
             sc.schedule_used(new_rTime, new_rAmount);
         }
-        while (*sc.refill_head()).rAmount < MIN_BUDGET() {
+        while (*sc.refill_head()).rAmount < min_budget() {
             let head = sc.refill_pop_head();
             (*sc.refill_head()).rAmount += (*head).rAmount;
             (*sc.refill_head()).rTime -= (*head).rAmount;

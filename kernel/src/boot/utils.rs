@@ -54,7 +54,7 @@ pub fn get_n_paging(v_reg: v_region_t, bits: usize) -> usize {
 pub fn arch_get_n_paging(it_v_reg: v_region_t) -> usize {
     let mut n: usize = 0;
     for i in 0..CONFIG_PT_LEVELS - 1 {
-        n += get_n_paging(it_v_reg, RISCV_GET_LVL_PGSIZE_BITS(i));
+        n += get_n_paging(it_v_reg, riscv_get_LVL_PGSIZE_BITS(i));
     }
     n
 }

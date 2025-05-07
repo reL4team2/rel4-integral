@@ -69,7 +69,7 @@ impl reply {
             sc_donated.scReply = self.get_ptr();
 
             /* now do the actual donation */
-            sc_donated.schedContext_donate(tcb_callee);
+            sc_donated.sched_context_donate(tcb_callee);
         }
     }
     pub fn pop(&mut self, tcb: &mut tcb_t) {
@@ -101,7 +101,7 @@ impl reply {
                 	* strange behaviour when a thread is bound to an sc while it is
                 	* in the BlockedOnReply state. The semantics in this case are that the
                 	* SC cannot go back to the caller if the caller has received another one */
-                convert_to_mut_type_ref::<sched_context_t>(next_ptr).schedContext_donate(tcb);
+                convert_to_mut_type_ref::<sched_context_t>(next_ptr).sched_context_donate(tcb);
             }
         }
 

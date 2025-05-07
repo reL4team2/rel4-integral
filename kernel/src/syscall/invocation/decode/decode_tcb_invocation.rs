@@ -635,9 +635,10 @@ fn decode_set_sched_params(
         let sc = convert_to_mut_type_ref::<sched_context_t>(
             cap::cap_sched_context_cap(sc_cap).get_capSCPtr() as usize,
         );
-        sc.schedContext_bindTCB(tcb);
+        sc.sched_context_bind_tcb(tcb);
     } else if !have_sc && tcb.tcbSchedContext != 0 {
-        convert_to_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext).schedContext_unbindTCB(tcb);
+        convert_to_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext)
+            .sched_context_unbind_tcb(tcb);
     }
     exception_t::EXCEPTION_NONE
 }

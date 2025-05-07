@@ -16,20 +16,20 @@ use sel4_common::utils::convert_to_mut_type_ref;
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_common::utils::convert_to_option_mut_type_ref;
 use sel4_cspace::capability::cap_func;
-use sel4_cspace::compatibility::{ZombieType_ZombieTCB, Zombie_new};
+use sel4_cspace::compatibility::{zombie_new, ZOMBIE_TYPE_ZOMBIE_TCB};
 use sel4_cspace::interface::FinaliseCapRet;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
 use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_task::{
-    isCurDomainExpired, ksConsumed, ksCurSC, reply::reply_t, sched_context::sched_context_t,
-    updateTimestamp, ThreadState,
+    is_cur_domain_expired, ksConsumed, ksCurSC, reply::reply_t, sched_context::sched_context_t,
+    update_timestamp, ThreadState,
 };
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::unmap_page_table;
-use sel4_vspace::{asid_pool_t, asid_t, delete_asid, delete_asid_pool, unmapPage, PTE};
+use sel4_vspace::{asid_pool_t, asid_t, delete_asid, delete_asid_pool, unmap_page, PTE};
 
 #[cfg(target_arch = "riscv64")]
 #[no_mangle]
@@ -41,7 +41,7 @@ pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
     match capability.get_tag() {
         cap_tag::cap_frame_cap => {
             if cap::cap_frame_cap(capability).get_capFMappedASID() != 0 {
-                match unmapPage(
+                match unmap_page(
                     cap::cap_frame_cap(capability).get_capFSize() as usize,
                     cap::cap_frame_cap(capability).get_capFMappedASID() as usize,
                     cap::cap_frame_cap(capability).get_capFMappedAddress() as usize,
@@ -102,7 +102,7 @@ pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
     match capability.get_tag() {
         cap_tag::cap_frame_cap => {
             if cap::cap_frame_cap(capability).get_capFMappedASID() != 0 {
-                match unmapPage(
+                match unmap_page(
                     cap::cap_frame_cap(capability).get_capFSize() as usize,
                     cap::cap_frame_cap(capability).get_capFMappedASID() as usize,
                     cap::cap_frame_cap(capability).get_capFMappedAddress() as usize,
@@ -176,7 +176,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
         cleanupInfo: cap_null_cap::new().unsplay(),
     };
 
-    if capability.isArchCap() {
+    if capability.is_arch_cap() {
         // For Removing Warnings
         // #[cfg(target_arch = "aarch64")]
         // unsafe {
@@ -207,7 +207,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(
                     ntfn.get_ntfnSchedContext() as usize,
                 ) {
-                    sc.schedContext_unbindNtfn();
+                    sc.sched_context_unbind_ntfn();
                 }
                 ntfn.safe_unbind_tcb();
                 ntfn.cacncel_all_signal();
@@ -256,7 +256,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
     match capability.get_tag() {
         cap_tag::cap_cnode_cap => {
             return if _final {
-                fc_ret.remainder = Zombie_new(
+                fc_ret.remainder = zombie_new(
                     1usize << cap::cap_cnode_cap(capability).get_capCNodeRadix() as usize,
                     cap::cap_cnode_cap(capability).get_capCNodeRadix() as usize,
                     cap::cap_cnode_cap(capability).get_capCNodePtr() as usize,
@@ -284,7 +284,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 if let Some(sc) =
                     convert_to_option_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext)
                 {
-                    sc.schedContext_unbindTCB(tcb);
+                    sc.sched_context_unbind_tcb(tcb);
                     if sc.scYieldFrom != 0 {
                         convert_to_mut_type_ref::<tcb_t>(sc.scYieldFrom)
                             .schedContext_completeYieldTo();
@@ -298,7 +298,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 //     tcbDebugRemove(tcb as *mut tcb_t);
                 // }
                 fc_ret.remainder =
-                    Zombie_new(tcbCNodeEntries, ZombieType_ZombieTCB, cte_ptr.get_ptr());
+                    zombie_new(tcbCNodeEntries, ZOMBIE_TYPE_ZOMBIE_TCB, cte_ptr.get_ptr());
                 fc_ret.cleanupInfo = cap_null_cap::new().unsplay();
                 return fc_ret;
             }
@@ -309,8 +309,8 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 let sc = convert_to_mut_type_ref::<sched_context_t>(
                     cap::cap_sched_context_cap(capability).get_capSCPtr() as usize,
                 );
-                sc.schedContext_unbindAllTCBs();
-                sc.schedContext_unbindNtfn();
+                sc.sched_context_unbind_all_tcbs();
+                sc.sched_context_unbind_ntfn();
                 if sc.scReply != 0 {
                     assert!(
                         convert_to_mut_type_ref::<reply_t>(sc.scReply)
@@ -374,10 +374,10 @@ pub fn preemption_point() -> exception_t {
 
             #[cfg(feature = "KERNEL_MCS")]
             {
-                updateTimestamp();
+                update_timestamp();
                 let sc = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
                 if !(sc.sc_active() && sc.refill_sufficient(ksConsumed))
-                    || isCurDomainExpired()
+                    || is_cur_domain_expired()
                     || is_irq_pending()
                 {
                     return exception_t::EXCEPTION_PREEMTED;

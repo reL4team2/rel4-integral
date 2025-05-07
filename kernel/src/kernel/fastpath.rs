@@ -89,9 +89,9 @@ pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: 
     let asid = stored_hw_asid.0;
     unsafe {
         #[cfg(target_arch = "riscv64")]
-        setVSpaceRoot(pptr_to_paddr(vroot as usize), asid);
+        set_vspace_root(pptr_to_paddr(vroot as usize), asid);
         #[cfg(target_arch = "aarch64")]
-        setCurrentUserVSpaceRoot(ttbr_new(asid, pptr_to_paddr(vroot as usize)));
+        set_current_user_vspace_root(ttbr_new(asid, pptr_to_paddr(vroot as usize)));
         // panic!("switch_to_thread_fp");
         // ksCurThread = thread as usize;
         set_current_thread(&*thread);
@@ -168,7 +168,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(tcbVTable).capability);
 
     let dom = 0;
-    if unlikely(dest.tcbPriority < current.tcbPriority && !isHighestPrio(dom, dest.tcbPriority)) {
+    if unlikely(dest.tcbPriority < current.tcbPriority && !is_highest_prio(dom, dest.tcbPriority)) {
         slow_path(SysCall as usize);
     }
     if unlikely((ep_cap.get_capCanGrant() == 0) && (ep_cap.get_capCanGrantReply() == 0)) {
@@ -318,7 +318,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     let new_vtable = &cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     let dom = 0;
-    if unlikely(!isHighestPrio(dom, caller.tcbPriority)) {
+    if unlikely(!is_highest_prio(dom, caller.tcbPriority)) {
         slow_path(SysReplyRecv as usize);
     }
     thread_state_ptr_mset_blockingObject_tsType(
@@ -433,7 +433,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     let new_vtable = cap::cap_page_table_cap(&caller.get_cspace(tcbVTable).capability);
 
     let dom = 0;
-    if unlikely(!isHighestPrio(dom, caller.tcbPriority)) {
+    if unlikely(!is_highest_prio(dom, caller.tcbPriority)) {
         slow_path(SysReplyRecv as usize);
     }
 

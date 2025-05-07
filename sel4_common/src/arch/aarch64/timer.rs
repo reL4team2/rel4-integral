@@ -47,6 +47,6 @@ pub fn getTimerPrecision() -> ticks_t {
     usToTicks(TIMER_PRECISION) + TIMER_OVERHEAD_TICKS
 }
 #[cfg(feature = "KERNEL_MCS")]
-pub fn getKernelWcetUs() -> time_t {
+pub fn get_kernel_wcet_us() -> time_t {
     CONFIGURE_KERNEL_WCET
 }

@@ -12,52 +12,52 @@ use sel4_common::{
 
 pub const KPT_LEVELS: usize = 4;
 pub const UPT_LEVELS: usize = 4;
-pub const seL4_VSpaceIndexBits: usize = 9;
+pub const VSPACE_INDEX_BITS: usize = 9;
 pub(self) const PAGE_ADDR_MASK: usize = MASK!(48) & !0xfff;
 #[inline]
-pub fn ULVL_FRM_ARM_PT_LVL(n: usize) -> usize {
+pub fn ulvl_frm_arm_pt_lvl(n: usize) -> usize {
     n
 }
 #[inline]
-pub fn KLVL_FRM_ARM_PT_LVL(n: usize) -> usize {
+pub fn klvl_frm_arm_pt_lvl(n: usize) -> usize {
     n
 }
 
 #[inline]
-pub fn GET_PT_INDEX(addr: usize) -> usize {
+pub fn get_pt_index(addr: usize) -> usize {
     (addr >> PT_INDEX_OFFSET) & MASK!(PT_INDEX_BITS)
 }
 #[inline]
-pub fn GET_PD_INDEX(addr: usize) -> usize {
+pub fn get_pd_index(addr: usize) -> usize {
     (addr >> PD_INDEX_OFFSET) & MASK!(PD_INDEX_BITS)
 }
 #[inline]
-pub fn GET_UPUD_INDEX(addr: usize) -> usize {
+pub fn get_upud_index(addr: usize) -> usize {
     (addr >> PUD_INDEX_OFFSET) & MASK!(UPUD_INDEX_BITS)
 }
 #[inline]
-pub fn GET_PUD_INDEX(addr: usize) -> usize {
+pub fn get_pud_index(addr: usize) -> usize {
     (addr >> PUD_INDEX_OFFSET) & MASK!(PUD_INDEX_BITS)
 }
 #[inline]
-pub fn GET_PGD_INDEX(addr: usize) -> usize {
+pub fn get_pgd_index(addr: usize) -> usize {
     (addr >> PGD_INDEX_OFFSET) & MASK!(PGD_INDEX_BITS)
 }
 #[inline]
-pub fn KPT_LEVEL_SHIFT(n: usize) -> usize {
+pub fn kpt_level_shift(n: usize) -> usize {
     ((PT_INDEX_BITS) * (((KPT_LEVELS) - 1) - (n))) + seL4_PageBits
 }
 #[inline]
-pub fn UPT_LEVEL_SHIFT(n: usize) -> usize {
+pub fn upt_level_shift(n: usize) -> usize {
     ((PT_INDEX_BITS) * (((UPT_LEVELS) - 1) - (n))) + seL4_PageBits
 }
 #[inline]
-pub fn GET_ULVL_PGSIZE_BITS(n: usize) -> usize {
-    UPT_LEVEL_SHIFT(n)
+pub fn get_ulvl_pgsize_bits(n: usize) -> usize {
+    upt_level_shift(n)
 }
 #[inline]
-pub fn GET_ULVL_PGSIZE(n: usize) -> usize {
-    BIT!(UPT_LEVEL_SHIFT(n))
+pub fn get_ulvl_pgsize(n: usize) -> usize {
+    BIT!(upt_level_shift(n))
 }
 
 #[inline]
@@ -78,11 +78,11 @@ pub fn paddr_to_pptr(x: usize) -> usize {
 }
 
 impl VAddr {
-    pub(super) fn GET_KPT_INDEX(&self, n: usize) -> usize {
-        ((self.0) >> (KPT_LEVEL_SHIFT(n))) & MASK!(PT_INDEX_BITS)
+    pub(super) fn get_kpt_index(&self, n: usize) -> usize {
+        ((self.0) >> (kpt_level_shift(n))) & MASK!(PT_INDEX_BITS)
     }
-    pub(super) fn GET_UPT_INDEX(&self, n: usize) -> usize {
-        ((self.0) >> (UPT_LEVEL_SHIFT(n))) & MASK!(PT_INDEX_BITS)
+    pub(super) fn get_upt_index(&self, n: usize) -> usize {
+        ((self.0) >> (upt_level_shift(n))) & MASK!(PT_INDEX_BITS)
     }
 
     /// Get the index of the pt(last level, bit 12..20)

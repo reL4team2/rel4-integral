@@ -36,11 +36,11 @@ pub const RESERVED: usize = 3;
 //     word_t idx;
 
 //     /* place the PUD into the PGD */
-//     armKSGlobalKernelPGD[GET_PGD_INDEX(PPTR_BASE)] = pgde_pgde_pud_new(
+//     armKSGlobalKernelPGD[get_pgd_index(PPTR_BASE)] = pgde_pgde_pud_new(
 //                                                          addrFromKPPtr(armKSGlobalKernelPUD));
 
 //     /* place all PDs except the last one in PUD */
-//     for (idx = GET_PUD_INDEX(PPTR_BASE); idx < GET_PUD_INDEX(PPTR_TOP); idx++) {
+//     for (idx = get_pud_index(PPTR_BASE); idx < get_pud_index(PPTR_TOP); idx++) {
 //         armKSGlobalKernelPUD[idx] = pude_pude_pd_new(
 //                                         addrFromKPPtr(&armKSGlobalKernelPDs[idx][0])
 //                                     );
@@ -49,7 +49,7 @@ pub const RESERVED: usize = 3;
 //     /* map the kernel window using large pages */
 //     vaddr = PPTR_BASE;
 //     for (paddr = PADDR_BASE; paddr < PADDR_TOP; paddr += BIT(seL4_LargePageBits)) {
-//         armKSGlobalKernelPDs[GET_PUD_INDEX(vaddr)][GET_PD_INDEX(vaddr)] = pde_pde_large_new(
+//         armKSGlobalKernelPDs[get_pud_index(vaddr)][get_pd_index(vaddr)] = pde_pde_large_new(
 //                                                                               1, // UXN
 //                                                                               paddr,
 //                                                                               0,                        /* global */
@@ -62,7 +62,7 @@ pub const RESERVED: usize = 3;
 //     }
 
 //     /* put the PD into the PUD for device window */
-//     armKSGlobalKernelPUD[GET_PUD_INDEX(PPTR_TOP)] = pude_pude_pd_new(
+//     armKSGlobalKernelPUD[get_pud_index(PPTR_TOP)] = pude_pude_pd_new(
 //                                                         addrFromKPPtr(&armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][0])
 //                                                     );
 
@@ -77,12 +77,12 @@ pub const RESERVED: usize = 3;
 pub fn rust_map_kernel_window() {
     // println!("go into rusta map kernel window");
     set_kernel_page_global_directory_by_index(
-        (VAddr(PPTR_BASE)).GET_KPT_INDEX(0),
+        (VAddr(PPTR_BASE)).get_kpt_index(0),
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_upper_directory_base())),
     );
 
-    let mut idx = VAddr(PPTR_BASE).GET_KPT_INDEX(1);
-    while idx < VAddr(PPTR_TOP).GET_KPT_INDEX(1) {
+    let mut idx = VAddr(PPTR_BASE).get_kpt_index(1);
+    while idx < VAddr(PPTR_TOP).get_kpt_index(1) {
         set_kernel_page_upper_directory_by_index(
             idx,
             PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(idx))),
@@ -94,8 +94,8 @@ pub fn rust_map_kernel_window() {
     let mut paddr = PADDR_BASE;
     while paddr < PADDR_TOP {
         set_kernel_page_directory_by_index(
-            VAddr(vaddr).GET_KPT_INDEX(1),
-            VAddr(vaddr).GET_KPT_INDEX(2),
+            VAddr(vaddr).get_kpt_index(1),
+            VAddr(vaddr).get_kpt_index(2),
             PTE::pte_new_page(1, paddr, 0, 1, 0, 0, mair_types::NORMAL as usize),
         );
 
@@ -104,7 +104,7 @@ pub fn rust_map_kernel_window() {
     }
 
     //     /* put the PD into the PUD for device window */
-    //     armKSGlobalKernelPUD[GET_PUD_INDEX(PPTR_TOP)] = pude_pude_pd_new(
+    //     armKSGlobalKernelPUD[get_pud_index(PPTR_TOP)] = pude_pude_pd_new(
     //                                                         addrFromKPPtr(&armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][0])
     //                                                     );
 
@@ -114,7 +114,7 @@ pub fn rust_map_kernel_window() {
     //
 
     set_kernel_page_upper_directory_by_index(
-        VAddr(PPTR_TOP).GET_KPT_INDEX(1),
+        VAddr(PPTR_TOP).get_kpt_index(1),
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(
             BIT!(PUD_INDEX_BITS) - 1,
         ))),
@@ -146,7 +146,7 @@ pub fn map_kernel_frame(
         shareable = 0;
     }
     set_kernel_page_table_by_index(
-        VAddr(vaddr).GET_KPT_INDEX(3),
+        VAddr(vaddr).get_kpt_index(3),
         PTE::pte_new_4k_page(
             uxn,
             paddr,

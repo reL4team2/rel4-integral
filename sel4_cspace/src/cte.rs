@@ -6,7 +6,7 @@ use super::{
 };
 use crate::capability::{
     cap_func,
-    zombie::{capCyclicZombie, zombie_func},
+    zombie::{cap_cyclic_zombie, zombie_func},
 };
 use core::intrinsics::{likely, unlikely};
 use core::ptr;
@@ -47,7 +47,7 @@ impl cte_t {
     }
 
     pub fn derive_cap(&self, capability: &cap) -> deriveCap_ret {
-        if capability.isArchCap() {
+        if capability.is_arch_cap() {
             return self.arch_derive_cap(capability);
         }
         let mut ret = deriveCap_ret {
@@ -182,7 +182,7 @@ impl cte_t {
                 return ret;
             }
             self.capability = fc_ret.clone().remainder;
-            if !immediate && capCyclicZombie(&fc_ret.remainder, self) {
+            if !immediate && cap_cyclic_zombie(&fc_ret.remainder, self) {
                 ret.status = exception_t::EXCEPTION_NONE;
                 ret.success = false;
                 ret.cleanupInfo = fc_ret.cleanupInfo;
@@ -367,7 +367,7 @@ pub fn cte_insert(new_cap: &cap, src_slot: &mut cte_t, dest_slot: &mut cte_t) {
     /* Haskell error: "cteInsert: mdb entry must be empty" */
     assert!(dest_slot.cteMDBNode.get_mdbNext() == 0 && dest_slot.cteMDBNode.get_mdbPrev() == 0);
 
-    setUntypedCapAsFull(srcCap, new_cap, src_slot);
+    set_untyped_cap_as_full(srcCap, new_cap, src_slot);
 
     dest_slot.capability = new_cap.clone();
     dest_slot.cteMDBNode = newMDB.clone();
@@ -484,7 +484,7 @@ fn cap_removable(capability: &cap, slot: *mut cte_t) -> bool {
 
 /// 如果`srcCap`和`newCap`都是`UntypedCap`，并且指向同一块内存，内存大小也相同，就将`srcCap`记录为没有剩余空间。
 /// 自我认为是防止同一块内存空间被分配两次
-fn setUntypedCapAsFull(srcCap: &cap, newCap: &cap, srcSlot: &mut cte_t) {
+fn set_untyped_cap_as_full(srcCap: &cap, newCap: &cap, srcSlot: &mut cte_t) {
     if srcCap.get_tag() == cap_tag::cap_untyped_cap && newCap.get_tag() == cap_tag::cap_untyped_cap
     {
         assert_eq!(srcSlot.capability.get_tag(), cap_tag::cap_untyped_cap);

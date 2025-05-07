@@ -8,7 +8,7 @@ use sel4_common::{
 use super::machine::mair_types;
 
 impl vm_attributes_t {
-    pub fn get_armExecuteNever(&self) -> bool {
+    pub fn get_arm_execute_never(&self) -> bool {
         if (self.0 & 0x4) != 0 {
             true
         } else {
@@ -16,7 +16,7 @@ impl vm_attributes_t {
         }
     }
 
-    pub fn get_armPageCacheable(&self) -> bool {
+    pub fn get_arm_page_cachable(&self) -> bool {
         if (self.0 & 0x1) != 0 {
             true
         } else {
@@ -25,7 +25,7 @@ impl vm_attributes_t {
     }
 
     pub fn get_attr_index(&self) -> mair_types {
-        if self.get_armPageCacheable() {
+        if self.get_arm_page_cachable() {
             return mair_types::NORMAL;
         }
 

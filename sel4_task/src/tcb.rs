@@ -32,8 +32,8 @@ use sel4_cspace::interface::{cte_t, resolve_address_bits};
 use sel4_vspace::{pptr_t, set_vm_root};
 
 use super::scheduler::{
-    addToBitmap, get_currenct_thread, possible_switch_to, ready_queues_index, removeFromBitmap,
-    rescheduleRequired, schedule_tcb, set_current_thread,
+    add_to_bitmap, get_currenct_thread, possible_switch_to, ready_queues_index, remove_from_bigmap,
+    reschedule_required, schedule_tcb, set_current_thread,
 };
 use super::structures::lookupSlot_raw_ret_t;
 
@@ -180,7 +180,7 @@ impl tcb_t {
         self.tcbPriority = priority;
         if self.is_runnable() {
             if self.is_current() {
-                rescheduleRequired();
+                reschedule_required();
             } else {
                 possible_switch_to(self)
             }
@@ -191,7 +191,7 @@ impl tcb_t {
     pub fn set_priority(&mut self, priority: prio_t) {
         use sel4_common::structures_gen::{endpoint_t, notification_t};
 
-        use crate::{reorder_EP, reorder_NTFN};
+        use crate::{reorder_ep, reorder_ntfn};
 
         match self.get_state() {
             ThreadState::ThreadStateRunning | ThreadState::ThreadStateRestart => {
@@ -199,7 +199,7 @@ impl tcb_t {
                     self.sched_dequeue();
                     self.tcbPriority = priority;
                     self.sched_enqueue();
-                    rescheduleRequired();
+                    reschedule_required();
                 } else {
                     self.tcbPriority = priority;
                 }
@@ -207,7 +207,7 @@ impl tcb_t {
             ThreadState::ThreadStateBlockedOnReceive | ThreadState::ThreadStateBlockedOnSend => {
                 self.tcbPriority = priority;
                 unsafe {
-                    reorder_EP(
+                    reorder_ep(
                         convert_to_mut_type_ref::<endpoint_t>(
                             self.tcbState.get_blockingObject() as usize
                         ),
@@ -218,7 +218,7 @@ impl tcb_t {
             ThreadState::ThreadStateBlockedOnNotification => {
                 self.tcbPriority = priority;
                 unsafe {
-                    reorder_NTFN(
+                    reorder_ntfn(
                         convert_to_mut_type_ref::<notification_t>(
                             self.tcbState.get_blockingObject() as usize,
                         ),
@@ -256,7 +256,7 @@ impl tcb_t {
         }
 
         if self.is_current() {
-            rescheduleRequired();
+            reschedule_required();
         }
     }
 
@@ -280,13 +280,13 @@ impl tcb_t {
             let queue = self.get_sched_queue(idx);
 
             if queue.empty() {
-                addToBitmap(self.get_cpu(), dom, prio);
+                add_to_bitmap(self.get_cpu(), dom, prio);
             }
 
             queue.prepend(self);
             // if queue.tail == 0 {
             //     queue.tail = self_ptr as usize;
-            //     addToBitmap(self.get_cpu(), dom, prio);
+            //     add_to_bitmap(self.get_cpu(), dom, prio);
             // } else {
             //     convert_to_mut_type_ref::<tcb_t>(queue.head).tcbSchedPrev = self_ptr as usize;
             // }
@@ -352,7 +352,7 @@ impl tcb_t {
             self.tcbState.set_tcbQueued(0);
 
             if likely(queue.head == 0) {
-                removeFromBitmap(self.get_cpu(), dom, prio);
+                remove_from_bigmap(self.get_cpu(), dom, prio);
             }
         }
     }
@@ -383,7 +383,7 @@ impl tcb_t {
 
             if queue.head == 0 {
                 queue.head = self_ptr as usize;
-                addToBitmap(self.get_cpu(), dom, prio);
+                add_to_bitmap(self.get_cpu(), dom, prio);
             } else {
                 let next = queue.tail;
                 // unsafe { (*next).tcbSchedNext = self_ptr as usize };
@@ -494,9 +494,9 @@ impl tcb_t {
         set_thread_state(self, ThreadState::ThreadStateInactive);
         self.sched_dequeue();
         #[cfg(feature = "KERNEL_MCS")]
-        self.Release_Remove();
+        self.release_remove();
         #[cfg(feature = "KERNEL_MCS")]
-        self.schedContext_cancelYieldTo();
+        self.sched_context_cancel_yield_to();
     }
 
     #[inline]
@@ -511,7 +511,7 @@ impl tcb_t {
     //         {
     //             refill_unblock_check(target->tcbSchedContext);
     //         }
-    //         schedContext_resume(target->tcbSchedContext);
+    //         sched_context_resume(target->tcbSchedContext);
     //         if (isSchedulable(target))
     //         {
     //             possibleSwitchTo(target);
@@ -537,7 +537,7 @@ impl tcb_t {
                     if sc.sc_sporadic() && self.tcbSchedContext != unsafe { ksCurSC } {
                         sc.refill_unblock_check();
                     }
-                    sc.schedContext_resume();
+                    sc.sched_context_resume();
                 }
                 if self.is_schedulable() {
                     possible_switch_to(self);
@@ -943,8 +943,8 @@ impl tcb_t {
         self.tcbState.set_tsType(state as u64);
         schedule_tcb(self);
     }
-    pub fn DebugAppend(&mut self) {}
-    pub fn DebugRemove(&mut self) {}
+    pub fn debug_append(&mut self) {}
+    pub fn debug_remove(&mut self) {}
 
     #[inline]
     #[cfg(feature = "KERNEL_MCS")]
@@ -955,7 +955,7 @@ impl tcb_t {
     }
     #[inline]
     #[cfg(feature = "KERNEL_MCS")]
-    pub fn Time_After(&self, new_time: ticks_t) -> bool {
+    pub fn time_after(&self, new_time: ticks_t) -> bool {
         new_time >= self.Ready_Time()
     }
 
@@ -974,7 +974,7 @@ impl tcb_t {
 
     #[inline]
     #[cfg(feature = "KERNEL_MCS")]
-    pub fn Release_Remove(&mut self) {
+    pub fn release_remove(&mut self) {
         use crate::ksReprogram;
 
         unsafe {
@@ -993,7 +993,7 @@ impl tcb_t {
     }
     #[inline]
     #[cfg(feature = "KERNEL_MCS")]
-    pub fn Release_Enqueue(&mut self) {
+    pub fn release_enqueue(&mut self) {
         use crate::ksReprogram;
 
         assert!(self.tcbState.get_tcbInReleaseQueue() == 0);
@@ -1014,7 +1014,7 @@ impl tcb_t {
                     ksReleaseQueue = queue;
                 } else {
                     let after =
-                        Find_Time_After(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
+                        find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
                     self.queue_insert(convert_to_mut_type_ref(after as usize));
                 }
             }
@@ -1024,7 +1024,7 @@ impl tcb_t {
     }
     #[inline]
     #[cfg(feature = "KERNEL_MCS")]
-    pub fn schedContext_cancelYieldTo(&mut self) {
+    pub fn sched_context_cancel_yield_to(&mut self) {
         if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
             convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).scYieldFrom = 0;
             self.tcbYieldTo = 0;
@@ -1034,13 +1034,13 @@ impl tcb_t {
     #[cfg(feature = "KERNEL_MCS")]
     pub fn schedContext_completeYieldTo(&mut self) {
         if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
-            convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).setConsumed();
-            self.schedContext_cancelYieldTo();
+            convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).set_consumed();
+            self.sched_context_cancel_yield_to();
         }
     }
     #[inline]
     #[cfg(feature = "KERNEL_MCS")]
-    pub fn validTimeoutHandler(&mut self) -> bool {
+    pub fn valid_timeout_handler(&mut self) -> bool {
         let cte = self.get_cspace(tcbTimeoutHandler);
         cte.capability.get_tag() == cap_tag::cap_endpoint_cap
     }
@@ -1057,9 +1057,9 @@ pub fn set_thread_state(tcb: &mut tcb_t, state: ThreadState) {
 }
 #[inline]
 #[cfg(feature = "KERNEL_MCS")]
-pub fn Find_Time_After(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
+pub fn find_time_after(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
     let mut after = tcb;
-    while after.Time_After(new_time) {
+    while after.time_after(new_time) {
         if after.tcbSchedContext != 0 {
             after = convert_to_mut_type_ref::<tcb_t>(after.tcbSchedContext)
         } else {
@@ -1071,7 +1071,7 @@ pub fn Find_Time_After(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
 }
 
 #[cfg(feature = "KERNEL_MCS")]
-pub fn tcb_Release_Dequeue() -> *mut tcb_t {
+pub fn tcb_release_dequeue() -> *mut tcb_t {
     use crate::ksReprogram;
 
     unsafe {
@@ -1081,7 +1081,7 @@ pub fn tcb_Release_Dequeue() -> *mut tcb_t {
         let awakened = convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head);
         assert!(awakened.get_ptr() != get_currenct_thread().get_ptr());
 
-        awakened.Release_Remove();
+        awakened.release_remove();
         ksReprogram = true;
 
         return awakened;

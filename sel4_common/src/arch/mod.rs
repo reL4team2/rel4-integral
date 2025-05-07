@@ -78,8 +78,8 @@ pub enum ArchReg {
 use crate::platform::time_def::ticks_t;
 
 #[cfg(feature = "KERNEL_MCS")]
-pub fn getKernelWcetTicks() -> ticks_t {
-    usToTicks(getKernelWcetUs())
+pub fn get_kernel_wcet_ticks() -> ticks_t {
+    usToTicks(get_kernel_wcet_us())
 }
 
 #[cfg(any(target_arch = "aarch64", test))]

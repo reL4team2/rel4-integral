@@ -57,7 +57,7 @@ pub fn sfence() {
 /// Assign addr to satp.
 #[inline]
 #[no_mangle]
-pub fn setVSpaceRoot(addr: usize, asid: usize) {
+pub fn set_vspace_root(addr: usize, asid: usize) {
     let satp = satp_t::new(8usize, asid, addr >> 12);
     satp::write(satp.words);
     #[cfg(not(feature = "ENABLE_SMP"))]

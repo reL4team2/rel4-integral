@@ -18,8 +18,8 @@ use sel4_cspace::interface::cte_t;
 use sel4_task::{
     get_currenct_thread, ksCurThread,
     sched_context::{
-        refill_absolute_max, sched_context, sched_context_t, MAX_PERIOD_US, MIN_BUDGET,
-        MIN_BUDGET_US, MIN_REFILLS,
+        max_period_us, min_budget, min_budget_us, refill_absolute_max, sched_context,
+        sched_context_t, MIN_REFILLS,
     },
     set_thread_state, tcb_t, ThreadState,
 };
@@ -113,23 +113,23 @@ pub fn decode_sched_control_invocation(
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
             }
-            if budget_us > MAX_PERIOD_US() || budget_ticks < MIN_BUDGET() {
+            if budget_us > max_period_us() || budget_ticks < min_budget() {
                 debug!("SchedControl_ConfigureFlags: budget out of range.");
                 unsafe {
                     current_syscall_error._type = seL4_RangeError;
-                    current_syscall_error.rangeErrorMin = MIN_BUDGET_US();
-                    current_syscall_error.rangeErrorMax = MAX_PERIOD_US();
+                    current_syscall_error.rangeErrorMin = min_budget_us();
+                    current_syscall_error.rangeErrorMax = max_period_us();
                 }
 
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
 
-            if period_us > MAX_PERIOD_US() || period_ticks < MIN_BUDGET() {
+            if period_us > max_period_us() || period_ticks < min_budget() {
                 debug!("SchedControl_ConfigureFlags: period out of range.");
                 unsafe {
                     current_syscall_error._type = seL4_RangeError;
-                    current_syscall_error.rangeErrorMin = MIN_BUDGET_US();
-                    current_syscall_error.rangeErrorMax = MAX_PERIOD_US();
+                    current_syscall_error.rangeErrorMin = min_budget_us();
+                    current_syscall_error.rangeErrorMax = max_period_us();
                 }
 
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -139,7 +139,7 @@ pub fn decode_sched_control_invocation(
                 debug!("SchedControl_ConfigureFlags: budget must be <= period");
                 unsafe {
                     current_syscall_error._type = seL4_RangeError;
-                    current_syscall_error.rangeErrorMin = MIN_BUDGET_US();
+                    current_syscall_error.rangeErrorMin = min_budget_us();
                     current_syscall_error.rangeErrorMax = period_us;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;

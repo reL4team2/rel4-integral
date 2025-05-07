@@ -7,7 +7,7 @@ use sel4_common::{arch::ArchReg, println};
 #[cfg(feature = "KERNEL_MCS")]
 use sel4_task::{ksCurSC, reply::reply_t, sched_context::sched_context_t};
 use sel4_task::{
-    possible_switch_to, rescheduleRequired, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
+    possible_switch_to, reschedule_required, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
     ThreadState,
 };
 use sel4_vspace::pptr_t;
@@ -65,7 +65,7 @@ pub trait endpoint_func {
         Option_reply_cap: Option<&mut cap_reply_cap>,
     );
     #[cfg(feature = "KERNEL_MCS")]
-    fn reorder_EP(&mut self, thread: &mut tcb_t);
+    fn reorder_ep(&mut self, thread: &mut tcb_t);
 }
 impl endpoint_func for endpoint {
     #[inline]
@@ -165,7 +165,7 @@ impl endpoint_func for endpoint {
 
                     op_thread = convert_to_option_mut_type_ref::<tcb_t>(thread.tcbEPNext);
                 }
-                rescheduleRequired();
+                reschedule_required();
             }
         }
     }
@@ -225,7 +225,7 @@ impl endpoint_func for endpoint {
                 if queue.head != 0 {
                     self.set_state(EPState::Send as u64);
                 }
-                rescheduleRequired();
+                reschedule_required();
             }
         }
     }
@@ -364,7 +364,7 @@ impl endpoint_func for endpoint {
                     }
                 } else if canDonate && dest_thread.tcbSchedContext == 0 {
                     convert_to_mut_type_ref::<sched_context_t>(src_thread.tcbSchedContext)
-                        .schedContext_donate(dest_thread);
+                        .sched_context_donate(dest_thread);
                 }
 
                 assert!(
@@ -470,7 +470,7 @@ impl endpoint_func for endpoint {
         }
         if thread.tcbBoundNotification != 0 && is_blocking {
             convert_to_mut_type_ref::<notification_t>(thread.tcbBoundNotification)
-                .maybeReturnSchedContext(thread);
+                .maybe_return_sched_context(thread);
         }
         match self.get_ep_state() {
             EPState::Idle | EPState::Recv => {
@@ -544,7 +544,7 @@ impl endpoint_func for endpoint {
     }
     #[cfg(feature = "KERNEL_MCS")]
     #[no_mangle]
-    fn reorder_EP(&mut self, thread: &mut tcb_t) {
+    fn reorder_ep(&mut self, thread: &mut tcb_t) {
         let mut queue = self.get_queue();
         queue.ep_dequeue(thread);
         queue.ep_append(thread);

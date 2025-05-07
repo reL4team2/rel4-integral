@@ -33,7 +33,7 @@ use sel4_vspace::{
 };
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{clean_by_va_pou, invalidate_tlb_by_asid_va, pte_tag_t};
-use sel4_vspace::{pptr_to_paddr, unmapPage, unmap_page_table, PTE};
+use sel4_vspace::{pptr_to_paddr, unmap_page, unmap_page_table, PTE};
 
 use crate::{kernel::boot::current_lookup_fault, utils::clear_memory};
 
@@ -106,7 +106,7 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
 
 pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
     if cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize != asidInvalid {
-        match unmapPage(
+        match unmap_page(
             cap::cap_frame_cap(&frame_slot.capability).get_capFSize() as usize,
             cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize,
             // FIXME: here should be frame_mapped_address.

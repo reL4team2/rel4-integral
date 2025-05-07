@@ -5,43 +5,43 @@ on:
   push:
 
 jobs:
-  test-build:
-    # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
-    runs-on: ubuntu-latest
-    container:
-      image: croakexciting/rel4_dev:0.0.6
-      volumes:
-        - .:/code
-    strategy:
-      matrix:
-        arch: [riscv64, aarch64]
-        mcs: [OFF, ON]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: rel4_kernel
-      - uses: actions/checkout@v4
-        with:
-          ref: "master"
-          path: kernel
-          repository: reL4team2/seL4_c_impl
-      - name: Install generaic tools
-        run: apt update && apt install -y wget gcc-${{ matrix.arch }}-linux-gnu
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: nightly-2024-02-01
-          components: rust-src
-          rustflags:
-      - name: Adapt dependencies
-        run: |
-          cd rel4_kernel
-          cargo update -p home --precise 0.5.5
-      - name: Make rel4_kernel
-        run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} MCS=${{ matrix.mcs }} run
-      - name: Build kernel
-        run: cd kernel && cmake cmake -DCROSS_COMPILER_PREFIX=${{ matrix.arch }}-linux-gnu- -DMCS=${{matrix.mcs}} -C kernel-settings-${{ matrix.arch }}.cmake -G Ninja -S . -B build
-      - name: Build Kernel
-        run: cd kernel && ninja -C build
+  # test-build:
+  #   # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: croakexciting/rel4_dev:0.0.6
+  #     volumes:
+  #       - .:/code
+  #   strategy:
+  #     matrix:
+  #       arch: [riscv64, aarch64]
+  #       mcs: [OFF, ON]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         path: rel4_kernel
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         ref: "master"
+  #         path: kernel
+  #         repository: reL4team2/seL4_c_impl
+  #     - name: Install generaic tools
+  #       run: apt update && apt install -y wget gcc-${{ matrix.arch }}-linux-gnu
+  #     - uses: actions-rust-lang/setup-rust-toolchain@v1
+  #       with:
+  #         toolchain: nightly-2024-02-01
+  #         components: rust-src
+  #         rustflags:
+  #     - name: Adapt dependencies
+  #       run: |
+  #         cd rel4_kernel
+  #         cargo update -p home --precise 0.5.5
+  #     - name: Make rel4_kernel
+  #       run: cd rel4_kernel/kernel && make ARCH=${{ matrix.arch }} MCS=${{ matrix.mcs }} run
+  #     - name: Build kernel
+  #       run: cd kernel && cmake cmake -DCROSS_COMPILER_PREFIX=${{ matrix.arch }}-linux-gnu- -DMCS=${{matrix.mcs}} -C kernel-settings-${{ matrix.arch }}.cmake -G Ninja -S . -B build
+  #     - name: Build Kernel
+  #       run: cd kernel && ninja -C build
   sel4-test:
     # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
     runs-on: ubuntu-latest

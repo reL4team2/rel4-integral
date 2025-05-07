@@ -634,8 +634,8 @@ unsafe fn create_rootserver_objects(start: usize, it_v_reg: v_region_t, extra_bi
 }
 
 fn create_domain_cap(root_cnode_cap: &cap_cnode_cap) {
-    assert!(ksDomScheduleLength > 0);
-    for i in 0..ksDomScheduleLength {
+    assert!(KS_DOM_SCHEDULE_LENGTH > 0);
+    for i in 0..KS_DOM_SCHEDULE_LENGTH {
         unsafe {
             assert!(ksDomSchedule[i].domain < CONFIG_NUM_DOMAINS);
             assert!(ksDomSchedule[i].length > 0);
@@ -699,7 +699,7 @@ unsafe fn rust_create_it_address_space(
     );
     let mut i = 0;
     while i < CONFIG_PT_LEVELS - 1 {
-        let mut pt_vptr = ROUND_DOWN!(it_v_reg.start, RISCV_GET_LVL_PGSIZE_BITS(i));
+        let mut pt_vptr = ROUND_DOWN!(it_v_reg.start, riscv_get_LVL_PGSIZE_BITS(i));
         while pt_vptr < it_v_reg.end {
             if !provide_cap(
                 root_cnode_cap,
@@ -707,7 +707,7 @@ unsafe fn rust_create_it_address_space(
             ) {
                 return cap_page_table_cap::new(0, 0, 0, 0);
             }
-            pt_vptr += RISCV_GET_LVL_PGSIZE(i);
+            pt_vptr += riscv_get_lvl_pgsize(i);
         }
         i += 1;
     }
