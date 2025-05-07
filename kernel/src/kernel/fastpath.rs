@@ -1,5 +1,4 @@
 use crate::arch::fastpath_restore;
-use crate::arch::fpu::lazy_fpu_restore;
 use crate::syscall::{slow_path, SysCall, SysReplyRecv};
 use crate::MASK;
 use core::intrinsics::{likely, unlikely};
@@ -255,7 +254,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     info.set_capsUnwrapped(0);
     let msgInfo1 = info.to_word();
     let badge = ep_cap.get_capEPBadge() as usize;
-    unsafe { fastpath_restore(badge, msgInfo1, get_currenct_thread()) };
+    fastpath_restore(badge, msgInfo1, get_currenct_thread());
 }
 
 #[inline]
@@ -360,7 +359,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     switch_to_thread_fp(caller, cap_pd, stored_hw_asid);
     info.set_capsUnwrapped(0);
     let msg_info1 = info.to_word();
-    unsafe { fastpath_restore(0, msg_info1, get_currenct_thread() as *mut tcb_t) };
+    fastpath_restore(0, msg_info1, get_currenct_thread() as *mut tcb_t);
     // }
 }
 

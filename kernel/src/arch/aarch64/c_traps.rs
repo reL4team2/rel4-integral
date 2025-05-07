@@ -12,6 +12,7 @@ use crate::{
 use sel4_common::utils::cpu_id;
 use sel4_task::*;
 
+#[cfg(feature = "have_fpu")]
 use crate::arch::fpu::lazy_fpu_restore;
 
 #[no_mangle]
@@ -85,7 +86,6 @@ pub fn restore_user_context() {
 #[inline]
 #[no_mangle]
 pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) {
-    use core::arch::asm;
     unsafe {
         #[cfg(feature = "enable_smp")]
         {

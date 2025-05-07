@@ -1,9 +1,9 @@
 use crate::transfer::Transfer;
+use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::endpoint;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::seL4_Fault_tag::seL4_Fault_NullFault;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
-use sel4_common::{arch::ArchReg, println};
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{ksCurSC, reply::reply_t, sched_context::sched_context_t};
 use sel4_task::{

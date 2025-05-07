@@ -15,7 +15,7 @@ pub use boot::try_init_kernel;
 pub use c_traps::{fastpath_restore, restore_user_context};
 pub use exception::handle_unknown_syscall;
 pub(crate) use pg::set_vm_root_for_flush;
-pub use platform::{init_cpu, init_freemem};
+pub use platform::init_freemem;
 
 #[cfg(feature = "enable_smp")]
 pub use boot::try_init_kernel_secondary_core;

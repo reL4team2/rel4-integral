@@ -1,6 +1,7 @@
 pub mod gic_v2;
 pub mod gic_v3;
 
+#[cfg(feature = "enable_smp")]
 use sel4_common::structures::irq_t;
 
 cfg_if::cfg_if! {

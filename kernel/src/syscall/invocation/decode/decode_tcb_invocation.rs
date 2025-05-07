@@ -13,7 +13,7 @@ use sel4_common::sel4_config::{
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, cap_thread_cap, notification};
 use sel4_common::utils::convert_to_mut_type_ref;
-use sel4_common::{println, BIT};
+use sel4_common::BIT;
 #[cfg(target_arch = "aarch64")]
 use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::capability::cap_func;

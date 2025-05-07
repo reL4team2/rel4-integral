@@ -6,6 +6,7 @@ use crate::BIT;
 use core::arch::asm;
 use sel4_common::platform::*;
 use sel4_common::sel4_config::*;
+#[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
 use sel4_common::structures::irq_t;
 use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
 #[cfg(target_arch = "aarch64")]
@@ -79,7 +80,7 @@ pub fn deleting_irq_handler(irq: usize) {
 }
 
 #[no_mangle]
-pub fn setIRQState(irq: usize) -> bool {
+pub fn setIRQState(_irq: usize) -> bool {
     panic!("should not be invoked");
 }
 
@@ -186,15 +187,15 @@ pub fn is_irq_pending() -> bool {
 /// 毫无疑问，应该是 irq
 #[cfg(target_arch = "riscv64")]
 #[no_mangle]
-pub fn ack_interrupt(irq: usize) {
+pub fn ack_interrupt(_irq: usize) {
     unsafe {
         active_irq[cpu_id()] = irqInvalid;
     }
     #[cfg(feature = "enable_smp")]
     {
-        if irq == INTERRUPT_IPI_0 || irq == INTERRUPT_IPI_1 {
+        if _irq == INTERRUPT_IPI_0 || _irq == INTERRUPT_IPI_1 {
             unsafe {
-                ipi_clear_irq(irq);
+                ipi_clear_irq(_irq);
             }
         }
     }
@@ -221,7 +222,7 @@ pub fn is_irq_active(index: usize) -> bool {
 
 // Do not change it
 #[no_mangle]
-pub fn isIRQActive(irq: usize) -> bool {
+pub fn isIRQActive(_irq: usize) -> bool {
     panic!("should not be invoked");
 }
 
@@ -298,13 +299,14 @@ pub fn get_active_irq() -> usize {
 
 /// x 是 irq
 #[inline]
-pub const fn is_irq_valid(x: usize) -> bool {
+#[allow(dead_code)]
+pub const fn is_irq_valid(_x: usize) -> bool {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "aarch64")] {
             // TODO: not used now
             panic!("not used in aarch64")
         } else {
-            (x <= maxIRQ) && (x != irqInvalid)
+            (_x <= maxIRQ) && (_x != irqInvalid)
         }
     }
 }

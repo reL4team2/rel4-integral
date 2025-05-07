@@ -3,7 +3,7 @@ pub mod syscall_reply;
 pub mod utils;
 
 use super::arch::handle_unknown_syscall;
-use core::intrinsics::{likely, unlikely};
+use core::intrinsics::unlikely;
 use sel4_common::arch::ArchReg;
 // use sel4_common::ffi_call;
 #[cfg(feature = "kernel_mcs")]
@@ -159,7 +159,6 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
 #[cfg(feature = "kernel_mcs")]
 pub fn handlesyscall(_syscall: usize) -> exception_t {
     use core::intrinsics::likely;
-
     use sel4_task::{check_budget_restart, update_timestamp};
 
     let syscall: isize = _syscall as isize;
@@ -571,9 +570,13 @@ fn handle_yield() {
         // sel4_common::println!("{}: handle_yield: {:#x}, tcb queued: {}, state: {:?}", thread.get_cpu(), thread_ptr, thread.tcbState.get_tcbQueued(), thread.get_state());
         get_currenct_thread().sched_dequeue();
         #[cfg(feature = "enable_smp")]
-        if likely(get_currenct_thread().is_runnable()) {
-            get_currenct_thread().sched_append();
+        {
+            use core::intrinsics::likely;
+            if likely(get_currenct_thread().is_runnable()) {
+                get_currenct_thread().sched_append();
+            }
         }
+
         #[cfg(not(feature = "enable_smp"))]
         get_currenct_thread().sched_append();
 

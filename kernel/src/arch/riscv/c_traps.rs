@@ -3,13 +3,13 @@ use core::arch::asm;
 use super::read_scause;
 use crate::syscall::slow_path;
 
+#[cfg(feature = "have_fpu")]
+use crate::arch::fpu::{handle_fpu_fault, is_fpu_enable, lazy_fpu_restore, set_tcb_fs_state};
+use sel4_common::arch::ArchReg;
 use sel4_common::sel4_config::{
     RISCVInstructionAccessFault, RISCVInstructionPageFault, RISCVLoadAccessFault,
     RISCVLoadPageFault, RISCVStoreAccessFault, RISCVStorePageFault,
 };
-
-use crate::arch::fpu::{handle_fpu_fault, is_fpu_enable, lazy_fpu_restore, set_tcb_fs_state};
-use sel4_common::arch::ArchReg;
 
 use sel4_task::*;
 
@@ -46,10 +46,8 @@ pub fn restore_user_context() {
         }
         #[cfg(feature = "have_fpu")]
         {
-            unsafe {
-                lazy_fpu_restore(get_currenct_thread());
-                set_tcb_fs_state(get_currenct_thread(), is_fpu_enable());
-            }
+            lazy_fpu_restore(get_currenct_thread());
+            set_tcb_fs_state(get_currenct_thread(), is_fpu_enable());
         }
         // debug!("restore_user_context3");
         asm!("mv t0, {0}      \n",
@@ -123,11 +121,8 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
         }
         #[cfg(feature = "have_fpu")]
         {
-            use crate::arch::fpu::{is_fpu_enable, set_tcb_fs_state};
-            unsafe {
-                lazy_fpu_restore(get_currenct_thread());
-                set_tcb_fs_state(get_currenct_thread(), is_fpu_enable());
-            }
+            lazy_fpu_restore(get_currenct_thread());
+            set_tcb_fs_state(get_currenct_thread(), is_fpu_enable());
         }
 
         asm!("mv a0, {0}      \n",

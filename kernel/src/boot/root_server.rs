@@ -10,17 +10,6 @@ use log::debug;
 use sel4_common::arch::{ArchReg, ArchTCB};
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::platform::{timer, Timer_func};
-#[cfg(feature = "kernel_mcs")]
-use sel4_common::sel4_config::seL4_MinSchedContextBits;
-#[cfg(target_arch = "riscv64")]
-use sel4_common::sel4_config::CONFIG_PT_LEVELS;
-#[cfg(target_arch = "aarch64")]
-use sel4_common::sel4_config::PT_INDEX_BITS;
-use sel4_common::sel4_config::{
-    asidLowBits, seL4_PageBits, seL4_PageTableBits, seL4_SlotBits, seL4_TCBBits, tcbBuffer,
-    tcbCTable, tcbVTable, wordBits, CONFIG_MAX_NUM_NODES, CONFIG_NUM_DOMAINS, IT_ASID, PAGE_BITS,
-    TCB_OFFSET,
-};
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 #[cfg(target_arch = "riscv64")]
 use sel4_common::structures_gen::cap_page_table_cap;
@@ -162,11 +151,8 @@ unsafe fn create_initial_thread(
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
     #[cfg(feature = "kernel_mcs")]
-    use sel4_common::sel4_config::CONFIG_TIME_SLICE;
-    #[cfg(feature = "kernel_mcs")]
     use sel4_common::{
-        arch::us_to_ticks, platform::time_def::US_IN_MS,
-        sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE, structures_gen::cap_sched_context_cap,
+        arch::us_to_ticks, platform::time_def::US_IN_MS, structures_gen::cap_sched_context_cap,
     };
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
     #[cfg(feature = "kernel_mcs")]
@@ -261,11 +247,8 @@ unsafe fn create_initial_thread(
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
     #[cfg(feature = "kernel_mcs")]
-    use sel4_common::sel4_config::CONFIG_TIME_SLICE;
-    #[cfg(feature = "kernel_mcs")]
     use sel4_common::{
-        arch::us_to_ticks, platform::time_def::US_IN_MS,
-        sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE, structures_gen::cap_sched_context_cap,
+        arch::us_to_ticks, platform::time_def::US_IN_MS, structures_gen::cap_sched_context_cap,
     };
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
     #[cfg(feature = "kernel_mcs")]

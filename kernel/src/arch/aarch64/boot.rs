@@ -2,7 +2,9 @@ use log::debug;
 use sel4_common::arch::config::KERNEL_ELF_BASE;
 use sel4_common::println;
 use sel4_common::{sel4_config::PAGE_BITS, BIT};
-use sel4_task::{create_idle_thread, tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
+use sel4_task::create_idle_thread;
+#[cfg(feature = "enable_smp")]
+use sel4_task::{tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 
 use crate::arch::aarch64::platform::{clean_invalidate_l1_caches, init_cpu, invalidate_local_tlb};
@@ -19,7 +21,9 @@ use crate::{
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 
 use super::platform::init_irq_controller;
-use crate::interrupt::{intStateIRQNodeToR, mask_interrupt, set_irq_state_by_irq, IrqState};
+use crate::interrupt::intStateIRQNodeToR;
+#[cfg(feature = "enable_smp")]
+use crate::interrupt::{mask_interrupt, set_irq_state_by_irq, IrqState};
 
 #[cfg(feature = "enable_smp")]
 use core::arch::asm;

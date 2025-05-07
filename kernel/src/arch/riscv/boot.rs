@@ -11,7 +11,9 @@ use log::debug;
 use sel4_common::println;
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 use sel4_common::{arch::config::KERNEL_ELF_BASE, sel4_config::PAGE_BITS, BIT};
-use sel4_task::{create_idle_thread, tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
+use sel4_task::create_idle_thread;
+#[cfg(feature = "enable_smp")]
+use sel4_task::{tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 
 #[cfg(feature = "enable_smp")]

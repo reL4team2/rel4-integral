@@ -17,8 +17,10 @@ use sel4_common::sel4_config::{
     wordBits, wordRadix, CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE,
     L2_BITMAP_SIZE, NUM_READY_QUEUES, TCB_OFFSET,
 };
+#[cfg(feature = "enable_smp")]
+use sel4_common::utils::cpu_id;
 use sel4_common::utils::{
-    convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe, cpu_id, ptr_to_usize_add,
+    convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe, ptr_to_usize_add,
 };
 use sel4_common::{BIT, MASK};
 

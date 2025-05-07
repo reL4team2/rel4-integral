@@ -6,10 +6,13 @@ pub(crate) const CONFIGURE_CLK_MAGIC: usize = 4611686019;
 #[allow(dead_code)]
 pub(crate) const CONFIGURE_CLK_SHIFT: usize = 58;
 #[cfg(feature = "kernel_mcs")]
+#[allow(dead_code)]
 pub(crate) const CONFIGURE_KERNEL_WCET: usize = 10;
 #[cfg(feature = "kernel_mcs")]
+#[allow(dead_code)]
 pub(crate) const TIMER_PRECISION: usize = 0;
 #[cfg(feature = "kernel_mcs")]
+#[allow(dead_code)]
 pub(crate) const TIMER_OVERHEAD_TICKS: usize = 0;
 use core::arch::asm;
 

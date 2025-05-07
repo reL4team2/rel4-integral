@@ -34,6 +34,7 @@ use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedul
 use sel4_task::{check_budget_restart, update_timestamp};
 
 use super::instruction::*;
+#[cfg(feature = "build_binary")]
 use super::restore_user_context;
 
 #[no_mangle]
@@ -170,7 +171,7 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
     exception_t handleVMFault(tcb_t *thread, vm_fault_type_t vm_faultType)
     {
         switch (vm_faultType) {
-        case ARMDataAbort: {
+        case ARM_DATA_ABORT: {
             word_t addr, fault;
             addr = getFAR();
             fault = getDFSR();
@@ -183,7 +184,7 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
             current_fault = seL4_Fault_VMFault_new(addr, fault, false);
             return EXCEPTION_FAULT;
         }
-        case ARMPrefetchAbort: {
+        case ARM_PREFETCH_ABORT: {
             word_t pc, fault;
             pc = getRestartPC(thread);
             fault = getIFSR();
@@ -196,15 +197,15 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
         }
     }
     */
-    // ARMDataAbort = seL4_DataFault,               0
-    // ARMPrefetchAbort = seL4_InstructionFault     1
+    // ARM_DATA_ABORT = DATA_FAULT,               0
+    // ARM_PREFETCH_ABORT = INSTRUCTION_FAULT     1
     log::debug!(
         "Handle VM fault: {}  domain: {}",
         type_,
         get_current_domain()
     );
     match type_ {
-        ARMDataAbort => {
+        ARM_DATA_ABORT => {
             let addr = get_far();
             let fault = get_esr();
             log::debug!("fault addr: {:#x} esr: {:#x}", addr, fault);
@@ -217,7 +218,7 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
             log::debug!("current_fault: {:#x?}", global_read!(current_fault_cpy));
             exception_t::EXCEPTION_FAULT
         }
-        ARMPrefetchAbort => {
+        ARM_PREFETCH_ABORT => {
             let pc = get_currenct_thread().tcbArch.get_register(FAULT_IP);
             let fault = get_esr();
             unsafe {
@@ -246,11 +247,11 @@ pub fn c_handle_vm_fault(type_: usize) -> ! {
 #[no_mangle]
 #[cfg(feature = "build_binary")]
 pub fn c_handle_data_fault() -> ! {
-    c_handle_vm_fault(seL4_DataFault)
+    c_handle_vm_fault(DATA_FAULT)
 }
 
 #[no_mangle]
 #[cfg(feature = "build_binary")]
 pub fn c_handle_instruction_fault() -> ! {
-    c_handle_vm_fault(seL4_InstructionFault)
+    c_handle_vm_fault(INSTRUCTION_FAULT)
 }

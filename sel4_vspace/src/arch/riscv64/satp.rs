@@ -1,4 +1,5 @@
 use riscv::register::satp;
+#[cfg(feature = "enable_smp")]
 use sel4_common::arch::riscv64::remote_sfence_vma;
 
 ///`satp`寄存器对应的内存备份

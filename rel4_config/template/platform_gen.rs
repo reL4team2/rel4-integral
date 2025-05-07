@@ -36,7 +36,9 @@ pub const {{ irq.label }}: usize = {{ irq.number }};
 {% endfor %}
 
 /* KERNEL DEVICES */
+#[allow(unused_imports)]
 use crate::structures::{kernel_frame_t, p_region_t, paddr_t};
+#[allow(unused_imports)]
 use crate::arch::config::KDEV_BASE;
 
 #[no_mangle]

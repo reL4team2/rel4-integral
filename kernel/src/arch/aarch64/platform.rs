@@ -14,7 +14,6 @@ use crate::boot::{
     avail_p_regs_addr, avail_p_regs_size, paddr_to_pptr_reg, res_reg, reserve_region,
     rust_init_freemem,
 };
-use crate::structures::*;
 use crate::utils::{fpsime_hw_cap_test, set_vtable};
 use log::debug;
 use sel4_vspace::*;
@@ -200,7 +199,7 @@ fn read_cache_size(level: usize) -> usize {
     }
     size
 }
-
+#[allow(unused_mut)]
 fn armv_init_user_access() {
     let mut val: usize = 0;
     #[cfg(feature = "enable_arm_pcnt")]

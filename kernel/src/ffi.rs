@@ -1,4 +1,6 @@
+#[cfg(feature = "enable_smp")]
 use sel4_common::structures::irq_t;
+#[cfg(feature = "enable_smp")]
 use sel4_task::tcb_t;
 
 #[cfg(feature = "enable_smp")]
