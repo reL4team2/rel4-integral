@@ -5,7 +5,7 @@
 //! new threads to run, managing ready queues, and handling domain scheduling.
 //!
 #[cfg(feature = "enable_smp")]
-use crate::deps::doMaskReschedule;
+use crate::deps::do_mask_reschedule;
 use core::arch::asm;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
@@ -786,7 +786,7 @@ pub fn schedule() {
     set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
     #[cfg(feature = "enable_smp")]
     unsafe {
-        doMaskReschedule(ksSMP[cpu_id()].ipiReschedulePending);
+        do_mask_reschedule(ksSMP[cpu_id()].ipiReschedulePending);
         ksSMP[cpu_id()].ipiReschedulePending = 0;
     }
     #[cfg(feature = "kernel_mcs")]

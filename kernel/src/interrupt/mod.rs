@@ -6,19 +6,15 @@ use crate::BIT;
 use core::arch::asm;
 use sel4_common::platform::*;
 use sel4_common::sel4_config::*;
-#[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
-use sel4_common::structures::irq_t;
-use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
 #[cfg(target_arch = "aarch64")]
 use sel4_common::utils::{global_ops, unsafe_ops};
+use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
+use sel4_common::structures::{irq_t, current_cpu_irq_to_idx, idx_to_irq};
 use sel4_cspace::interface::cte_t;
 use sel4_vspace::pptr_t;
 
 #[cfg(target_arch = "riscv64")]
 use crate::arch::read_sip;
-
-#[cfg(feature = "enable_smp")]
-use crate::ffi::{ipi_clear_irq, ipi_get_irq};
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
@@ -67,7 +63,7 @@ pub enum IRQState {
 /// irq 是从 get_active_irq 获取的，统一为输入 irq
 #[inline]
 pub fn get_irq_state(irq: usize) -> IRQState {
-    unsafe { core::mem::transmute::<u8, IRQState>(int_state_irq_table[irq_to_idx(irq)] as u8) }
+    unsafe { core::mem::transmute::<u8, IRQState>(int_state_irq_table[current_cpu_irq_to_idx(irq)] as u8) }
 }
 
 /// 和下面的 delete 都是 index，从 cspace 中删除 slot
@@ -88,7 +84,7 @@ pub fn setIRQState(_irq: usize) -> bool {
 /// 有的是 index，有的是 irq，在 cspace 和 decode_irq_control_invocation 中是 index，考虑增加一个新函数
 pub fn set_irq_state_by_irq(state: IRQState, irq: usize) {
     unsafe {
-        int_state_irq_table[irq_to_idx(irq)] = state as usize;
+        int_state_irq_table[current_cpu_irq_to_idx(irq)] = state as usize;
     }
     // TODO
     // #if defined ENABLE_SMP_SUPPORT && defined CONFIG_ARCH_ARM
@@ -310,30 +306,6 @@ pub const fn is_irq_valid(x: usize) -> bool {
             panic!("not used in aarch64")
         } else {
             (x <= MAX_IRQ) && (x != IRQ_INVALID)
-        }
-    }
-}
-
-#[inline]
-fn irq_to_idx(irq: usize) -> usize {
-    cfg_if::cfg_if! {
-        if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
-            use crate::arch::arm_gic::irq_to_idx;
-            irq_to_idx(irq_t { core: cpu_id(), irq: irq })
-        } else {
-            irq as usize
-        }
-    }
-}
-
-#[inline]
-fn idx_to_irq(idx: usize) -> usize {
-    cfg_if::cfg_if! {
-        if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
-            use crate::arch::arm_gic::idx_to_irq;
-            idx_to_irq(idx)
-        } else {
-            idx
         }
     }
 }

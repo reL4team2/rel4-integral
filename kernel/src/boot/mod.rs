@@ -32,9 +32,6 @@ pub use untyped::create_untypeds;
 pub use utils::{provide_cap, write_slot};
 
 #[cfg(feature = "enable_smp")]
-use crate::ffi::{clh_lock_acquire, clh_lock_init};
-
-#[cfg(feature = "enable_smp")]
 use core::arch::asm;
 
 #[cfg(feature = "enable_smp")]

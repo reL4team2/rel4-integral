@@ -4,7 +4,7 @@ use core::arch::asm;
 
 #[cfg(feature = "enable_smp")]
 use crate::{
-    ffi::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
+    smp::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
     interrupt::get_active_irq,
 };
 
@@ -185,7 +185,8 @@ pub fn entry_hook() {
 #[no_mangle]
 #[cfg(feature = "build_binary")]
 pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) -> ! {
-    // TODO: support NODE_LOCK_SYS for smp mode
+    #[cfg(feature = "enable_smp")]
+    unsafe { clh_lock_acquire(cpu_id(), false) };
     entry_hook();
     use crate::kernel::fastpath::fastpath_call;
     fastpath_call(cptr, msgInfo);
@@ -196,7 +197,8 @@ pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) -> ! {
 #[cfg(feature = "build_binary")]
 #[cfg(not(feature = "kernel_mcs"))]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) -> ! {
-    // TODO: support NODE_LOCK_SYS for smp mode
+    #[cfg(feature = "enable_smp")]
+    unsafe { clh_lock_acquire(cpu_id(), false) };
     entry_hook();
     crate::kernel::fastpath::fastpath_reply_recv(cptr, msgInfo);
     unreachable!()
@@ -206,7 +208,8 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) -> ! {
 #[cfg(feature = "build_binary")]
 #[cfg(feature = "kernel_mcs")]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -> ! {
-    // TODO: support NODE_LOCK_SYS for smp mode
+    #[cfg(feature = "enable_smp")]
+    unsafe { clh_lock_acquire(cpu_id(), false) };
     entry_hook();
     crate::kernel::fastpath::fastpath_reply_recv(cptr, msgInfo, reply);
     unreachable!()
@@ -215,7 +218,8 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -
 #[no_mangle]
 #[cfg(feature = "build_binary")]
 pub fn c_handle_undefined_instruction() -> ! {
-    // TODO: support NODE_LOCK_SYS for smp mode
+    #[cfg(feature = "enable_smp")]
+    unsafe { clh_lock_acquire(cpu_id(), false) };
     entry_hook();
 
     // Only support aarch64

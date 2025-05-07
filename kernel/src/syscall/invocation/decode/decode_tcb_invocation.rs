@@ -35,9 +35,6 @@ use crate::syscall::is_valid_vtable_root;
 
 use super::super::invoke_tcb::*;
 
-#[cfg(feature = "enable_smp")]
-use crate::ffi::remoteTCBStall;
-
 pub const COPY_REGISTERS_SUSPEND_SOURCE: usize = 0;
 pub const COPY_REGISTERS_RESUME_TARGET: usize = 1;
 pub const COPY_REGISTERS_TRANSFER_FRAME: usize = 2;
@@ -97,7 +94,7 @@ pub fn decode_tcb_invocation(
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    // sel4_common::println!("label is {}", invLabel as usize);
+    // TODO: remote_tcb_stall
     match invLabel {
         MessageLabel::TCBReadRegisters => decode_read_registers(capability, length, call, buffer),
         MessageLabel::TCBWriteRegisters => decode_write_registers(capability, length, buffer),

@@ -13,8 +13,8 @@ fn asm_gen(platform: &str, defs: &mut Vec<String>) {
     rel4_config::generator::config_gen(&platform, &defs);
     let out_inc_dir = env::var("OUT_DIR").unwrap();
 
-    rel4_config::generator::asm_gen(&dir, "head.S", vec![&inc_dir, &out_inc_dir], &vec![], None);
-    rel4_config::generator::asm_gen(&dir, "traps.S", vec![&inc_dir, &out_inc_dir], &vec![], None);
+    rel4_config::generator::asm_gen(&dir, "head.S", vec![&inc_dir, &out_inc_dir], &defs, None);
+    rel4_config::generator::asm_gen(&dir, "traps.S", vec![&inc_dir, &out_inc_dir], &defs, None);
 }
 
 fn main() {

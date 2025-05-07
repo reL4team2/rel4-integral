@@ -28,11 +28,13 @@ use sel4_common::structures_gen::cap_tag;
 use sel4_common::structures_gen::seL4_Fault_UnknownSyscall;
 use sel4_common::structures_gen::seL4_Fault_UserException;
 use sel4_common::structures_gen::seL4_Fault_VMFault;
-use sel4_common::utils::global_read;
+use sel4_common::utils::{global_read, cpu_id};
 use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedule};
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget_restart, update_timestamp};
 
+#[cfg(feature = "enable_smp")]
+use crate::smp::clh_lock_acquire;
 use super::instruction::*;
 #[cfg(feature = "build_binary")]
 use super::restore_user_context;
@@ -237,7 +239,8 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
 #[inline(always)]
 #[cfg(feature = "build_binary")]
 pub fn c_handle_vm_fault(type_: usize) -> ! {
-    // TODO: NODE_LOCK needed in smp mod, now not supported
+    #[cfg(feature = "enable_smp")]
+    unsafe { clh_lock_acquire(cpu_id(), false) };
     entry_hook();
     handleVMFaultEvent(type_);
     restore_user_context();

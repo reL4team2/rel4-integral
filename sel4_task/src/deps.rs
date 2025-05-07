@@ -30,5 +30,5 @@ pub static mut ksIdleThreadSC: ksIdleThreadSC_data = ksIdleThreadSC_data {
 
 extern "C" {
     #[cfg(feature = "enable_smp")]
-    pub fn doMaskReschedule(mask: usize);
+    pub fn do_mask_reschedule(mask: usize);
 }

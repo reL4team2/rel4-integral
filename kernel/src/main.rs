@@ -28,8 +28,10 @@ mod syscall;
 mod utils;
 
 mod compatibility;
-mod ffi;
 mod interfaces_impl;
+
+#[cfg(feature = "enable_smp")]
+mod smp;
 
 use boot::interface::rust_try_init_kernel;
 pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
@@ -56,7 +58,7 @@ pub extern "C" fn strnlen(str: *const u8, _max_len: usize) -> usize {
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-#[cfg(feature = "build_binary")]
+#[cfg(all(feature = "build_binary", not(feature = "enable_smp")))]
 pub fn init_kernel(
     ui_p_reg_start: usize,
     ui_p_reg_end: usize,
@@ -67,7 +69,7 @@ pub fn init_kernel(
 ) {
     use sel4_common::platform::avail_p_regs;
     // sel4_common::println!("Now we use rel4 kernel binary");
-    log::set_max_level(log::LevelFilter::Trace);
+    log::set_max_level(log::LevelFilter::Info);
     boot::interface::pRegsToR(
         &avail_p_regs as *const p_region_t as *const usize,
         core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
@@ -83,6 +85,47 @@ pub fn init_kernel(
     if !result {
         log::error!("ERROR: kernel init failed");
         panic!()
+    }
+
+    schedule();
+    activateThread();
+}
+
+#[no_mangle]
+#[link_section = ".boot.text"]
+#[cfg(all(feature = "build_binary", feature = "enable_smp"))]
+pub fn init_kernel(
+    ui_p_reg_start: usize,
+    ui_p_reg_end: usize,
+    pv_offset: isize,
+    v_entry: usize,
+    dtb_addr_p: usize,
+    dtb_size: usize,
+) {
+    use sel4_common::platform::avail_p_regs;
+    use sel4_common::utils::cpu_id;
+    // sel4_common::println!("Now we use rel4 kernel binary");
+    log::set_max_level(log::LevelFilter::Info);
+    boot::interface::pRegsToR(
+        &avail_p_regs as *const p_region_t as *const usize,
+        core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
+    );
+
+    if cpu_id() == 0 {
+        let result = rust_try_init_kernel(
+            ui_p_reg_start,
+            ui_p_reg_end,
+            pv_offset,
+            v_entry,
+            dtb_addr_p,
+            dtb_size,
+        );
+        if !result {
+            log::error!("ERROR: kernel init failed");
+            panic!()
+        }
+    } else {
+        let result = boot::interface::rust_try_init_kernel_secondary_core(cpu_id(), cpu_id());
     }
 
     schedule();

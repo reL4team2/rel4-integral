@@ -2,7 +2,7 @@ pub mod consts;
 pub mod gic_v2;
 
 use core::ptr::NonNull;
-pub use gic_v2::{dist_pending_clr, irq_disable, irq_enable, irq_is_edge_triggered};
+pub use gic_v2::{dist_pending_clr, irq_disable, irq_enable, irq_is_edge_triggered, ipi_send_targets};
 use tock_registers::register_structs;
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 
