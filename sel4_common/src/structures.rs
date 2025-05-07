@@ -23,11 +23,11 @@ pub struct seL4_IPCBuffer {
     /// The tag field of the IPC message.
     pub tag: usize,
     /// The message payload of the IPC message.
-    pub msg: [usize; seL4_MsgMaxLength],
+    pub msg: [usize; SEL4_MSG_MAX_LENGTH],
     /// User-defined data associated with the IPC message.
     pub userData: usize,
     /// Array of capabilities or badges associated with the IPC message.
-    pub caps_or_badges: [usize; seL4_MsgMaxExtraCaps],
+    pub caps_or_badges: [usize; SEL4_MSG_MAX_EXTRA_CAPS],
     /// The capability node where the IPC message is received.
     pub receiveCNode: usize,
     /// The index within the capability node where the IPC message is received.
@@ -118,7 +118,7 @@ impl Display for paddr_t {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+    if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
         #[repr(C)]
         pub struct irq_t {
             pub irq: usize,

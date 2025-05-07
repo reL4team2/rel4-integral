@@ -9,7 +9,7 @@ use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 register_structs! {
     /// GIC Distributor registers.
     #[allow(non_snake_case)]
-    pub Gic_Dist_Map_Regs{
+    pub GicDistMapRegs{
         (0x000 => enable:ReadWrite<u32>),
         (0x0004 => ic_type: ReadOnly<u32>),
         (0x0008 => dist_ident: ReadOnly<u32>),
@@ -46,7 +46,7 @@ register_structs! {
 register_structs! {
     /// GIC CPU Interface registers.
     #[allow(non_snake_case)]
-    pub Gic_Cpu_Iface_Map_Regs {
+    pub GicCpuIfaceMapRegs {
         (0x0000 => icontrol: ReadWrite<u32>),
         (0x0004 => pri_msk_c: ReadWrite<u32>),
         (0x0008 => pb_c: ReadWrite<u32>),
@@ -85,21 +85,21 @@ register_structs! {
     }
 }
 
-pub struct Gic_Dist_Map {
-    base: NonNull<Gic_Dist_Map_Regs>,
+pub struct GicDistMap {
+    base: NonNull<GicDistMapRegs>,
 }
 
-pub struct Gic_Cpu_Iface_Map {
-    base: NonNull<Gic_Cpu_Iface_Map_Regs>,
+pub struct GicCpuIfaceMap {
+    base: NonNull<GicCpuIfaceMapRegs>,
 }
 
-unsafe impl Send for Gic_Dist_Map {}
-unsafe impl Sync for Gic_Dist_Map {}
+unsafe impl Send for GicDistMap {}
+unsafe impl Sync for GicDistMap {}
 
-unsafe impl Send for Gic_Cpu_Iface_Map {}
-unsafe impl Sync for Gic_Cpu_Iface_Map {}
+unsafe impl Send for GicCpuIfaceMap {}
+unsafe impl Sync for GicCpuIfaceMap {}
 
-impl Gic_Dist_Map {
+impl GicDistMap {
     /// Construct a new GIC distributor instance from the base address.
     pub const fn new(base: *mut u8) -> Self {
         Self {
@@ -107,12 +107,12 @@ impl Gic_Dist_Map {
         }
     }
 
-    pub const fn regs(&self) -> &Gic_Dist_Map_Regs {
+    pub const fn regs(&self) -> &GicDistMapRegs {
         unsafe { self.base.as_ref() }
     }
 }
 
-impl Gic_Cpu_Iface_Map {
+impl GicCpuIfaceMap {
     /// Construct a new GIC CPU interface instance from the base address.
     pub const fn new(base: *mut u8) -> Self {
         Self {
@@ -120,7 +120,7 @@ impl Gic_Cpu_Iface_Map {
         }
     }
 
-    pub const fn regs(&self) -> &Gic_Cpu_Iface_Map_Regs {
+    pub const fn regs(&self) -> &GicCpuIfaceMapRegs {
         unsafe { self.base.as_ref() }
     }
 }

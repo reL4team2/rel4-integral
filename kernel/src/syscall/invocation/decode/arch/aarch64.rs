@@ -6,15 +6,15 @@ use crate::syscall::{current_lookup_fault, get_syscall_arg, set_thread_state, un
 use crate::syscall::{ensure_empty_slot, get_currenct_thread, lookup_slot_for_cnode_op};
 use log::debug;
 use sel4_common::arch::maskVMRights;
-use sel4_common::platform::maxIRQ;
+use sel4_common::platform::MAX_IRQ;
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::{
-    asidInvalid, asidLowBits, nASIDPools, seL4_ASIDPoolBits, seL4_AlignmentError,
-    seL4_FailedLookup, seL4_PageBits, seL4_RangeError, USER_TOP,
+    ASID_INVALID, ASID_LOW_BITS, N_ASID_POOLS, SEL4_ALIGNMENT_ERROR, SEL4_ASID_POOL_BITS,
+    SEL4_FAILED_LOOKUP, SEL4_PAGE_BITS, SEL4_RANGE_ERROR, USER_TOP,
 };
-use sel4_common::sel4_config::{seL4_DeleteFirst, seL4_InvalidArgument};
+use sel4_common::sel4_config::{SEL4_DELETE_FIRST, SEL4_INVALID_ARGUMENT};
 use sel4_common::sel4_config::{
-    seL4_IllegalOperation, seL4_InvalidCapability, seL4_RevokeFirst, seL4_TruncatedMessage,
+    SEL4_ILLEGAL_OPERATION, SEL4_INVALID_CAPABILITY, SEL4_REVOKE_FIRST, SEL4_TRUNCATED_MESSAGE,
 };
 use sel4_common::shared_types_bf_gen::seL4_CapRights;
 use sel4_common::structures_gen::{
@@ -22,8 +22,8 @@ use sel4_common::structures_gen::{
 };
 use sel4_common::structures_gen::{lookup_fault_invalid_root, lookup_fault_missing_capability};
 use sel4_common::utils::{
-    convert_ref_type_to_usize, convert_to_mut_type_ref, global_ops, pageBitsForSize, ptr_to_mut,
-    ptr_to_ref, MAX_FREE_INDEX,
+    convert_ref_type_to_usize, convert_to_mut_type_ref, global_ops, max_free_index,
+    pageBitsForSize, ptr_to_mut, ptr_to_ref,
 };
 use sel4_common::{
     arch::MessageLabel,
@@ -35,7 +35,7 @@ use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::interface::{cte_insert, cte_t};
 
 use sel4_vspace::{
-    asid_pool_t, asid_t, clean_by_va_pou, doFlush, find_vspace_for_asid, get_asid_pool_by_index,
+    asid_pool_t, asid_t, clean_by_va_pou, do_flush, find_vspace_for_asid, get_asid_pool_by_index,
     pptr_to_paddr, pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
 };
 
@@ -46,11 +46,11 @@ use crate::{
     interrupt::is_irq_active,
     syscall::{invocation::invoke_irq::invoke_irq_control, lookupSlotForCNodeOp},
 };
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 use sel4_common::sel4_config::NUM_SMC_REGS;
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 use sel4_common::{
-    arch::msgRegisterNum, arch::ArchReg, arch::MessageLabel::ARMSMCCall,
+    arch::ArchReg, arch::MessageLabel::ARMSMCCall, arch::MSG_REGISTER_NUM,
     structures_gen::cap_smc_cap,
 };
 
@@ -82,17 +82,17 @@ fn decode_page_table_invocation(
     /*
         if (invLabel == ARMPageTableUnmap) {
             if (unlikely(!isFinalCapability(cte))) {
-                current_syscall_error.type = seL4_RevokeFirst;
+                current_syscall_error.type = SEL4_REVOKE_FIRST;
                 return EXCEPTION_SYSCALL_ERROR;
             }
-            setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
+            set_thread_state(NODE_STATE(ksCurThread), ThreadState_Restart);
             return performPageTableInvocationUnmap(cap, cte);
         }
     */
 
     if label == MessageLabel::ARMPageTableUnmap {
         if unlikely(!cte.is_final_cap()) {
-            global_ops!(current_syscall_error._type = seL4_RevokeFirst);
+            global_ops!(current_syscall_error._type = SEL4_REVOKE_FIRST);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
         // log::warn!("Need to check is FinalCapability here");
@@ -102,15 +102,15 @@ fn decode_page_table_invocation(
     }
 
     if unlikely(label != MessageLabel::ARMPageTableMap) {
-        global_ops!(current_syscall_error._type = seL4_IllegalOperation);
+        global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(length < 2 || global_ops!(current_extra_caps.excaprefs[0] == 0)) {
-        global_ops!(current_syscall_error._type = seL4_TruncatedMessage);
+        global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(cap::cap_page_table_cap(&cte.capability).get_capPTIsMapped() == 1) {
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidArgumentNumber = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -120,7 +120,7 @@ fn decode_page_table_invocation(
         convert_to_mut_type_ref::<cap_vspace_cap>(global_ops!(current_extra_caps.excaprefs[0]));
 
     if unlikely(!vspace_root_cap.clone().unsplay().is_valid_native_root()) {
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidCapNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -129,7 +129,7 @@ fn decode_page_table_invocation(
     let asid = vspace_root_cap.get_capVSMappedASID() as usize;
 
     if unlikely(vaddr > USER_TOP) {
-        global_ops!(current_syscall_error._type = seL4_InvalidArgument);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
         global_ops!(current_syscall_error.invalidArgumentNumber = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -137,12 +137,12 @@ fn decode_page_table_invocation(
     let find_ret = find_vspace_for_asid(asid);
 
     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {
-        global_ops!(current_syscall_error._type = seL4_FailedLookup);
+        global_ops!(current_syscall_error._type = SEL4_FAILED_LOOKUP);
         global_ops!(current_syscall_error.failedLookupWasSource = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(find_ret.vspace_root.unwrap() as usize != vspace_root) {
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidCapNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -150,10 +150,10 @@ fn decode_page_table_invocation(
     let pd_slot = PTE(vspace_root).lookup_pt_slot(vaddr);
 
     if unlikely(
-        pd_slot.ptBitsLeft == seL4_PageBits
+        pd_slot.ptBitsLeft == SEL4_PAGE_BITS
             || (ptr_to_ref(pd_slot.ptSlot).get_type() != (pte_tag_t::pte_invalid) as usize),
     ) {
-        global_ops!(current_syscall_error._type = seL4_DeleteFirst);
+        global_ops!(current_syscall_error._type = SEL4_DELETE_FIRST);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let pte = PTE::pte_new_table(pptr_to_paddr(
@@ -183,12 +183,12 @@ fn decode_page_clean_invocation(
 ) -> exception_t {
     if length < 2 {
         log::error!("[User] Page Flush: Truncated message.");
-        global_ops!(current_syscall_error._type = seL4_TruncatedMessage);
+        global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(cap::cap_frame_cap(&cte.capability).get_capFMappedASID() == 0) {
         log::error!("[User] Page Flush: Frame is not mapped.");
-        global_ops!(current_syscall_error._type = seL4_IllegalOperation);
+        global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
@@ -198,7 +198,7 @@ fn decode_page_clean_invocation(
 
     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {
         log::error!("[User] Page Flush: No PGD for ASID");
-        global_ops!(current_syscall_error._type = seL4_FailedLookup);
+        global_ops!(current_syscall_error._type = SEL4_FAILED_LOOKUP);
         global_ops!(current_syscall_error.failedLookupWasSource = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -208,7 +208,7 @@ fn decode_page_clean_invocation(
 
     if end <= start {
         log::error!("[User] Page Flush: Invalid range");
-        global_ops!(current_syscall_error._type = seL4_InvalidArgument);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
         global_ops!(current_syscall_error.invalidArgumentNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -218,7 +218,7 @@ fn decode_page_clean_invocation(
     ));
     if start >= page_size || end > page_size {
         log::error!("[User] Page Flush: Requested range not inside page");
-        global_ops!(current_syscall_error._type = seL4_InvalidArgument);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
         global_ops!(current_syscall_error.invalidArgumentNumber = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -233,7 +233,7 @@ fn decode_page_clean_invocation(
         //     label
         // );
 
-        doFlush(label, start, end, pstart);
+        do_flush(label, start, end, pstart);
         if root_switched {
             get_currenct_thread()
                 .set_vm_root()
@@ -249,7 +249,7 @@ fn decode_page_clean_invocation(
             bool_t root_switched;
                 if (start < end) {
                     root_switched = setVMRootForFlush(vspaceRoot, asid);
-                    doFlush(invLabel, start, end, pstart);
+                    do_flush(invLabel, start, end, pstart);
                     if (root_switched) {
                         setVMRoot(NODE_STATE(ksCurThread));
                     }
@@ -293,7 +293,7 @@ fn decode_frame_invocation(
         _ => {
             debug!("invalid operation label:{:?}", label);
             unsafe {
-                current_syscall_error._type = seL4_IllegalOperation;
+                current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
             }
             exception_t::EXCEPTION_SYSCALL_ERROR
         }
@@ -302,7 +302,7 @@ fn decode_frame_invocation(
 
 fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuffer) -> exception_t {
     if unlikely(label != MessageLabel::ARMASIDControlMakePool) {
-        global_ops!(current_syscall_error._type = seL4_IllegalOperation);
+        global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(
@@ -310,7 +310,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
             || global_ops!(current_extra_caps.excaprefs[0] == 0)
             || global_ops!(current_extra_caps.excaprefs[1] == 0),
     ) {
-        global_ops!(current_syscall_error._type = seL4_TruncatedMessage);
+        global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let index = get_syscall_arg(0, buffer);
@@ -323,23 +323,23 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
 
     let mut i = 0;
     loop {
-        if !(i < nASIDPools && get_asid_pool_by_index(i) != 0) {
+        if !(i < N_ASID_POOLS && get_asid_pool_by_index(i) != 0) {
             break;
         }
         i += 1;
     }
-    if unlikely(i == nASIDPools) {
+    if unlikely(i == N_ASID_POOLS) {
         /* If no unallocated pool is found */
-        global_ops!(current_syscall_error._type = seL4_DeleteFirst);
+        global_ops!(current_syscall_error._type = SEL4_DELETE_FIRST);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let asid_base = i << asidLowBits;
+    let asid_base = i << ASID_LOW_BITS;
     if unlikely(
         untyped.clone().unsplay().get_tag() != cap_tag::cap_untyped_cap
-            || untyped.get_capBlockSize() as usize != seL4_ASIDPoolBits
+            || untyped.get_capBlockSize() as usize != SEL4_ASID_POOL_BITS
             || untyped.get_capIsDevice() == 1,
     ) {
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidCapNumber = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -358,29 +358,29 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         return status;
     }
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
-    cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(MAX_FREE_INDEX(
+    cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(max_free_index(
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
     unsafe {
-        core::slice::from_raw_parts_mut(frame as *mut u8, BIT!(seL4_ASIDPoolBits)).fill(0);
+        core::slice::from_raw_parts_mut(frame as *mut u8, BIT!(SEL4_ASID_POOL_BITS)).fill(0);
     }
     cte_insert(
         &cap_asid_pool_cap::new(asid_base as u64, frame as u64).unsplay(),
         parent_slot,
         dest_slot,
     );
-    assert!(asid_base & MASK!(asidLowBits) == 0);
-    set_asid_pool_by_index(asid_base >> asidLowBits, frame);
+    assert!(asid_base & MASK!(ASID_LOW_BITS) == 0);
+    set_asid_pool_by_index(asid_base >> ASID_LOW_BITS, frame);
     exception_t::EXCEPTION_NONE
 }
 
 fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     if unlikely(label != MessageLabel::ARMASIDPoolAssign) {
-        global_ops!(current_syscall_error._type = seL4_IllegalOperation);
+        global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(global_ops!(current_extra_caps.excaprefs[0] == 0)) {
-        global_ops!(current_syscall_error._type = seL4_TruncatedMessage);
+        global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
@@ -391,16 +391,16 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
         !vspace_cap.clone().unsplay().is_vtable_root() || vspace_cap.get_capVSIsMapped() == 1,
     ) {
         log::debug!("is not a valid vtable root");
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidArgumentNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let pool = get_asid_pool_by_index(
-        cap::cap_asid_pool_cap(&cte.capability).get_capASIDBase() as usize >> asidLowBits,
+        cap::cap_asid_pool_cap(&cte.capability).get_capASIDBase() as usize >> ASID_LOW_BITS,
     );
 
     if unlikely(pool == 0) {
-        global_ops!(current_syscall_error._type = seL4_FailedLookup);
+        global_ops!(current_syscall_error._type = SEL4_FAILED_LOOKUP);
         global_ops!(current_syscall_error.failedLookupWasSource = 0);
         unsafe {
             current_lookup_fault = lookup_fault_invalid_root::new().unsplay();
@@ -409,7 +409,7 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     }
 
     if unlikely(pool != cap::cap_asid_pool_cap(&cte.capability).get_capASIDPool() as usize) {
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidCapNumber = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -419,13 +419,13 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     let mut i = 0;
 
     // TODO: Make pool judge more efficient and pretty.
-    while i < BIT!(asidLowBits) && (asid + i == 0 || pool[i].0.arr[0] != 0) {
+    while i < BIT!(ASID_LOW_BITS) && (asid + i == 0 || pool[i].0.arr[0] != 0) {
         i += 1;
     }
 
-    if i == BIT!(asidLowBits) {
+    if i == BIT!(ASID_LOW_BITS) {
         unsafe {
-            current_syscall_error._type = seL4_DeleteFirst;
+            current_syscall_error._type = SEL4_DELETE_FIRST;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -436,14 +436,14 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     vspace_cap.set_capVSMappedASID(asid as u64);
     vspace_cap.set_capVSIsMapped(1);
     let asidmap = asid_map_asid_map_vspace::new(vspace_cap.get_capVSBasePtr() as u64).unsplay();
-    pool[asid & MASK!(asidLowBits)] = asidmap;
+    pool[asid & MASK!(ASID_LOW_BITS)] = asidmap;
     exception_t::EXCEPTION_NONE
 }
 
 fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuffer) -> exception_t {
     if length < 3 || get_extra_cap_by_index(0).is_none() {
         debug!("ARMPageMap: Truncated message.");
-        global_ops!(current_syscall_error._type = seL4_TruncatedMessage);
+        global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let vaddr = get_syscall_arg(0, buffer);
@@ -460,7 +460,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         }),
     );
     if unlikely(!vspace_root_cap.clone().unsplay().is_valid_native_root()) {
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidCapNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -468,39 +468,39 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     let asid = vspace_root_cap.get_capVSMappedASID() as usize;
     let find_ret = find_vspace_for_asid(asid);
     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {
-        global_ops!(current_syscall_error._type = seL4_FailedLookup);
+        global_ops!(current_syscall_error._type = SEL4_FAILED_LOOKUP);
         global_ops!(current_syscall_error.failedLookupWasSource = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(find_ret.vspace_root.unwrap() as usize != vspace_root) {
-        global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+        global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
         global_ops!(current_syscall_error.invalidCapNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if unlikely(!IS_ALIGNED!(vaddr, pageBitsForSize(frame_size))) {
-        // global_var!(current_syscall_error)._type = seL4_AlignmentError;
+        // global_var!(current_syscall_error)._type = SEL4_ALIGNMENT_ERROR;
         // Use unsafe here will cause the _type error.
-        global_ops!(current_syscall_error._type = seL4_AlignmentError);
+        global_ops!(current_syscall_error._type = SEL4_ALIGNMENT_ERROR);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let frame_asid = cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize;
-    if frame_asid != asidInvalid {
+    if frame_asid != ASID_INVALID {
         if frame_asid != asid {
             log::error!("[User] ARMPageMap: Attempting to remap a frame that does not belong to the passed address space");
-            global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+            global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
             global_ops!(current_syscall_error.invalidArgumentNumber = 0);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         } else if cap::cap_frame_cap(&frame_slot.capability).get_capFMappedAddress() as usize
             != vaddr
         {
             log::error!("[User] ARMPageMap: Attempting to map frame into multiple addresses");
-            global_ops!(current_syscall_error._type = seL4_InvalidArgument);
+            global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
             global_ops!(current_syscall_error.invalidArgumentNumber = 2);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
     } else {
         if unlikely(vaddr + BIT!(pageBitsForSize(frame_size)) - 1 > USER_TOP) {
-            global_ops!(current_syscall_error._type = seL4_InvalidArgument);
+            global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
             global_ops!(current_syscall_error.invalidArgumentNumber = 0);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -512,7 +512,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         unsafe {
             current_lookup_fault =
                 lookup_fault_missing_capability::new(lu_ret.ptBitsLeft as u64).unsplay();
-            current_syscall_error._type = seL4_FailedLookup;
+            current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = 0;
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -528,11 +528,11 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         pt_slot,
     );
     // match frame_size {
-    //     ARM_Small_Page => {
+    //     ARM_SMALL_PAGE => {
     //         let lu_ret = vspace_root.lookup_pt_slot(vaddr);
     //         if lu_ret.status != exception_t::EXCEPTION_NONE {
     //             unsafe {
-    //                 current_syscall_error._type = seL4_FailedLookup;
+    //                 current_syscall_error._type = SEL4_FAILED_LOOKUP;
     //                 current_syscall_error.failedLookupWasSource = 0;
     //             }
     //             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -547,11 +547,11 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //             ptSlot,
     //         )
     //     }
-    //     ARM_Large_Page => {
+    //     ARM_LARGE_PAGE => {
     //         let lu_ret = vspace_root.lookup_pd_slot(vaddr);
     //         if lu_ret.status != exception_t::EXCEPTION_NONE {
     //             unsafe {
-    //                 current_syscall_error._type = seL4_FailedLookup;
+    //                 current_syscall_error._type = SEL4_FAILED_LOOKUP;
     //                 current_syscall_error.failedLookupWasSource = 0;
     //             }
     //             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -566,11 +566,11 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //             pdSlot,
     //         )
     //     }
-    //     ARM_Huge_Page => {
+    //     ARM_HUGE_PAGE => {
     //         let lu_ret = vspace_root.lookup_pud_slot(vaddr);
     //         if lu_ret.status != exception_t::EXCEPTION_NONE {
     //             unsafe {
-    //                 current_syscall_error._type = seL4_FailedLookup;
+    //                 current_syscall_error._type = SEL4_FAILED_LOOKUP;
     //                 current_syscall_error.failedLookupWasSource = 0;
     //             }
     //             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -590,7 +590,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     // if length < 3 || get_extra_cap_by_index(0).is_none() {
     //     debug!("ARMPageMap: Truncated message.");
     //     unsafe {
-    //         current_syscall_error._type = seL4_TruncatedMessage;
+    //         current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
     //     }
     //     return exception_t::EXCEPTION_SYSCALL_ERROR;
     // }
@@ -608,19 +608,19 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //     Some(v) => v,
     //     _ => return exception_t::EXCEPTION_SYSCALL_ERROR,
     // };
-    // if unlikely(!checkVPAlignment(frame_size, vaddr)) {
+    // if unlikely(!check_vp_alignment(frame_size, vaddr)) {
     //     unsafe {
-    //         current_syscall_error._type = seL4_AlignmentError;
+    //         current_syscall_error._type = SEL4_ALIGNMENT_ERROR;
     //     }
     //     return exception_t::EXCEPTION_SYSCALL_ERROR;
     // }
     // let frame_asid = frame_slot.cap.get_frame_mapped_asid();
     // log::debug!("frame_asid: {:?}", frame_asid);
-    // if frame_asid != asidInvalid {
+    // if frame_asid != ASID_INVALID {
     //     if frame_asid != asid {
     //         debug!("ARMPageMap: Attempting to remap a frame that does not belong to the passed address space");
     //         unsafe {
-    //             current_syscall_error._type = seL4_InvalidCapability;
+    //             current_syscall_error._type = SEL4_INVALID_CAPABILITY;
     //             current_syscall_error.invalidArgumentNumber = 0;
     //         }
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -628,7 +628,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //     if frame_slot.cap.get_frame_mapped_address() != vaddr {
     //         debug!("ARMPageMap: attempting to map frame into multiple addresses");
     //         unsafe {
-    //             current_syscall_error._type = seL4_InvalidArgument;
+    //             current_syscall_error._type = SEL4_INVALID_ARGUMENT;
     //             current_syscall_error.invalidArgumentNumber = 2;
     //         }
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -637,7 +637,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //     let vtop = vaddr + BIT!(pageBitsForSize(frame_size)) - 1;
     //     if unlikely(vtop >= USER_TOP) {
     //         unsafe {
-    //             current_syscall_error._type = seL4_InvalidArgument;
+    //             current_syscall_error._type = SEL4_INVALID_ARGUMENT;
     //             current_syscall_error.invalidArgumentNumber = 0;
     //         }
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -648,11 +648,11 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     // // frame_slot.cap.set_frame_mapped_asid(asid);
 
     // let base = pptr_to_paddr(frame_slot.cap.get_frame_base_ptr());
-    // if frame_size == ARM_Small_Page {
+    // if frame_size == ARM_SMALL_PAGE {
     //     let lu_ret = vspace_root.lookup_pt_slot(vaddr);
     //     if lu_ret.status != exception_t::EXCEPTION_NONE {
     //         unsafe {
-    //             current_syscall_error._type = seL4_FailedLookup;
+    //             current_syscall_error._type = SEL4_FAILED_LOOKUP;
     //             current_syscall_error.failedLookupWasSource = 0;
     //         }
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -666,11 +666,11 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //         makeUser3rdLevel(base, vm_rights, attr),
     //         ptSlot,
     //     )
-    // } else if frame_size == ARM_Large_Page {
+    // } else if frame_size == ARM_LARGE_PAGE {
     //     let lu_ret = vspace_root.lookup_pd_slot(vaddr);
     //     if lu_ret.status != exception_t::EXCEPTION_NONE {
     //         unsafe {
-    //             current_syscall_error._type = seL4_FailedLookup;
+    //             current_syscall_error._type = SEL4_FAILED_LOOKUP;
     //             current_syscall_error.failedLookupWasSource = 0;
     //         }
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -684,11 +684,11 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //         make_user_2nd_level(base, vm_rights, attr),
     //         pdSlot,
     //     )
-    // } else if frame_size == ARM_Huge_Page {
+    // } else if frame_size == ARM_HUGE_PAGE {
     //     let lu_ret = vspace_root.lookup_pud_slot(vaddr);
     //     if lu_ret.status != exception_t::EXCEPTION_NONE {
     //         unsafe {
-    //             current_syscall_error._type = seL4_FailedLookup;
+    //             current_syscall_error._type = SEL4_FAILED_LOOKUP;
     //             current_syscall_error.failedLookupWasSource = 0;
     //         }
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -711,7 +711,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
 fn decode_page_table_unmap(pt_cte: &mut cte_t) -> exception_t {
     if !pt_cte.is_final_cap() {
         debug!("PageTableUnmap: cannot unmap if more than once cap exists");
-        global_ops!(current_syscall_error._type = seL4_RevokeFirst);
+        global_ops!(current_syscall_error._type = SEL4_REVOKE_FIRST);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let capability = &mut cap::cap_page_table_cap(&pt_cte.capability);
@@ -762,7 +762,7 @@ fn decode_vspace_root_invocation(
             if length < 2 {
                 debug!("VSpaceRoot Flush: Truncated message.");
                 unsafe {
-                    current_syscall_error._type = seL4_TruncatedMessage;
+                    current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
             }
@@ -771,19 +771,19 @@ fn decode_vspace_root_invocation(
             if end <= start {
                 debug!("VSpaceRoot Flush: Invalid range.");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidArgument;
+                    current_syscall_error._type = SEL4_INVALID_ARGUMENT;
                     current_syscall_error.invalidArgumentNumber = 1;
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
             }
             if end > USER_TOP {
                 debug!("VSpaceRoot Flush: Exceed the user addressable region.");
-                unsafe { current_syscall_error._type = seL4_IllegalOperation };
+                unsafe { current_syscall_error._type = SEL4_ILLEGAL_OPERATION };
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             if !cte.capability.is_valid_native_root() {
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0
                 };
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -794,7 +794,7 @@ fn decode_vspace_root_invocation(
             if find_ret.status != exception_t::EXCEPTION_NONE {
                 debug!("VSpaceRoot Flush: No VSpace for ASID");
                 unsafe {
-                    current_syscall_error._type = seL4_FailedLookup;
+                    current_syscall_error._type = SEL4_FAILED_LOOKUP;
                     current_syscall_error.failedLookupWasSource = 0;
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
@@ -802,7 +802,7 @@ fn decode_vspace_root_invocation(
             if find_ret.vspace_root.unwrap() as usize != ptr_to_ref(vspace_root).get_ptr() {
                 debug!("VSpaceRoot Flush: Invalid VSpace Cap");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -817,7 +817,7 @@ fn decode_vspace_root_invocation(
             let page_base_end = (end - 1) & !MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
             if page_base_start != page_base_end {
                 unsafe {
-                    current_syscall_error._type = seL4_RangeError;
+                    current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = start;
                     current_syscall_error.rangeErrorMax =
                         page_base_start + MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
@@ -837,7 +837,7 @@ fn decode_vspace_root_invocation(
             );
         }
         _ => {
-            unsafe { current_syscall_error._type = seL4_IllegalOperation };
+            unsafe { current_syscall_error._type = SEL4_ILLEGAL_OPERATION };
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
     }
@@ -853,7 +853,7 @@ fn decode_vspace_flush_invocation(
 ) -> exception_t {
     if start < end {
         let root_switched = set_vm_root_for_flush(vspace, asid);
-        doFlush(label, start, end, pstart);
+        do_flush(label, start, end, pstart);
         if root_switched {
             let _ = get_currenct_thread().set_vm_root();
         }
@@ -872,17 +872,17 @@ fn decode_vspace_flush_invocation(
 //         findVSpaceForASID_ret_t find_ret;
 //         if (invLabel == ARMPageUpperDirectoryUnmap) {
 //             if (unlikely(!isFinalCapability(cte))) {
-//                 current_syscall_error.type = seL4_RevokeFirst;
+//                 current_syscall_error.type = SEL4_REVOKE_FIRST;
 //                 return EXCEPTION_SYSCALL_ERROR;
 //             }
-//             setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
+//             set_thread_state(NODE_STATE(ksCurThread), ThreadState_Restart);
 //             return performUpperPageDirectoryInvocationUnmap(cap, cte);
 //         }
 //     */
 //     if label == MessageLabel::ARMPageUpperDirectoryUnmap {
 //         // log::warn!("Need to check is FinalCapability here");
 //         if unlikely(!cte.is_final_cap()) {
-//             global_ops!(current_syscall_error._type = seL4_RevokeFirst);
+//             global_ops!(current_syscall_error._type = SEL4_REVOKE_FIRST);
 //             return exception_t::EXCEPTION_SYSCALL_ERROR;
 //         }
 //         get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
@@ -892,16 +892,16 @@ fn decode_vspace_flush_invocation(
 
 //     // Return SYSCALL_ERROR if message is not ARMPageUpperDirectoryUnmap
 //     if unlikely(label != MessageLabel::ARMPageUpperDirectoryMap) {
-//         global_ops!(current_syscall_error._type = seL4_IllegalOperation);
+//         global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 
 //     if unlikely(length < 2 || unsafe { current_extra_caps.excaprefs[0] == 0 }) {
-//         global_ops!(current_syscall_error._type = seL4_TruncatedMessage);
+//         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     if unlikely(cte.cap.get_pud_is_mapped() == 1) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
 //         global_ops!(current_syscall_error.invalidCapNumber = 0);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -909,7 +909,7 @@ fn decode_vspace_flush_invocation(
 //     let pgd_cap = convert_to_mut_type_ref::<cap_t>(global_ops!(current_extra_caps.excaprefs[0]));
 
 //     if unlikely(!pgd_cap.is_valid_native_root()) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
 //         global_ops!(current_syscall_error.invalidCapNumber = 1);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -918,7 +918,7 @@ fn decode_vspace_flush_invocation(
 //     let asid = pgd_cap.get_pgd_mapped_asid();
 
 //     if unlikely(vaddr > USER_TOP) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidArgument);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
 //         global_ops!(current_syscall_error.failedLookupWasSource = 0);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -926,13 +926,13 @@ fn decode_vspace_flush_invocation(
 //     let find_ret = find_vspace_for_asid(asid);
 
 //     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {
-//         global_ops!(current_syscall_error._type = seL4_FailedLookup);
+//         global_ops!(current_syscall_error._type = SEL4_FAILED_LOOKUP);
 //         global_ops!(current_syscall_error.failedLookupWasSource = 0);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     // vspace_root is Some(_) when Exception is NONE
 //     if unlikely(find_ret.vspace_root.unwrap() as usize != pgd) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
 //         global_ops!(current_syscall_error.invalidCapNumber = 1);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -942,7 +942,7 @@ fn decode_vspace_flush_invocation(
 //     let pgd_slot = PGDE::new_from_pte(pgd).lookup_pgd_slot(vaddr);
 
 //     if unlikely(ptr_to_ref(pgd_slot.pgdSlot).get_present()) {
-//         global_ops!(current_syscall_error._type = seL4_DeleteFirst);
+//         global_ops!(current_syscall_error._type = SEL4_DELETE_FIRST);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     // TODO: make 0x3 in a pagetable-specific position
@@ -968,10 +968,10 @@ fn decode_vspace_flush_invocation(
 //     /*
 //         if (invLabel == ARMPageDirectoryUnmap) {
 //             if (unlikely(!isFinalCapability(cte))) {
-//                 current_syscall_error.type = seL4_RevokeFirst;
+//                 current_syscall_error.type = SEL4_REVOKE_FIRST;
 //                 return EXCEPTION_SYSCALL_ERROR;
 //             }
-//             setThreadState(NODE_STATE(ksCurThread), ThreadState_Restart);
+//             set_thread_state(NODE_STATE(ksCurThread), ThreadState_Restart);
 //             return performPageDirectoryInvocationUnmap(cap, cte);
 //         }
 //     */
@@ -979,7 +979,7 @@ fn decode_vspace_flush_invocation(
 //     if label == MessageLabel::ARMPageDirectoryUnmap {
 //         // log::warn!("Need to check is FinalCapability here");
 //         if unlikely(!cte.is_final_cap()) {
-//             global_ops!(current_syscall_error._type = seL4_RevokeFirst);
+//             global_ops!(current_syscall_error._type = SEL4_REVOKE_FIRST);
 //             return exception_t::EXCEPTION_SYSCALL_ERROR;
 //         }
 //         get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
@@ -989,15 +989,15 @@ fn decode_vspace_flush_invocation(
 
 //     // Return SYSCALL_ERROR if message is not ARMPageDirectoryUnmap
 //     if unlikely(label != MessageLabel::ARMPageDirectoryMap) {
-//         global_ops!(current_syscall_error._type = seL4_IllegalOperation);
+//         global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     if unlikely(length < 2 || global_ops!(current_extra_caps.excaprefs[0] == 0)) {
-//         global_ops!(current_syscall_error._type = seL4_TruncatedMessage);
+//         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     if unlikely(cte.cap.get_pd_is_mapped() == 1) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
 //         global_ops!(current_syscall_error.invalidCapNumber = 0);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -1007,7 +1007,7 @@ fn decode_vspace_flush_invocation(
 //         convert_to_mut_type_ref::<cap_t>(global_ops!(current_extra_caps.excaprefs[0]));
 
 //     if unlikely(!vspace_root_cap.is_valid_native_root()) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
 //         global_ops!(current_syscall_error.invalidCapNumber = 1);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -1016,7 +1016,7 @@ fn decode_vspace_flush_invocation(
 //     let asid = vspace_root_cap.get_pgd_mapped_asid();
 
 //     if unlikely(vaddr > USER_TOP) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidArgument);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
 //         global_ops!(current_syscall_error.failedLookupWasSource = 0);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -1024,12 +1024,12 @@ fn decode_vspace_flush_invocation(
 //     let find_ret = find_vspace_for_asid(asid);
 
 //     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {
-//         global_ops!(current_syscall_error._type = seL4_FailedLookup);
+//         global_ops!(current_syscall_error._type = SEL4_FAILED_LOOKUP);
 //         global_ops!(current_syscall_error.failedLookupWasSource = 0);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     if unlikely(find_ret.vspace_root.unwrap() as usize != vspace_root) {
-//         global_ops!(current_syscall_error._type = seL4_InvalidCapability);
+//         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
 //         global_ops!(current_syscall_error.invalidCapNumber = 1);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
@@ -1037,14 +1037,14 @@ fn decode_vspace_flush_invocation(
 //     let pud_slot = PGDE::new_from_pte(vspace_root).lookup_pud_slot(vaddr);
 
 //     if pud_slot.status != exception_t::EXCEPTION_NONE {
-//         global_ops!(current_syscall_error._type = seL4_FailedLookup);
+//         global_ops!(current_syscall_error._type = SEL4_FAILED_LOOKUP);
 //         global_ops!(current_syscall_error.failedLookupWasSource = 0);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     if unlikely(
 //         ptr_to_ref(pud_slot.pudSlot).get_present() || ptr_to_ref(pud_slot.pudSlot).is_1g_page(),
 //     ) {
-//         global_ops!(current_syscall_error._type = seL4_DeleteFirst);
+//         global_ops!(current_syscall_error._type = SEL4_DELETE_FIRST);
 //         return exception_t::EXCEPTION_SYSCALL_ERROR;
 //     }
 //     // TODO: make 0x3 in a pagetable-specific position
@@ -1063,13 +1063,13 @@ fn decode_vspace_flush_invocation(
 // }
 
 pub(crate) fn check_irq(irq: usize) -> exception_t {
-    if irq > maxIRQ {
+    if irq > MAX_IRQ {
         unsafe {
-            current_syscall_error._type = seL4_RangeError;
+            current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 0;
-            current_syscall_error.rangeErrorMax = maxIRQ;
+            current_syscall_error.rangeErrorMax = MAX_IRQ;
             debug!(
-                "Rejecting request for IRQ {}. IRQ is out of range [1..maxIRQ].",
+                "Rejecting request for IRQ {}. IRQ is out of range [1..MAX_IRQ].",
                 irq
             );
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -1087,7 +1087,7 @@ pub fn arch_decode_irq_control_invocation(
     if label == MessageLabel::ARMIRQIssueIRQHandlerTrigger {
         if length < 4 || get_extra_cap_by_index(0).is_none() {
             unsafe {
-                current_syscall_error._type = seL4_TruncatedMessage;
+                current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
@@ -1102,7 +1102,7 @@ pub fn arch_decode_irq_control_invocation(
         }
         if is_irq_active(irq) {
             unsafe {
-                current_syscall_error._type = seL4_RevokeFirst;
+                current_syscall_error._type = SEL4_REVOKE_FIRST;
             }
             debug!("Rejecting request for IRQ {}. Already active.", irq);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -1120,13 +1120,13 @@ pub fn arch_decode_irq_control_invocation(
         )
     } else {
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 }
-#[cfg(feature = "ENABLE_SMC")]
-pub fn decode_ARM_SMC_invocation(
+#[cfg(feature = "enable_smc")]
+pub fn decode_arm_smc_invocation(
     label: MessageLabel,
     length: usize,
     capability: &cap_smc_cap,
@@ -1136,14 +1136,14 @@ pub fn decode_ARM_SMC_invocation(
     if label != ARMSMCCall {
         debug!("ARMSMCInvocation: Illegal operation.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if length < NUM_SMC_REGS {
         debug!("ARMSMCCall: Truncated message.");
         unsafe {
-            current_syscall_error._type = seL4_TruncatedMessage;
+            current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -1152,16 +1152,16 @@ pub fn decode_ARM_SMC_invocation(
     if badge != 0 && badge != smc_func_id as u64 {
         debug!("ARMSMCCall: Illegal operation.");
         unsafe {
-            current_syscall_error._type = seL4_IllegalOperation;
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
 
-    invokeSMCCall(buffer, call)
+    invoke_smc_call(buffer, call)
 }
-#[cfg(feature = "ENABLE_SMC")]
-fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
+#[cfg(feature = "enable_smc")]
+fn invoke_smc_call(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     use core::arch::asm;
 
     let thread = get_currenct_thread();
@@ -1203,7 +1203,7 @@ fn invokeSMCCall(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     }
     if call {
         let mut i: usize = 0;
-        while i < msgRegisterNum {
+        while i < MSG_REGISTER_NUM {
             thread.tcbArch.set_register(ArchReg::Msg(i), args[i]);
             i += 1;
         }

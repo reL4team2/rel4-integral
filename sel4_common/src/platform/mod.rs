@@ -17,9 +17,9 @@ use time_def::ticks_t;
 include!(concat!(env!("OUT_DIR"), "/platform_gen.rs"));
 
 pub trait Timer_func {
-    fn initTimer(self);
-    fn getCurrentTime(self) -> ticks_t;
-    fn setDeadline(self, deadline: ticks_t);
-    fn resetTimer(self);
-    fn ackDeadlineIRQ(self);
+    fn init_timer(self);
+    fn get_current_time(self) -> ticks_t;
+    fn set_deadline(self, deadline: ticks_t);
+    fn reset_timer(self);
+    fn ack_deadline_irq(self);
 }

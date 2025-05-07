@@ -10,15 +10,13 @@ use core::mem::size_of;
 use crate::{BIT, ROUND_UP};
 use log::debug;
 use sel4_common::arch::config::PADDR_TOP;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::*;
 use spin::Mutex;
 
 pub use crate::boot::utils::paddr_to_pptr_reg;
-use crate::structures::{
-    ndks_boot_t, p_region_t, region_t, seL4_BootInfo, seL4_BootInfoHeader, seL4_SlotRegion,
-};
+use crate::structures::{ndks_boot_t, p_region_t, region_t, BootInfo, BootInfoHeader, SlotRegion};
 
 #[cfg(target_arch = "aarch64")]
 pub use mm::reserve_region;
@@ -30,21 +28,21 @@ use sel4_vspace::*;
 pub use root_server::root_server_init;
 pub use untyped::create_untypeds;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub use utils::{provide_cap, write_slot};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::ffi::{clh_lock_acquire, clh_lock_init};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use core::arch::asm;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 
 // #[link_section = ".boot.bss"]
 pub static ksNumCPUs: Mutex<usize> = Mutex::new(0);
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[link_section = ".boot.bss"]
 pub static node_boot_lock: Mutex<usize> = Mutex::new(0);
 
@@ -54,8 +52,8 @@ pub static mut ndks_boot: ndks_boot_t = ndks_boot_t {
     reserved: [p_region_t { start: 0, end: 0 }; MAX_NUM_RESV_REG],
     resv_count: 0,
     freemem: [region_t { start: 0, end: 0 }; MAX_NUM_FREEMEM_REG],
-    bi_frame: 0 as *mut seL4_BootInfo,
-    slot_pos_cur: seL4_NumInitialCaps,
+    bi_frame: 0 as *mut BootInfo,
+    slot_pos_cur: SEL4_NUM_INITIAL_CAPS,
 };
 
 pub fn calculate_extra_bi_size_bits(size: usize) -> usize {
@@ -63,8 +61,8 @@ pub fn calculate_extra_bi_size_bits(size: usize) -> usize {
         return 0;
     }
 
-    let clzl_ret = ROUND_UP!(size, seL4_PageBits).leading_zeros() as usize;
-    let mut msb = seL4_WordBits - 1 - clzl_ret;
+    let clzl_ret = ROUND_UP!(size, SEL4_PAGE_BITS).leading_zeros() as usize;
+    let mut msb = SEL4_WORD_BITS - 1 - clzl_ret;
     if size > BIT!(msb) {
         msb += 1;
     }
@@ -95,7 +93,7 @@ pub fn init_dtb(
             return None;
         }
 
-        (*extra_bi_size) += size_of::<seL4_BootInfoHeader>() + dtb_size;
+        (*extra_bi_size) += size_of::<BootInfoHeader>() + dtb_size;
         dtb_p_reg = p_region_t {
             start: dtb_phys_addr,
             end: dtb_phys_end,
@@ -106,14 +104,14 @@ pub fn init_dtb(
 
 pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) {
     let mut extra_bi_offset = 0;
-    let mut header: seL4_BootInfoHeader = seL4_BootInfoHeader { id: 0, len: 0 };
+    let mut header: BootInfoHeader = BootInfoHeader { id: 0, len: 0 };
     if dtb_size > 0 {
         header.id = SEL4_BOOTINFO_HEADER_FDT;
-        header.len = size_of::<seL4_BootInfoHeader>() + dtb_size;
+        header.len = size_of::<BootInfoHeader>() + dtb_size;
         unsafe {
-            *((rootserver.extra_bi + extra_bi_offset) as *mut seL4_BootInfoHeader) = header.clone();
+            *((rootserver.extra_bi + extra_bi_offset) as *mut BootInfoHeader) = header.clone();
         }
-        extra_bi_offset += size_of::<seL4_BootInfoHeader>();
+        extra_bi_offset += size_of::<BootInfoHeader>();
         let src = unsafe {
             core::slice::from_raw_parts(paddr_to_pptr(dtb_phys_addr) as *const u8, dtb_size)
         };
@@ -129,14 +127,14 @@ pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize
         header.id = SEL4_BOOTINFO_HEADER_PADDING;
         header.len = extra_bi_size - extra_bi_offset;
         unsafe {
-            *((rootserver.extra_bi + extra_bi_offset) as *mut seL4_BootInfoHeader) = header.clone();
+            *((rootserver.extra_bi + extra_bi_offset) as *mut BootInfoHeader) = header.clone();
         }
     }
 }
 
 pub fn bi_finalise(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) {
     unsafe {
-        (*ndks_boot.bi_frame).empty = seL4_SlotRegion {
+        (*ndks_boot.bi_frame).empty = SlotRegion {
             start: ndks_boot.slot_pos_cur,
             end: BIT!(CONFIG_ROOT_CNODE_SIZE_BITS),
         };
@@ -146,16 +144,16 @@ pub fn bi_finalise(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) 
 
 pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // unsafe {
-    // #[cfg(feature = "ENABLE_SMP")]
+    // #[cfg(feature = "enable_smp")]
     // if scheduler_action as usize != 0 && scheduler_action as usize != 1 {
     //     tcbDebugAppend(scheduler_action);
     // }
     // let idle_thread = {
-    //     #[cfg(not(feature = "ENABLE_SMP"))]
+    //     #[cfg(not(feature = "enable_smp"))]
     //     {
     //         ksIdleThread as *mut tcb_t
     //     }
-    //     #[cfg(feature = "ENABLE_SMP")]
+    //     #[cfg(feature = "enable_smp")]
     //     {
     //         ksSMP[cpu_id()].ksIdleThread as *mut tcb_t
     //     }
@@ -171,15 +169,15 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // 	NODE_STATE(ksConsumed) = 0;
     // 	NODE_STATE(ksReprogram) = true;
     // 	NODE_STATE(ksReleaseHead) = NULL;
-    // 	NODE_STATE(ksCurTime) = getCurrentTime();
+    // 	NODE_STATE(ksCurTime) = get_current_time();
     // #endif
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     unsafe {
         ksCurSC = get_currenct_thread().tcbSchedContext;
         ksConsumed = 0;
         ksReprogram = true;
         ksReleaseQueue.head = 0;
         ksReleaseQueue.tail = 0;
-        ksCurTime = timer.getCurrentTime();
+        ksCurTime = timer.get_current_time();
     }
 }

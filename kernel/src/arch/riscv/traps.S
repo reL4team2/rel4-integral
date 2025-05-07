@@ -107,7 +107,7 @@ trap_entry:
 handle_syscall:
   /* Set the return address to sepc + 4 in the case of a system/environment call */
   addi x1, x1, 4
-  /* Save NextIP */
+  /* Save NEXT_IP */
   STORE   x1, (34*REGBYTES)(t0)
 
 #ifdef CONFIG_FASTPATH
@@ -129,11 +129,11 @@ handle_syscall:
 
 /* Not an interrupt or a syscall */
 exception:
-  /* Save NextIP */
+  /* Save NEXT_IP */
   STORE   x1, (34*REGBYTES)(t0)
   j c_handle_exception
 
 interrupt:
-  /* Save NextIP */
+  /* Save NEXT_IP */
   STORE   x1, (34*REGBYTES)(t0)
   j c_handle_interrupt

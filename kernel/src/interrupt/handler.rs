@@ -1,29 +1,29 @@
 use crate::interrupt::*;
 use core::intrinsics::unlikely;
 use log::debug;
-use sel4_common::platform::{irqInvalid, maxIRQ};
 use sel4_common::platform::{timer, Timer_func};
+use sel4_common::platform::{IRQ_INVALID, MAX_IRQ};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
-use sel4_task::{activateThread, schedule, timerTick};
+use sel4_task::{activateThread, schedule, timer_tick};
 
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::ksReprogram;
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_task::{checkBudget, updateTimestamp};
+#[cfg(feature = "kernel_mcs")]
+use sel4_task::{check_budget, update_timestamp};
 
 #[no_mangle]
-pub fn handleInterruptEntry() -> exception_t {
-    #[cfg(feature = "KERNEL_MCS")]
+pub fn handle_interrupt_entry() -> exception_t {
+    #[cfg(feature = "kernel_mcs")]
     {
-        updateTimestamp();
-        checkBudget();
+        update_timestamp();
+        check_budget();
     }
-    let irq = getActiveIRQ();
+    let irq = get_active_irq();
 
-    if irq != irqInvalid {
-        handleInterrupt(irq);
+    if irq != IRQ_INVALID {
+        handle_interrput(irq);
     }
 
     schedule();
@@ -32,14 +32,14 @@ pub fn handleInterruptEntry() -> exception_t {
 }
 
 #[no_mangle]
-pub fn handleInterrupt(irq: usize) {
-    if unlikely(irq > maxIRQ) {
+pub fn handle_interrput(irq: usize) {
+    if unlikely(irq > MAX_IRQ) {
         debug!(
-            "Received IRQ {}, which is above the platforms maxIRQ of {}\n",
-            irq, maxIRQ
+            "Received IRQ {}, which is above the platforms MAX_IRQ of {}\n",
+            irq, MAX_IRQ
         );
         mask_interrupt(true, irq);
-        ackInterrupt(irq);
+        ack_interrupt(irq);
         return;
     }
     match get_irq_state(irq) {
@@ -66,25 +66,35 @@ pub fn handleInterrupt(irq: usize) {
             }
         }
         IRQState::IRQTimer => {
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             {
-                timer.ackDeadlineIRQ();
+                timer.ack_deadline_irq();
                 unsafe { ksReprogram = true };
             }
-            timerTick();
-            timer.resetTimer();
+            timer_tick();
+            timer.reset_timer();
         }
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         IRQState::IRQIPI => {
             use sel4_common::structures::irq_t;
             #[cfg(target_arch = "aarch64")]
-            unsafe { crate::ffi::handleIPI(irq_t {core: sel4_common::utils::cpu_id(), irq}, true) };
+            unsafe {
+                crate::ffi::handleIPI(
+                    irq_t {
+                        core: sel4_common::utils::cpu_id(),
+                        irq,
+                    },
+                    true,
+                )
+            };
             #[cfg(target_arch = "riscv64")]
-            unsafe { crate::ffi::handleIPI(irq as irq_t, true) };
+            unsafe {
+                crate::ffi::handleIPI(irq as irq_t, true)
+            };
         }
         IRQState::IRQReserved => {
             debug!("Received unhandled reserved IRQ: {}\n", irq);
         }
     }
-    ackInterrupt(irq);
+    ack_interrupt(irq);
 }

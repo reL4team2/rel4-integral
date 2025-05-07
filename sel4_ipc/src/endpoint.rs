@@ -1,13 +1,13 @@
 use crate::transfer::Transfer;
-use sel4_common::{arch::ArchReg, println};
+use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::endpoint;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::seL4_Fault_tag::seL4_Fault_NullFault;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{ksCurSC, reply::reply_t, sched_context::sched_context_t};
 use sel4_task::{
-    possible_switch_to, rescheduleRequired, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
+    possible_switch_to, reschedule_required, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
     ThreadState,
 };
 use sel4_vspace::pptr_t;
@@ -23,7 +23,7 @@ pub enum EPState {
     Send = 1,
     Recv = 2,
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::cap_reply_cap;
 
 pub trait endpoint_func {
@@ -34,7 +34,7 @@ pub trait endpoint_func {
     fn cancel_ipc(&mut self, tcb: &mut tcb_t);
     fn cancel_all_ipc(&mut self);
     fn cancel_badged_sends(&mut self, badge: usize);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     fn send_ipc(
         &mut self,
         src_thread: &mut tcb_t,
@@ -44,7 +44,7 @@ pub trait endpoint_func {
         badge: usize,
         can_grant_reply: bool,
     );
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn send_ipc(
         &mut self,
         src_thread: &mut tcb_t,
@@ -55,17 +55,17 @@ pub trait endpoint_func {
         can_grant_reply: bool,
         canDonate: bool,
     );
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, grant: bool);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn receive_ipc(
         &mut self,
         thread: &mut tcb_t,
         is_blocking: bool,
         Option_reply_cap: Option<&mut cap_reply_cap>,
     );
-    #[cfg(feature = "KERNEL_MCS")]
-    fn reorder_EP(&mut self, thread: &mut tcb_t);
+    #[cfg(feature = "kernel_mcs")]
+    fn reorder_ep(&mut self, thread: &mut tcb_t);
 }
 impl endpoint_func for endpoint {
     #[inline]
@@ -107,7 +107,7 @@ impl endpoint_func for endpoint {
         if queue.head == 0 {
             self.set_state(EPState::Idle as u64);
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         {
             if let Some(reply) =
                 convert_to_option_mut_type_ref::<reply_t>(tcb.tcbState.get_replyObject() as usize)
@@ -130,7 +130,7 @@ impl endpoint_func for endpoint {
                 self.set_epQueue_head(0);
                 self.set_epQueue_tail(0);
                 while let Some(thread) = op_thread {
-                    #[cfg(feature = "KERNEL_MCS")]
+                    #[cfg(feature = "kernel_mcs")]
                     {
                         let reply_ptr = thread.tcbState.get_replyObject() as usize;
                         if reply_ptr != 0 {
@@ -157,7 +157,7 @@ impl endpoint_func for endpoint {
                             set_thread_state(thread, ThreadState::ThreadStateInactive);
                         }
                     }
-                    #[cfg(not(feature = "KERNEL_MCS"))]
+                    #[cfg(not(feature = "kernel_mcs"))]
                     {
                         set_thread_state(thread, ThreadState::ThreadStateRestart);
                         thread.sched_enqueue();
@@ -165,7 +165,7 @@ impl endpoint_func for endpoint {
 
                     op_thread = convert_to_option_mut_type_ref::<tcb_t>(thread.tcbEPNext);
                 }
-                rescheduleRequired();
+                reschedule_required();
             }
         }
     }
@@ -185,18 +185,18 @@ impl endpoint_func for endpoint {
                 while thread_ptr != 0 {
                     let thread = convert_to_mut_type_ref::<tcb_t>(thread_ptr);
                     thread_ptr = thread.tcbEPNext;
-                    #[cfg(feature = "KERNEL_MCS")]
+                    #[cfg(feature = "kernel_mcs")]
                     {
                         assert!(thread.tcbState.get_replyObject() == 0);
                     }
                     if thread.tcbState.get_blockingIPCBadge() as usize == badge {
-                        #[cfg(not(feature = "KERNEL_MCS"))]
+                        #[cfg(not(feature = "kernel_mcs"))]
                         {
                             set_thread_state(thread, ThreadState::ThreadStateRestart);
                             thread.sched_enqueue();
                             queue.ep_dequeue(thread);
                         }
-                        #[cfg(feature = "KERNEL_MCS")]
+                        #[cfg(feature = "kernel_mcs")]
                         {
                             if thread.tcbFault.get_tag() == seL4_Fault_NullFault {
                                 set_thread_state(thread, ThreadState::ThreadStateRestart);
@@ -225,7 +225,7 @@ impl endpoint_func for endpoint {
                 if queue.head != 0 {
                     self.set_state(EPState::Send as u64);
                 }
-                rescheduleRequired();
+                reschedule_required();
             }
         }
     }
@@ -238,7 +238,7 @@ impl endpoint_func for endpoint {
     /// * `can_grant` - If the IPC can grant
     /// * `badge` - The badge of the IPC
     /// * `can_grant_reply` - If the IPC can grant the reply
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     fn send_ipc(
         &mut self,
         src_thread: &mut tcb_t,
@@ -299,7 +299,7 @@ impl endpoint_func for endpoint {
         }
     }
     // TODO: MCS
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn send_ipc(
         &mut self,
         src_thread: &mut tcb_t,
@@ -364,7 +364,7 @@ impl endpoint_func for endpoint {
                     }
                 } else if canDonate && dest_thread.tcbSchedContext == 0 {
                     convert_to_mut_type_ref::<sched_context_t>(src_thread.tcbSchedContext)
-                        .schedContext_donate(dest_thread);
+                        .sched_context_donate(dest_thread);
                 }
 
                 assert!(
@@ -396,7 +396,7 @@ impl endpoint_func for endpoint {
     /// * `thread` - The thread to receive the IPC
     /// * `is_blocking` - If the IPC is blocking
     /// * `grant` - If the IPC can grant
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     fn receive_ipc(&mut self, thread: &mut tcb_t, is_blocking: bool, grant: bool) {
         if thread.complete_signal() {
             return;
@@ -444,7 +444,7 @@ impl endpoint_func for endpoint {
         }
     }
     //TODO: MCS
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn receive_ipc(
         &mut self,
         thread: &mut tcb_t,
@@ -470,7 +470,7 @@ impl endpoint_func for endpoint {
         }
         if thread.tcbBoundNotification != 0 && is_blocking {
             convert_to_mut_type_ref::<notification_t>(thread.tcbBoundNotification)
-                .maybeReturnSchedContext(thread);
+                .maybe_return_sched_context(thread);
         }
         match self.get_ep_state() {
             EPState::Idle | EPState::Recv => {
@@ -542,9 +542,9 @@ impl endpoint_func for endpoint {
             }
         }
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     #[no_mangle]
-    fn reorder_EP(&mut self, thread: &mut tcb_t) {
+    fn reorder_ep(&mut self, thread: &mut tcb_t) {
         let mut queue = self.get_queue();
         queue.ep_dequeue(thread);
         queue.ep_append(thread);

@@ -1,7 +1,9 @@
-use sel4_task::tcb_t;
+#[cfg(feature = "enable_smp")]
 use sel4_common::structures::irq_t;
+#[cfg(feature = "enable_smp")]
+use sel4_task::tcb_t;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[link(name = "kernel_all.c")]
 extern "C" {
     pub fn remoteTCBStall(tcb: *mut tcb_t);

@@ -2,10 +2,12 @@ use log::debug;
 use sel4_common::arch::config::KERNEL_ELF_BASE;
 use sel4_common::println;
 use sel4_common::{sel4_config::PAGE_BITS, BIT};
-use sel4_task::{create_idle_thread, tcb_t, SchedulerAction_ResumeCurrentThread};
+use sel4_task::create_idle_thread;
+#[cfg(feature = "enable_smp")]
+use sel4_task::{tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 
-use crate::arch::aarch64::platform::{cleanInvalidateL1Caches, init_cpu, invalidateLocalTLB};
+use crate::arch::aarch64::platform::{clean_invalidate_l1_caches, init_cpu, invalidate_local_tlb};
 
 use crate::{
     arch::init_freemem,
@@ -13,24 +15,26 @@ use crate::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
-    structures::{p_region_t, seL4_SlotRegion, v_region_t},
+    structures::{p_region_t, v_region_t, SlotRegion},
 };
 
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 
-use super::platform::initIRQController;
-use crate::interrupt::{intStateIRQNodeToR, setIRQStateByIrq, mask_interrupt, IRQState};
+use super::platform::init_irq_controller;
+use crate::interrupt::intStateIRQNodeToR;
+#[cfg(feature = "enable_smp")]
+use crate::interrupt::{mask_interrupt, set_irq_state_by_irq, IRQState};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use core::arch::asm;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::ffi::{clh_lock_acquire, clh_lock_init};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::boot::node_boot_lock;
 
 pub fn try_init_kernel(
@@ -116,23 +120,23 @@ pub fn try_init_kernel(
         v_entry,
     ) {
         create_idle_thread();
-        cleanInvalidateL1Caches();
+        clean_invalidate_l1_caches();
         init_core_state(initial_thread);
         if !create_untypeds(&root_cnode_cap, boot_mem_reuse_reg) {
             debug!("ERROR: could not create untypteds for kernel image boot memory");
         }
         unsafe {
-            (*ndks_boot.bi_frame).sharedFrames = seL4_SlotRegion { start: 0, end: 0 };
+            (*ndks_boot.bi_frame).sharedFrames = SlotRegion { start: 0, end: 0 };
 
             bi_finalise(dtb_size, dtb_phys_addr, extra_bi_size);
         }
-        cleanInvalidateL1Caches();
-        invalidateLocalTLB();
+        clean_invalidate_l1_caches();
+        invalidate_local_tlb();
         // debug!("release_secondary_cores start");
         *ksNumCPUs.lock() = 1;
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
-            use crate::ffi::{clh_lock_init, clh_lock_acquire};
+            use crate::ffi::{clh_lock_acquire, clh_lock_init};
             use sel4_common::utils::cpu_id;
             unsafe {
                 clh_lock_init();
@@ -150,11 +154,11 @@ pub fn try_init_kernel(
     true
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[inline(always)]
 pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     use core::ops::AddAssign;
-    use sel4_common::arch::config::{irq_remote_call_ipi, irq_reschedule_ipi};
+    use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
     use sel4_common::platform::KERNEL_TIMER_IRQ;
     while node_boot_lock.lock().eq(&0) {}
     // Initialize cpu
@@ -163,18 +167,18 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     for i in 0..sel4_common::platform::NUM_PPI {
         mask_interrupt(true, i);
     }
-    setIRQStateByIrq(IRQState::IRQIPI, irq_remote_call_ipi);
-    setIRQStateByIrq(IRQState::IRQIPI, irq_reschedule_ipi);
-    setIRQStateByIrq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
+    set_irq_state_by_irq(IRQState::IRQIPI, IRQ_REMOTE_CALL_IPI);
+    set_irq_state_by_irq(IRQState::IRQIPI, IRQ_RESCHEDULE_IPI);
+    set_irq_state_by_irq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
 
     unsafe { clh_lock_acquire(cpu_id(), false) };
     ksNumCPUs.lock().add_assign(1);
-    init_core_state(SchedulerAction_ResumeCurrentThread as *mut tcb_t);
+    init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
 
     true
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub(crate) fn release_secondary_cpus() {
     use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
     *node_boot_lock.lock() = 1;
@@ -182,5 +186,5 @@ pub(crate) fn release_secondary_cpus() {
 }
 
 fn init_plat() {
-    initIRQController()
+    init_irq_controller()
 }

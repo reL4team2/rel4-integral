@@ -15,4 +15,4 @@ log = "0.4"
 aarch64-cpu = "9.3"
 
 [features]
-ENABLE_SMP = []
+enable_smp = []

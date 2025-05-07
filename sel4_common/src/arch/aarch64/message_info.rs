@@ -11,7 +11,7 @@ pub enum MessageLabel {
     TCBSetPriority,
     TCBSetMCPriority,
     TCBSetSchedParams,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     TCBSetTimeoutEndpoint,
     TCBSetIPCBuffer,
     TCBSetSpace,
@@ -19,7 +19,7 @@ pub enum MessageLabel {
     TCBResume,
     TCBBindNotification,
     TCBUnbindNotification,
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     TCBSetAffinity,
     TCBSetTLSBase,
     CNodeRevoke,
@@ -30,24 +30,24 @@ pub enum MessageLabel {
     CNodeMove,
     CNodeMutate,
     CNodeRotate,
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     CNodeSaveCaller,
     IRQIssueIRQHandler,
     IRQAckIRQ,
     IRQSetIRQHandler,
     IRQClearIRQHandler,
     DomainSetSet,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     SchedControlConfigureFlags,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     SchedContextBind,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     SchedContextUnbind,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     SchedContextUnbindObject,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     SchedContextConsumed,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     SchedContextYieldTo,
     ARMVSpaceClean_Data,
     ARMVSpaceInvalidate_Data,
@@ -68,7 +68,7 @@ pub enum MessageLabel {
     ARMIRQIssueIRQHandlerTrigger,
     nArchInvocationLabels,
 }
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const CNODE_LAST_INVOCATION: usize = MessageLabel::CNodeSaveCaller as usize;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const CNODE_LAST_INVOCATION: usize = MessageLabel::CNodeRotate as usize;

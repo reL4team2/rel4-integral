@@ -9,12 +9,12 @@ pub enum vm_rights_t {
 }
 
 ///判断应用程序是否要求页面可写
-pub fn RISCVGetWriteFromVMRights(vm_rights: &vm_rights_t) -> bool {
+pub fn riscv_get_write_from_vm_rights(vm_rights: &vm_rights_t) -> bool {
     *vm_rights == vm_rights_t::VMReadWrite
 }
 
 ///判断应用程序是否要求页面可读
-pub fn RISCVGetReadFromVMRights(vm_rights: &vm_rights_t) -> bool {
+pub fn riscv_get_read_from_vm_rights(vm_rights: &vm_rights_t) -> bool {
     *vm_rights != vm_rights_t::VMKernelOnly
 }
 

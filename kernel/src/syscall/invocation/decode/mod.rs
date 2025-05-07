@@ -1,7 +1,7 @@
 mod decode_cnode_invocation;
 mod decode_domain_invocation;
 pub mod decode_irq_invocation;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub mod decode_sched_invocation;
 
 pub mod arch;
@@ -14,22 +14,22 @@ use log::debug;
 use sel4_common::structures_gen::{cap, cap_Splayed, endpoint, notification};
 use sel4_common::{
     arch::MessageLabel,
-    sel4_config::seL4_InvalidCapability,
+    sel4_config::SEL4_INVALID_CAPABILITY,
     structures::{exception_t, seL4_IPCBuffer},
     utils::convert_to_mut_type_ref,
 };
 use sel4_cspace::interface::cte_t;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_task::tcb_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use crate::kernel::boot::current_syscall_error;
 use crate::syscall::invocation::decode::decode_irq_invocation::decode_irq_handler_invocation;
 
-#[cfg(feature = "ENABLE_SMC")]
-use self::arch::decode_ARM_SMC_invocation;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "enable_smc")]
+use self::arch::decode_arm_smc_invocation;
+#[cfg(feature = "kernel_mcs")]
 use self::decode_sched_invocation::{
     decode_sched_context_invocation, decode_sched_control_invocation,
 };
@@ -40,7 +40,7 @@ use self::{
     decode_tcb_invocation::decode_tcb_invocation,
     decode_untyped_invocation::decode_untyed_invocation,
 };
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn decode_invocation(
     label: MessageLabel,
     length: usize,
@@ -60,7 +60,7 @@ pub fn decode_invocation(
                 capability.get_tag()
             );
             unsafe {
-                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 0;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -73,7 +73,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -97,7 +97,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -112,7 +112,7 @@ pub fn decode_invocation(
             if unlikely(data.get_capReplyMaster() != 0) {
                 debug!("Attempted to invoke an invalid reply cap {}.", cap_index);
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
@@ -139,12 +139,12 @@ pub fn decode_invocation(
         cap_Splayed::irq_handler_cap(data) => {
             decode_irq_handler_invocation(label, data.get_capIRQ() as usize)
         }
-        #[cfg(feature = "ENABLE_SMC")]
-        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(label, length, &data, call, buffer),
+        #[cfg(feature = "enable_smc")]
+        cap_Splayed::smc_cap(data) => decode_arm_smc_invocation(label, length, &data, call, buffer),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn decode_invocation(
     label: MessageLabel,
     length: usize,
@@ -170,7 +170,7 @@ pub fn decode_invocation(
                 capability.get_tag()
             );
             unsafe {
-                current_syscall_error._type = seL4_InvalidCapability;
+                current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 0;
             }
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -183,7 +183,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -208,7 +208,7 @@ pub fn decode_invocation(
                     cap_index
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -231,7 +231,7 @@ pub fn decode_invocation(
             if unlikely(firstPhase) {
                 debug!("Cannot invoke thread capabilities in the first phase of an invocation");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;
@@ -242,7 +242,7 @@ pub fn decode_invocation(
             if unlikely(firstPhase) {
                 debug!("Cannot invoke cnode capabilities in the first phase of an invocation");
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;
@@ -265,7 +265,7 @@ pub fn decode_invocation(
                     "Cannot invoke sched control capabilities in the first phase of an invocation"
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;
@@ -278,15 +278,15 @@ pub fn decode_invocation(
                     "Cannot invoke sched context capabilities in the first phase of an invocation"
                 );
                 unsafe {
-                    current_syscall_error._type = seL4_InvalidCapability;
+                    current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                     current_syscall_error.invalidCapNumber = 0;
                 }
                 return exception_t::EXCEPTION_NONE;
             }
             decode_sched_context_invocation(label, &data)
         }
-        #[cfg(feature = "ENABLE_SMC")]
-        cap_Splayed::smc_cap(data) => decode_ARM_SMC_invocation(label, length, &data, call, buffer),
+        #[cfg(feature = "enable_smc")]
+        cap_Splayed::smc_cap(data) => decode_arm_smc_invocation(label, length, &data, call, buffer),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }

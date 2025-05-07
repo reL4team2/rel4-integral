@@ -17,7 +17,7 @@
 //! let label = message_info.get_label();
 //! ```
 
-use super::sel4_config::seL4_MsgMaxLength;
+use super::sel4_config::SEL4_MSG_MAX_LENGTH;
 
 use crate::{
     arch::MessageLabel, sel4_bitfield_types::Bitfield, shared_types_bf_gen::seL4_MessageInfo,
@@ -43,8 +43,8 @@ impl seL4_MessageInfo_func for seL4_MessageInfo {
     #[inline]
     fn from_word_security(w: usize) -> Self {
         let mut mi = Self::from_word(w);
-        if mi.get_length() > seL4_MsgMaxLength as u64 {
-            mi.set_length(seL4_MsgMaxLength as u64);
+        if mi.get_length() > SEL4_MSG_MAX_LENGTH as u64 {
+            mi.set_length(SEL4_MSG_MAX_LENGTH as u64);
         }
         mi
     }

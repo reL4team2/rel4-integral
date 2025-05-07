@@ -6,7 +6,7 @@ use sel4_vspace::pptr_t;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct seL4_BootInfoHeader {
+pub struct BootInfoHeader {
     pub id: usize,
     pub len: usize,
 }
@@ -32,14 +32,14 @@ pub type seL4_SlotPos = usize;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct seL4_SlotRegion {
+pub struct SlotRegion {
     pub start: seL4_SlotPos,
     pub end: seL4_SlotPos,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct seL4_UntypedDesc {
+pub struct UntypedDesc {
     pub paddr: usize,
     pub sizeBits: u8,
     pub isDevice: u8,
@@ -48,24 +48,24 @@ pub struct seL4_UntypedDesc {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct seL4_BootInfo {
+pub struct BootInfo {
     pub extraLen: usize,
     pub nodeID: usize,
     pub numNodes: usize,
     pub numIOPTLevels: usize,
     pub ipcBuffer: *const seL4_IPCBuffer,
-    pub empty: seL4_SlotRegion,
-    pub sharedFrames: seL4_SlotRegion,
-    pub userImageFrames: seL4_SlotRegion,
-    pub userImagePaging: seL4_SlotRegion,
-    pub ioSpaceCaps: seL4_SlotRegion,
-    pub extraBIPages: seL4_SlotRegion,
+    pub empty: SlotRegion,
+    pub sharedFrames: SlotRegion,
+    pub userImageFrames: SlotRegion,
+    pub userImagePaging: SlotRegion,
+    pub ioSpaceCaps: SlotRegion,
+    pub extraBIPages: SlotRegion,
     pub initThreadCNodeSizeBits: usize,
     pub initThreadDomain: usize,
-    #[cfg(feature = "KERNEL_MCS")]
-    pub schedcontrol: seL4_SlotRegion,
-    pub untyped: seL4_SlotRegion,
-    pub untypedList: [seL4_UntypedDesc; CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS],
+    #[cfg(feature = "kernel_mcs")]
+    pub schedcontrol: SlotRegion,
+    pub untyped: SlotRegion,
+    pub untypedList: [UntypedDesc; CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS],
 }
 
 #[repr(C)]
@@ -74,7 +74,7 @@ pub struct ndks_boot_t {
     pub reserved: [p_region_t; MAX_NUM_RESV_REG],
     pub resv_count: usize,
     pub freemem: [region_t; MAX_NUM_FREEMEM_REG],
-    pub bi_frame: *mut seL4_BootInfo,
+    pub bi_frame: *mut BootInfo,
     pub slot_pos_cur: seL4_SlotPos,
 }
 
@@ -88,7 +88,7 @@ pub struct rootserver_mem_t {
     pub boot_info: usize,
     pub extra_bi: usize,
     pub tcb: usize,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub sc: usize,
     pub paging: region_t,
 }
@@ -96,7 +96,7 @@ pub struct rootserver_mem_t {
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct create_frames_of_region_ret_t {
-    pub region: seL4_SlotRegion,
+    pub region: SlotRegion,
     pub success: bool,
 }
 
@@ -149,5 +149,5 @@ pub struct syscall_error_t {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct extra_caps_t {
-    pub excaprefs: [pptr_t; seL4_MsgMaxExtraCaps],
+    pub excaprefs: [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
 }

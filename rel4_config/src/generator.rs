@@ -58,7 +58,7 @@ pub fn platform_gen(platform: &str) -> PathBuf {
     context.insert("avail_mem_zones", &mem_zones);
     context.insert("device_regions", &device_regions);
     context.insert("kernel_irqs", &irqs);
-    context.insert("physBase", &phys_base);
+    context.insert("PHYS_BASE", &phys_base);
     context.insert("timer_settings", &timer_settings);
     context.insert("freq", &freq);
     context.insert("arch", &arch);

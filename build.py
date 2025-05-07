@@ -59,27 +59,27 @@ if __name__ == "__main__":
         rust_command += " --target aarch64-unknown-none-softfloat"
         if args.smc == "on":
             cmake_command += " -DKernelAllowSMCCalls=ON"
-            rust_command += " --features ENABLE_SMC"
+            rust_command += " --features enable_smc"
         if args.pnct == "on":
             cmake_command += " -DKernelArmExportPCNTUser=ON"
-            rust_command += " --features ENABLE_ARM_PCNT"
+            rust_command += " --features enable_arm_pcnt"
         if args.ptmr == "on":
             cmake_command += " -DKernelArmExportPTMRUser=ON"
-            rust_command += " --features ENABLE_ARM_PTMR"
+            rust_command += " --features enable_arm_ptmr"
     
     if args.mcs == "on":
-        rust_command += " --features KERNEL_MCS"
+        rust_command += " --features kernel_mcs"
         cmake_command += " -DMCS=TRUE "
         # generator_defs.append("CONFIG_KERNEL_MCS")
 
     if args.cpu_nums > 1:
-        rust_command += " --features ENABLE_SMP"
+        rust_command += " --features enable_smp"
         cmake_command += " -DSMP=TRUE"
 
     if args.bin == False:
         rust_command += " --lib"
     else:
-        rust_command += " --bin rel4_kernel --features BUILD_BINARY"
+        rust_command += " --bin rel4_kernel --features build_binary"
         cmake_command += " -DREL4_KERNEL=TRUE"
     
     cmake_command += " && ninja"

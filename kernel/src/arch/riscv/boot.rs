@@ -5,25 +5,27 @@ use crate::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
-    structures::{p_region_t, seL4_SlotRegion, v_region_t},
+    structures::{p_region_t, v_region_t, SlotRegion},
 };
 use log::debug;
 use sel4_common::println;
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 use sel4_common::{arch::config::KERNEL_ELF_BASE, sel4_config::PAGE_BITS, BIT};
-use sel4_task::{create_idle_thread, tcb_t, SchedulerAction_ResumeCurrentThread};
+use sel4_task::create_idle_thread;
+#[cfg(feature = "enable_smp")]
+use sel4_task::{tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
 use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use core::arch::asm;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::ffi::{clh_lock_acquire, clh_lock_init};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::boot::node_boot_lock;
 
 pub fn try_init_kernel(
@@ -105,16 +107,16 @@ pub fn try_init_kernel(
             debug!("ERROR: could not create untypteds for kernel image boot memory");
         }
         unsafe {
-            (*ndks_boot.bi_frame).sharedFrames = seL4_SlotRegion { start: 0, end: 0 };
+            (*ndks_boot.bi_frame).sharedFrames = SlotRegion { start: 0, end: 0 };
 
             bi_finalise(dtb_size, dtb_phys_addr, extra_bi_size);
         }
         // debug!("release_secondary_cores start");
         *ksNumCPUs.lock() = 1;
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
+            use crate::ffi::{clh_lock_acquire, clh_lock_init};
             use sel4_common::utils::cpu_id;
-            use crate::ffi::{clh_lock_init, clh_lock_acquire};
             unsafe {
                 clh_lock_init();
                 release_secondary_cores();
@@ -131,7 +133,7 @@ pub fn try_init_kernel(
     true
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub(crate) fn release_secondary_cores() {
     use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
     *node_boot_lock.lock() = 1;
@@ -141,7 +143,7 @@ pub(crate) fn release_secondary_cores() {
     while ksNumCPUs.lock().ne(&CONFIG_MAX_NUM_NODES) {}
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[inline(always)]
 pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     use core::ops::AddAssign;
@@ -151,7 +153,7 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     debug!("init cpu compl");
     unsafe { clh_lock_acquire(cpu_id(), false) }
     ksNumCPUs.lock().add_assign(1);
-    init_core_state(SchedulerAction_ResumeCurrentThread as *mut tcb_t);
+    init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
     debug!("init_core_state compl");
 
     unsafe {

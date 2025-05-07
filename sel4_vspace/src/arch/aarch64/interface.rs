@@ -10,24 +10,24 @@ use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, cap_vspace_cap};
 use sel4_common::utils::{pageBitsForSize, ptr_to_mut};
 use sel4_common::{
-    sel4_config::{seL4_PageBits, PT_INDEX_BITS},
+    sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS},
     structures_gen::lookup_fault,
     BIT,
 };
 use sel4_cspace::capability::cap_arch_func;
-pub const PageAlignedLen: usize = BIT!(PT_INDEX_BITS);
+pub const PAGE_ALIGNED_LEN: usize = BIT!(PT_INDEX_BITS);
 #[repr(align(4096))]
 #[derive(Clone, Copy)]
-pub struct PageAligned<T>([T; PageAlignedLen]);
+pub struct PageAligned<T>([T; PAGE_ALIGNED_LEN]);
 
 impl<T: Copy> PageAligned<T> {
     pub const fn new(v: T) -> Self {
-        Self([v; PageAlignedLen])
+        Self([v; PAGE_ALIGNED_LEN])
     }
 }
 
 impl<T> Deref for PageAligned<T> {
-    type Target = [T; PageAlignedLen];
+    type Target = [T; PAGE_ALIGNED_LEN];
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -121,7 +121,7 @@ pub fn set_kernel_page_table_by_index(idx: usize, pte: PTE) {
 /// Use page table in vspace_root to set the satp register.
 pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
     if !thread_root.is_valid_native_root() {
-        setCurrentUserVSpaceRoot(ttbr_new(
+        set_current_user_vspace_root(ttbr_new(
             0,
             kpptr_to_paddr(get_arm_global_user_vspace_base()),
         ));
@@ -134,14 +134,14 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
 
     if let Some(root) = find_ret.vspace_root {
         if find_ret.status != exception_t::EXCEPTION_NONE || root as usize != vspace_root {
-            setCurrentUserVSpaceRoot(ttbr_new(
+            set_current_user_vspace_root(ttbr_new(
                 0,
                 kpptr_to_paddr(get_arm_global_user_vspace_base()),
             ));
             return Ok(());
         }
     }
-    setCurrentUserVSpaceRoot(pptr_to_paddr(thread_root_vspace.get_capVSBasePtr() as usize));
+    set_current_user_vspace_root(pptr_to_paddr(thread_root_vspace.get_capVSBasePtr() as usize));
     Ok(())
 }
 
@@ -149,11 +149,11 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
 #[link_section = ".boot.text"]
 pub fn activate_kernel_vspace() {
     clean_invalidate_l1_caches();
-    setCurrentKernelVSpaceRoot(ttbr_new(
+    set_current_kernel_vspace_root(ttbr_new(
         0,
         kpptr_to_paddr(get_kernel_page_global_directory_base()),
     ));
-    setCurrentUserVSpaceRoot(ttbr_new(
+    set_current_user_vspace_root(ttbr_new(
         0,
         kpptr_to_paddr(get_arm_global_user_vspace_base()),
     ));
@@ -167,7 +167,7 @@ pub fn activate_kernel_vspace() {
 //     attributes: vm_attributes_t,
 // ) -> PUDE {
 //     PUDE::new_1g(
-//         attributes.get_armExecuteNever(),
+//         attributes.get_arm_execute_never(),
 //         paddr,
 //         1,
 //         1,
@@ -183,7 +183,7 @@ pub fn activate_kernel_vspace() {
 //     attributes: vm_attributes_t,
 // ) -> PDE {
 //     PDE::new_large(
-//         attributes.get_armExecuteNever(),
+//         attributes.get_arm_execute_never(),
 //         paddr,
 //         1,
 //         1,
@@ -195,7 +195,7 @@ pub fn activate_kernel_vspace() {
 
 // pub fn makeUser3rdLevel(paddr: pptr_t, vm_rights: vm_rights_t, attributes: vm_attributes_t) -> PTE {
 //     PTE::pte_new(
-//         attributes.get_armExecuteNever() as usize,
+//         attributes.get_arm_execute_never() as usize,
 //         paddr,
 //         1,
 //         1,
@@ -220,7 +220,7 @@ pub fn set_vm_root_for_flush_with_thread_root(
     }
 
     // armv_context_switch(vspace, asid);
-    setCurrentUserVSpaceRoot(ttbr_new(asid, vspace as usize));
+    set_current_user_vspace_root(ttbr_new(asid, vspace as usize));
     true
 }
 
@@ -296,7 +296,7 @@ pub fn invalidate_tlb_by_asid(asid: asid_t) {
 
 #[inline]
 pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: vptr_t) {
-    invalidate_local_tlb_va_asid((asid << 48) | vaddr >> seL4_PageBits);
+    invalidate_local_tlb_va_asid((asid << 48) | vaddr >> SEL4_PAGE_BITS);
 }
 
 // pub fn unmap_page_upper_directory(asid: asid_t, vaddr: vptr_t, pud: &PUDE) {
@@ -332,7 +332,7 @@ pub fn unmap_page_table(asid: asid_t, vaddr: vptr_t, pt: &PTE) {
     let mut pte = find_ret.vspace_root.unwrap();
     let mut level: usize = 0;
     while level < UPT_LEVELS - 1 && pte as usize != pt as *const PTE as usize {
-        ptSlot = unsafe { pte.add(VAddr(vaddr).GET_UPT_INDEX(level)) };
+        ptSlot = unsafe { pte.add(VAddr(vaddr).get_upt_index(level)) };
         if ptr_to_mut(ptSlot).get_type() != (pte_tag_t::pte_table) as usize {
             return;
         }
@@ -352,7 +352,7 @@ pub fn unmap_page_table(asid: asid_t, vaddr: vptr_t, pt: &PTE) {
 
 /// Unmap a page table
 /// TODO: Remove result Result<(), lookup_fault_t>
-pub fn unmapPage(
+pub fn unmap_page(
     page_size: usize,
     asid: asid_t,
     vptr: vptr_t,
@@ -386,7 +386,7 @@ pub fn unmapPage(
     Ok(())
 
     // match page_size {
-    //     ARM_Small_Page => {
+    //     ARM_SMALL_PAGE => {
     //         let lu_ret =
     //             PGDE::new_from_pte(find_ret.vspace_root.unwrap() as usize).lookup_pt_slot(vptr);
     //         if unlikely(lu_ret.status != exception_t::EXCEPTION_NONE) {
@@ -403,7 +403,7 @@ pub fn unmapPage(
     //         }
     //         Ok(())
     //     }
-    //     ARM_Large_Page => {
+    //     ARM_LARGE_PAGE => {
     //         log::info!("unmap large page: {:#x?}", vptr);
     //         let lu_ret =
     //             PGDE::new_from_pte(find_ret.vspace_root.unwrap() as usize).lookup_pd_slot(vptr);
@@ -459,7 +459,7 @@ pub fn unmapPage(
     */
 }
 
-pub fn doFlush(invLabel: MessageLabel, start: usize, end: usize, pstart: usize) {
+pub fn do_flush(invLabel: MessageLabel, start: usize, end: usize, pstart: usize) {
     match invLabel {
         MessageLabel::ARMPageClean_Data | MessageLabel::ARMVSpaceClean_Data => {
             clean_cache_range_ram(start, end, pstart)
@@ -476,6 +476,6 @@ pub fn doFlush(invLabel: MessageLabel, start: usize, end: usize, pstart: usize) 
             invalidate_cache_range_i(start, end, pstart);
             isb();
         }
-        _ => unimplemented!("unimplemented doFlush :{:?}", invLabel),
+        _ => unimplemented!("unimplemented do_flush :{:?}", invLabel),
     };
 }

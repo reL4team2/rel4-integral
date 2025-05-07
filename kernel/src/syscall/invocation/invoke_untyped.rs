@@ -7,12 +7,12 @@ use sel4_common::arch::ObjectType;
 use sel4_common::structures_gen::{
     cap, cap_cnode_cap, cap_endpoint_cap, cap_notification_cap, cap_thread_cap, cap_untyped_cap,
 };
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::{cap_reply_cap, cap_sched_context_cap};
 use sel4_common::{
     sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref, BIT, ROUND_DOWN,
 };
-use sel4_cspace::deps::preemptionPoint;
+use sel4_cspace::deps::preemption_point;
 use sel4_cspace::interface::{cte_t, insert_new_cap};
 use sel4_task::{get_current_domain, tcb_t};
 use sel4_vspace::pptr_t;
@@ -85,7 +85,7 @@ fn create_object(
         ObjectType::TCBObject => {
             let tcb = convert_to_mut_type_ref::<tcb_t>(region_base + TCB_OFFSET);
             tcb.init();
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             {
                 tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
             }
@@ -109,11 +109,11 @@ fn create_object(
             cap_untyped_cap::new(0, device_mem as u64, user_size as u64, region_base as u64)
                 .unsplay()
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         ObjectType::SchedContextObject => {
             cap_sched_context_cap::new(region_base as u64, user_size as u64).unsplay()
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         ObjectType::ReplyObject => cap_reply_cap::new(region_base as u64, 1 as u64).unsplay(),
 
         _ => arch_create_object(obj_type, region_base, user_size, device_mem),
@@ -144,7 +144,7 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
                 chunk,
             );
             prev_cap.set_capFreeIndex(OFFSET_TO_FREE_IDNEX(offset as usize) as u64);
-            let status = unsafe { preemptionPoint() };
+            let status = unsafe { preemption_point() };
             if status != exception_t::EXCEPTION_NONE {
                 return status;
             }

@@ -65,8 +65,8 @@ pub macro unsafe_ops($expr: expr) {
 }
 
 #[inline]
-pub fn MAX_FREE_INDEX(bits: usize) -> usize {
-    BIT!(bits - seL4_MinUntypedBits)
+pub fn max_free_index(bits: usize) -> usize {
+    BIT!(bits - SEL4_MIN_UNTYPED_BITS)
 }
 
 #[inline]
@@ -136,18 +136,18 @@ pub fn ptr_to_mut<T>(ptr: *mut T) -> &'static mut T {
 
 /// this is used for a ptr is seem as a usize and add an offset
 #[inline]
-pub fn ptr_to_usize_add<T>(ptr: *mut T,offset:usize) -> usize {
-	unsafe{ (ptr as usize + offset) }
+pub fn ptr_to_usize_add<T>(ptr: *mut T, offset: usize) -> usize {
+    ptr as usize + offset
 }
 
 #[inline]
 pub fn cpu_id() -> usize {
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         use crate::smp::get_currenct_cpu_index;
         get_currenct_cpu_index()
     }
-    #[cfg(not(feature = "ENABLE_SMP"))]
+    #[cfg(not(feature = "enable_smp"))]
     {
         0
     }
@@ -157,9 +157,9 @@ pub fn cpu_id() -> usize {
 #[inline]
 pub fn pageBitsForSize(page_size: usize) -> usize {
     match page_size {
-        RISCV_4K_Page => RISCVPageBits,
-        RISCV_Mega_Page => RISCVMegaPageBits,
-        RISCV_Giga_Page => RISCVGigaPageBits,
+        RISCV_4K_PAGE => RISCV_PAGE_BITS,
+        RISCV_MEGA_PAGE => RISCV_MEGA_PAGE_BITS,
+        RISCV_GIGA_PAGE => RISCV_GIGA_PAGE_BITS,
         _ => panic!("Invalid page size!"),
     }
 }

@@ -8,15 +8,15 @@ use core::arch::asm;
 pub struct timer;
 
 impl Timer_func for timer {
-    fn initTimer(self) {}
-    fn getCurrentTime(self) -> ticks_t {
+    fn init_timer(self) {}
+    fn get_current_time(self) -> ticks_t {
         get_time()
     }
-    fn setDeadline(self, deadline: ticks_t) {
+    fn set_deadline(self, deadline: ticks_t) {
         set_timer(deadline)
     }
     #[no_mangle]
-    fn resetTimer(self) {
+    fn reset_timer(self) {
         let mut target = read_time() + RESET_CYCLES;
         set_timer(target);
         while read_time() > target {
@@ -24,7 +24,7 @@ impl Timer_func for timer {
             set_timer(target);
         }
     }
-    fn ackDeadlineIRQ(self) {}
+    fn ack_deadline_irq(self) {}
 }
 
 pub fn read_time() -> usize {

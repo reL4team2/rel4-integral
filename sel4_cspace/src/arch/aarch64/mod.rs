@@ -11,7 +11,7 @@ use sel4_common::structures_gen::{cap, cap_null_cap};
 
 impl cap_arch_func for cap {
     fn arch_updatedata(&self, _preserve: bool, _new_data: u64) -> Self {
-        #[cfg(feature = "ENABLE_SMC")]
+        #[cfg(feature = "enable_smc")]
         {
             if self.clone().get_tag() == cap_tag::cap_smc_cap {
                 if !_preserve && cap::cap_smc_cap(self).get_capSMCBadge() == 0 {
@@ -25,11 +25,11 @@ impl cap_arch_func for cap {
                 return self.clone();
             }
         }
-        #[cfg(not(feature = "ENABLE_SMC"))]
+        #[cfg(not(feature = "enable_smc"))]
         return self.clone();
     }
     fn arch_is_cap_revocable(&self, _src_cap: &cap) -> bool {
-        #[cfg(feature = "ENABLE_SMC")]
+        #[cfg(feature = "enable_smc")]
         {
             match self.get_tag() {
                 cap_tag::cap_smc_cap => {
@@ -41,7 +41,7 @@ impl cap_arch_func for cap {
                 }
             }
         }
-        #[cfg(not(feature = "ENABLE_SMC"))]
+        #[cfg(not(feature = "enable_smc"))]
         return false;
     }
     fn get_cap_ptr(&self) -> usize {
@@ -64,9 +64,9 @@ impl cap_arch_func for cap {
             // cap_tag::CapPageGlobalDirectoryCap => self.get_pgd_base_ptr(),
             cap_tag::cap_asid_control_cap => 0,
             cap_tag::cap_asid_pool_cap => cap::cap_asid_pool_cap(self).get_capASIDPool() as usize,
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             cap_tag::cap_reply_cap => cap::cap_reply_cap(self).get_capReplyPtr() as usize,
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             cap_tag::cap_sched_context_cap => {
                 cap::cap_sched_context_cap(self).get_capSCPtr() as usize
             }
@@ -150,7 +150,7 @@ impl cte_t {
             cap_tag::cap_asid_control_cap | cap_tag::cap_asid_pool_cap => {
                 ret.capability = capability.clone();
             }
-            #[cfg(feature = "ENABLE_SMC")]
+            #[cfg(feature = "enable_smc")]
             cap_tag::cap_smc_cap => {
                 ret.capability = capability.clone();
             }
@@ -214,7 +214,7 @@ pub fn arch_same_region_as(cap1: &cap, cap2: &cap) -> bool {
                     == cap::cap_asid_pool_cap(cap2).get_capASIDPool();
             }
         }
-        #[cfg(feature = "ENABLE_SMC")]
+        #[cfg(feature = "enable_smc")]
         cap_tag::cap_smc_cap => {
             if cap2.get_tag() == cap_tag::cap_smc_cap {
                 return true;

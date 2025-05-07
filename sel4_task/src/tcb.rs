@@ -1,14 +1,14 @@
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use crate::ksCurSC;
 use crate::tcb_queue::tcb_queue_t;
 use crate::{ksReadyQueues, prio_t};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use crate::{ksReleaseQueue, sched_context::sched_context_t};
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
-    msgRegisterNum, n_exceptionMessage, n_syscallMessage, vm_rights_t, ArchReg, ArchTCB,
+    vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
 };
-use sel4_common::{fault::*, println};
+use sel4_common::fault::*;
 use sel4_common::ffi::current_fault;
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::sel4_config::*;
@@ -18,22 +18,22 @@ use sel4_common::structures_gen::{
     cap, cap_tag, lookup_fault, lookup_fault_Splayed, seL4_Fault, seL4_Fault_CapFault,
     seL4_Fault_tag, thread_state,
 };
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_common::structures_gen::{cap_reply_cap, mdb_node};
 use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::BIT;
 use sel4_common::MASK;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::{platform::time_def::ticks_t, utils::convert_to_option_mut_type_ref};
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_cspace::interface::cte_insert;
 use sel4_cspace::interface::{cte_t, resolve_address_bits};
 use sel4_vspace::{pptr_t, set_vm_root};
 
 use super::scheduler::{
-    addToBitmap, get_currenct_thread, possible_switch_to, ready_queues_index, removeFromBitmap,
-    rescheduleRequired, schedule_tcb, set_current_thread,
+    add_to_bitmap, get_currenct_thread, possible_switch_to, ready_queues_index, remove_from_bigmap,
+    reschedule_required, schedule_tcb, set_current_thread,
 };
 use super::structures::lookupSlot_raw_ret_t;
 
@@ -59,20 +59,20 @@ pub struct tcb_t {
     pub tcbMCP: usize,
     /// The priority of the TCB
     pub tcbPriority: usize,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     /// scheduling context that this TCB is running on
     pub tcbSchedContext: usize,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     /// scheduling context that this TCB yielded to
     pub tcbYieldTo: usize,
     /// The time slice of the TCB
     pub tcbTimeSlice: usize,
     /// The falut handler of the TCB
-    pub tcbFaultHandler: usize,
+    pub TCB_FAULT_HANDLER: usize,
     /// The IPC buffer of the TCB
     pub tcbIPCBuffer: usize,
     /// the affinity of the TCB in SMP
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     pub tcbAffinity: usize,
     /// The next TCB in the scheduling queue
     pub tcbSchedNext: usize,
@@ -89,7 +89,7 @@ impl tcb_t {
     /// Get i th cspace of the TCB, unmutable reference
     pub fn get_cspace(&mut self, i: usize) -> &'static cte_t {
         unsafe {
-            let p = ((self.get_mut_ptr()) & !MASK!(seL4_TCBBits)) as *mut cte_t;
+            let p = ((self.get_mut_ptr()) & !MASK!(SEL4_TCB_BITS)) as *mut cte_t;
             &*(p.add(i))
         }
     }
@@ -104,7 +104,7 @@ impl tcb_t {
     /// Get i th cspace of the TCB, mutable reference
     pub fn get_cspace_mut_ref(&mut self, i: usize) -> &'static mut cte_t {
         unsafe {
-            let p = ((self as *mut tcb_t as usize) & !MASK!(seL4_TCBBits)) as *mut cte_t;
+            let p = ((self as *mut tcb_t as usize) & !MASK!(SEL4_TCB_BITS)) as *mut cte_t;
             &mut *(p.add(i))
         }
     }
@@ -148,12 +148,12 @@ impl tcb_t {
         }
     }
     #[inline]
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     pub fn is_schedulable(&self) -> bool {
         self.is_runnable()
     }
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub fn is_schedulable(&self) -> bool {
         self.is_runnable()
             && self.tcbSchedContext != 0
@@ -173,25 +173,25 @@ impl tcb_t {
     }
 
     #[inline]
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     /// Set the priority of the TCB, and reschedule if the thread is runnable and not current
     pub fn set_priority(&mut self, priority: prio_t) {
         self.sched_dequeue();
         self.tcbPriority = priority;
         if self.is_runnable() {
             if self.is_current() {
-                rescheduleRequired();
+                reschedule_required();
             } else {
                 possible_switch_to(self)
             }
         }
     }
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub fn set_priority(&mut self, priority: prio_t) {
         use sel4_common::structures_gen::{endpoint_t, notification_t};
 
-        use crate::{reorder_EP, reorder_NTFN};
+        use crate::{reorder_ep, reorder_ntfn};
 
         match self.get_state() {
             ThreadState::ThreadStateRunning | ThreadState::ThreadStateRestart => {
@@ -199,7 +199,7 @@ impl tcb_t {
                     self.sched_dequeue();
                     self.tcbPriority = priority;
                     self.sched_enqueue();
-                    rescheduleRequired();
+                    reschedule_required();
                 } else {
                     self.tcbPriority = priority;
                 }
@@ -207,7 +207,7 @@ impl tcb_t {
             ThreadState::ThreadStateBlockedOnReceive | ThreadState::ThreadStateBlockedOnSend => {
                 self.tcbPriority = priority;
                 unsafe {
-                    reorder_EP(
+                    reorder_ep(
                         convert_to_mut_type_ref::<endpoint_t>(
                             self.tcbState.get_blockingObject() as usize
                         ),
@@ -218,7 +218,7 @@ impl tcb_t {
             ThreadState::ThreadStateBlockedOnNotification => {
                 self.tcbPriority = priority;
                 unsafe {
-                    reorder_NTFN(
+                    reorder_ntfn(
                         convert_to_mut_type_ref::<notification_t>(
                             self.tcbState.get_blockingObject() as usize,
                         ),
@@ -256,15 +256,15 @@ impl tcb_t {
         }
 
         if self.is_current() {
-            rescheduleRequired();
+            reschedule_required();
         }
     }
 
     /// Enqueue the TCB to the scheduling queue
     pub fn sched_enqueue(&mut self) {
-        // let thread = self as *mut tcb_t as usize; 
+        // let thread = self as *mut tcb_t as usize;
         // sel4_common::println!("{}: sched_enqueue: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         {
             assert!(self.is_schedulable());
             assert!(
@@ -280,13 +280,13 @@ impl tcb_t {
             let queue = self.get_sched_queue(idx);
 
             if queue.empty() {
-                addToBitmap(self.get_cpu(), dom, prio);
+                add_to_bitmap(self.get_cpu(), dom, prio);
             }
 
             queue.prepend(self);
             // if queue.tail == 0 {
             //     queue.tail = self_ptr as usize;
-            //     addToBitmap(self.get_cpu(), dom, prio);
+            //     add_to_bitmap(self.get_cpu(), dom, prio);
             // } else {
             //     convert_to_mut_type_ref::<tcb_t>(queue.head).tcbSchedPrev = self_ptr as usize;
             // }
@@ -300,7 +300,7 @@ impl tcb_t {
             self.tcbState.set_tcbQueued(1);
         }
 
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         self.update_queue();
     }
 
@@ -308,12 +308,12 @@ impl tcb_t {
     /// Get the scheduling queue by index from ksReadyQueues
     pub fn get_sched_queue(&mut self, index: usize) -> &'static mut tcb_queue_t {
         unsafe {
-            #[cfg(feature = "ENABLE_SMP")]
+            #[cfg(feature = "enable_smp")]
             {
                 use super::scheduler::ksSMP;
                 &mut ksSMP[self.tcbAffinity].ksReadyQueues[index]
             }
-            #[cfg(not(feature = "ENABLE_SMP"))]
+            #[cfg(not(feature = "enable_smp"))]
             {
                 &mut ksReadyQueues[index]
             }
@@ -323,11 +323,11 @@ impl tcb_t {
     #[inline]
     /// Get the CPU of the TCB, 0 if not in SMP, tcbAffinity if in SMP
     pub fn get_cpu(&self) -> usize {
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
             self.tcbAffinity
         }
-        #[cfg(not(feature = "ENABLE_SMP"))]
+        #[cfg(not(feature = "enable_smp"))]
         {
             0
         }
@@ -335,7 +335,7 @@ impl tcb_t {
 
     /// Dequeue the TCB from the scheduling queue
     pub fn sched_dequeue(&mut self) {
-        // let thread = self as *mut tcb_t as usize; 
+        // let thread = self as *mut tcb_t as usize;
         // sel4_common::println!("{}: sched_dequeue: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
         if self.tcbState.get_tcbQueued() != 0 {
             let dom = self.domain;
@@ -352,7 +352,7 @@ impl tcb_t {
             self.tcbState.set_tcbQueued(0);
 
             if likely(queue.head == 0) {
-                removeFromBitmap(self.get_cpu(), dom, prio);
+                remove_from_bigmap(self.get_cpu(), dom, prio);
             }
         }
     }
@@ -361,9 +361,9 @@ impl tcb_t {
     /// # Note
     /// This function is as same as `sched_enqueue`, but it is used for the EP queue
     pub fn sched_append(&mut self) {
-        // let thread = self as *mut tcb_t as usize; 
+        // let thread = self as *mut tcb_t as usize;
         // sel4_common::println!("{}: sched_append: {:#x}, tcb queued: {}", self.get_cpu(), thread, self.tcbState.get_tcbQueued());
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         {
             assert!(self.is_schedulable());
             assert!(
@@ -383,7 +383,7 @@ impl tcb_t {
 
             if queue.head == 0 {
                 queue.head = self_ptr as usize;
-                addToBitmap(self.get_cpu(), dom, prio);
+                add_to_bitmap(self.get_cpu(), dom, prio);
             } else {
                 let next = queue.tail;
                 // unsafe { (*next).tcbSchedNext = self_ptr as usize };
@@ -398,11 +398,11 @@ impl tcb_t {
 
             self.tcbState.set_tcbQueued(1);
         }
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         self.update_queue();
     }
 
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     #[inline]
     fn update_queue(&self) {
         use super::scheduler::{ksCurDomain, ksSMP};
@@ -422,8 +422,8 @@ impl tcb_t {
 
     /// Set the VM root of the TCB
     pub fn set_vm_root(&mut self) -> Result<(), lookup_fault> {
-        // let threadRoot = &(*getCSpace(thread as usize, tcbVTable)).cap;
-        let thread_root = &self.get_cspace(tcbVTable).capability;
+        // let threadRoot = &(*getCSpace(thread as usize, TCB_VTABLE)).cap;
+        let thread_root = &self.get_cspace(TCB_VTABLE).capability;
         set_vm_root(thread_root)
     }
 
@@ -461,8 +461,8 @@ impl tcb_t {
     /// # Returns
     /// The lookup result structure
     pub fn lookup_slot(&mut self, cap_ptr: usize) -> lookupSlot_raw_ret_t {
-        let thread_root = &self.get_cspace(tcbCTable).capability;
-        let res_ret = resolve_address_bits(&thread_root, cap_ptr, wordBits);
+        let thread_root = &self.get_cspace(TCB_CTABLE).capability;
+        let res_ret = resolve_address_bits(&thread_root, cap_ptr, WORD_BITS);
         lookupSlot_raw_ret_t {
             status: res_ret.status,
             slot: res_ret.slot,
@@ -470,10 +470,10 @@ impl tcb_t {
     }
 
     #[inline]
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     /// Setup the reply master of the TCB
     pub fn setup_reply_master(&mut self) {
-        let slot = self.get_cspace_mut_ref(tcbReply);
+        let slot = self.get_cspace_mut_ref(TCB_REPLY);
         if slot.capability.get_tag() == cap_tag::cap_null_cap {
             slot.capability = cap_reply_cap::new(self.get_ptr() as u64, 1, 1).unsplay();
             slot.cteMDBNode = mdb_node::new(0, 1, 1, 0);
@@ -485,18 +485,18 @@ impl tcb_t {
     pub fn suspend(&mut self) {
         if self.get_state() == ThreadState::ThreadStateRunning {
             self.tcbArch.set_register(
-                ArchReg::FaultIP,
-                self.tcbArch.get_register(ArchReg::FaultIP),
+                ArchReg::FAULT_IP,
+                self.tcbArch.get_register(ArchReg::FAULT_IP),
             );
         }
-        // setThreadState(self as *mut Self, ThreadStateInactive);
+        // set_thread_state(self as *mut Self, ThreadStateInactive);
         // println!("tcb suspend: {:#x}", self.get_ptr());
         set_thread_state(self, ThreadState::ThreadStateInactive);
         self.sched_dequeue();
-        #[cfg(feature = "KERNEL_MCS")]
-        self.Release_Remove();
-        #[cfg(feature = "KERNEL_MCS")]
-        self.schedContext_cancelYieldTo();
+        #[cfg(feature = "kernel_mcs")]
+        self.release_remove();
+        #[cfg(feature = "kernel_mcs")]
+        self.sched_context_cancel_yield_to();
     }
 
     #[inline]
@@ -506,19 +506,19 @@ impl tcb_t {
     //     {
     //         cancelIPC(target);
     // #ifdef CONFIG_KERNEL_MCS
-    //         setThreadState(target, ThreadState_Restart);
+    //         set_thread_state(target, ThreadState_Restart);
     //         if (sc_sporadic(target->tcbSchedContext) && target->tcbSchedContext != NODE_STATE(ksCurSC))
     //         {
     //             refill_unblock_check(target->tcbSchedContext);
     //         }
-    //         schedContext_resume(target->tcbSchedContext);
+    //         sched_context_resume(target->tcbSchedContext);
     //         if (isSchedulable(target))
     //         {
     //             possibleSwitchTo(target);
     //         }
     // #else
     //         setupReplyMaster(target);
-    //         setThreadState(target, ThreadState_Restart);
+    //         set_thread_state(target, ThreadState_Restart);
     //         SCHED_ENQUEUE(target);
     //         possibleSwitchTo(target);
     // #endif
@@ -527,7 +527,7 @@ impl tcb_t {
     /// Restart the TCB, set the state to ThreadStateRestart and enqueue to the scheduling queue waiting for reschedule
     pub fn restart(&mut self) {
         if self.is_stopped() {
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             {
                 // MCS
                 set_thread_state(self, ThreadState::ThreadStateRestart);
@@ -537,16 +537,16 @@ impl tcb_t {
                     if sc.sc_sporadic() && self.tcbSchedContext != unsafe { ksCurSC } {
                         sc.refill_unblock_check();
                     }
-                    sc.schedContext_resume();
+                    sc.sched_context_resume();
                 }
                 if self.is_schedulable() {
                     possible_switch_to(self);
                 }
             }
-            #[cfg(not(feature = "KERNEL_MCS"))]
+            #[cfg(not(feature = "kernel_mcs"))]
             {
                 self.setup_reply_master();
-                // setThreadState(self as *mut Self, ThreadStateRestart);
+                // set_thread_state(self as *mut Self, ThreadStateRestart);
                 set_thread_state(self, ThreadState::ThreadStateRestart);
                 self.sched_enqueue();
                 possible_switch_to(self);
@@ -555,14 +555,14 @@ impl tcb_t {
     }
 
     #[inline]
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     /// Setup the caller cap of the TCB
     /// # Arguments
     /// * `sender` - The sender TCB
     /// * `can_grant` - If the cap can be granted
     pub fn setup_caller_cap(&mut self, sender: &mut Self, can_grant: bool) {
         set_thread_state(sender, ThreadState::ThreadStateBlockedOnReply);
-        let reply_slot = sender.get_cspace_mut_ref(tcbReply);
+        let reply_slot = sender.get_cspace_mut_ref(TCB_REPLY);
         let master_cap = cap::cap_reply_cap(&reply_slot.capability);
 
         assert_eq!(
@@ -573,7 +573,7 @@ impl tcb_t {
         assert_eq!(master_cap.get_capReplyCanGrant(), 1);
         assert_eq!(master_cap.get_capTCBPtr() as usize, sender.get_ptr());
 
-        let caller_slot = self.get_cspace_mut_ref(tcbCaller);
+        let caller_slot = self.get_cspace_mut_ref(TCB_CALLER);
         assert_eq!(caller_slot.capability.get_tag(), cap_tag::cap_null_cap);
         cte_insert(
             &cap_reply_cap::new(sender.get_ptr() as u64, can_grant as u64, 0).unsplay(),
@@ -583,10 +583,10 @@ impl tcb_t {
     }
 
     #[inline]
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     /// Delete the caller cap of the TCB
     pub fn delete_caller_cap(&mut self) {
-        let caller_slot = self.get_cspace_mut_ref(tcbCaller);
+        let caller_slot = self.get_cspace_mut_ref(TCB_CALLER);
         caller_slot.delete_one();
     }
 
@@ -597,7 +597,7 @@ impl tcb_t {
     /// The IPC buffer of the TCB
     pub fn lookup_ipc_buffer(&mut self, is_receiver: bool) -> Option<&'static seL4_IPCBuffer> {
         let w_buffer_ptr = self.tcbIPCBuffer;
-        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(tcbBuffer).capability);
+        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(TCB_BUFFER).capability);
         if unlikely(buffer_cap.clone().unsplay().get_tag() != cap_tag::cap_frame_cap) {
             return None;
         }
@@ -625,7 +625,10 @@ impl tcb_t {
     /// * `res` - The result array to store the extra caps
     /// # Returns
     /// The result of the lookup represented by seL4_Fault_t
-    pub fn lookup_extra_caps(&mut self, res: &mut [pptr_t; seL4_MsgMaxExtraCaps]) -> exception_t {
+    pub fn lookup_extra_caps(
+        &mut self,
+        res: &mut [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+    ) -> exception_t {
         let info =
             seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
         if let Some(buffer) = self.lookup_ipc_buffer(false) {
@@ -644,7 +647,7 @@ impl tcb_t {
                 res[i as usize] = lu_ret.slot as usize;
                 i += 1;
             }
-            if i < seL4_MsgMaxExtraCaps as u64 {
+            if i < SEL4_MSG_MAX_EXTRA_CAPS as u64 {
                 res[i as usize] = 0;
             }
         } else {
@@ -661,7 +664,7 @@ impl tcb_t {
     /// The result of the lookup represented by seL4_Fault_t
     pub fn lookup_extra_caps_with_buf(
         &mut self,
-        res: &mut [pptr_t; seL4_MsgMaxExtraCaps],
+        res: &mut [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
         buf: Option<&seL4_IPCBuffer>,
     ) -> Result<(), seL4_Fault> {
         let info =
@@ -678,7 +681,7 @@ impl tcb_t {
                 res[i as usize] = lu_ret.slot as usize;
                 i += 1;
             }
-            if i < seL4_MsgMaxExtraCaps as u64 {
+            if i < SEL4_MSG_MAX_EXTRA_CAPS as u64 {
                 res[i as usize] = 0;
             }
         }
@@ -691,7 +694,7 @@ impl tcb_t {
         is_receiver: bool,
     ) -> Option<&'static mut seL4_IPCBuffer> {
         let w_buffer_ptr = self.tcbIPCBuffer;
-        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(tcbBuffer).capability);
+        let buffer_cap = cap::cap_frame_cap(&self.get_cspace(TCB_BUFFER).capability);
         if buffer_cap.clone().unsplay().get_tag() != cap_tag::cap_frame_cap {
             return None;
         }
@@ -717,12 +720,12 @@ impl tcb_t {
     /// # Returns
     /// The next offset
     pub fn set_mr(&mut self, offset: usize, reg: usize) -> usize {
-        if offset >= msgRegisterNum {
+        if offset >= MSG_REGISTER_NUM {
             if let Some(ipc_buffer) = self.lookup_mut_ipc_buffer(true) {
                 ipc_buffer.msg[offset] = reg;
                 return offset + 1;
             } else {
-                return msgRegisterNum;
+                return MSG_REGISTER_NUM;
             }
         } else {
             self.tcbArch.set_register(ArchReg::Msg(offset), reg);
@@ -739,11 +742,11 @@ impl tcb_t {
     pub fn set_lookup_fault_mrs(&mut self, offset: usize, fault: &lookup_fault) -> usize {
         let luf_type = fault.get_tag() as usize;
         let i = self.set_mr(offset, luf_type + 1);
-        if offset == seL4_CapFault_LookupFailureType {
-            assert_eq!(offset + 1, seL4_CapFault_BitsLeft);
-            assert_eq!(offset + 2, seL4_CapFault_DepthMismatch_BitsFound);
-            assert_eq!(offset + 2, seL4_CapFault_GuardMismatch_GuardFound);
-            assert_eq!(offset + 3, seL4_CapFault_GuardMismatch_BitsFound);
+        if offset == CAP_FAULT_LOOKUP_FAILURE_TYPE {
+            assert_eq!(offset + 1, CAP_FAULT_BITS_LEFT);
+            assert_eq!(offset + 2, CAP_FAULT_DEPTH_MISMATCH_BITS_FOUND);
+            assert_eq!(offset + 2, CAP_FAULT_GUARD_MISMATCH_GUARD_FOUND);
+            assert_eq!(offset + 3, CAP_FAULT_GUARD_MISMATCH_BITS_FOUND);
         } else {
             assert_eq!(offset, 1);
         }
@@ -794,7 +797,7 @@ impl tcb_t {
     /// The number of registers(contains ipc buffer) copied
     pub fn copy_mrs(&mut self, receiver: &mut tcb_t, length: usize) -> usize {
         let mut i = 0;
-        while i < length && i < msgRegisterNum {
+        while i < length && i < MSG_REGISTER_NUM {
             receiver
                 .tcbArch
                 .set_register(ArchReg::Msg(i), self.tcbArch.get_register(ArchReg::Msg(i)));
@@ -823,7 +826,7 @@ impl tcb_t {
     /// * `id` - The fault message id
     /// * `length` - The length of the message registers to copy
     pub fn copy_fault_mrs(&self, receiver: &mut Self, id: usize, length: usize) {
-        let len = core::cmp::min(length, msgRegisterNum);
+        let len = core::cmp::min(length, MSG_REGISTER_NUM);
 
         for i in 0..len {
             receiver.tcbArch.set_register(
@@ -845,7 +848,7 @@ impl tcb_t {
     /// * `id` - The fault message id
     /// * `length` - The length of the message registers to copy
     pub fn copy_fault_mrs_for_reply(&mut self, receiver: &mut Self, id: usize, length: usize) {
-        let len = core::cmp::min(length, msgRegisterNum);
+        let len = core::cmp::min(length, MSG_REGISTER_NUM);
 
         for i in 0..len {
             receiver.tcbArch.set_register(
@@ -866,13 +869,13 @@ impl tcb_t {
     #[inline]
     /// Copy the syscall fault messages of the TCB to the receiver
     pub fn copy_syscall_fault_mrs(&self, receiver: &mut Self) {
-        self.copy_fault_mrs(receiver, MessageID_Syscall, n_syscallMessage)
+        self.copy_fault_mrs(receiver, MESSAGE_ID_SYSCALL, N_SYSCALL_MESSAGE)
     }
 
     #[inline]
     /// Copy the exception fault messages of the TCB to the receiver
     pub fn copy_exeception_fault_mrs(&self, receiver: &mut Self) {
-        self.copy_fault_mrs(receiver, MessageID_Exception, n_exceptionMessage)
+        self.copy_fault_mrs(receiver, MESSAGE_ID_EXCEPTION, N_EXCEPTON_MESSAGE)
     }
 
     #[inline]
@@ -882,25 +885,21 @@ impl tcb_t {
     pub fn set_fault_mrs(&self, receiver: &mut Self) -> usize {
         match self.tcbFault.get_tag() {
             seL4_Fault_tag::seL4_Fault_CapFault => {
+                receiver.set_mr(CAP_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
                 receiver.set_mr(
-                    seL4_CapFault_IP,
-                    self.tcbArch.get_register(ArchReg::FaultIP),
-                );
-                receiver.set_mr(
-                    seL4_CapFault_Addr,
+                    CAP_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_address() as usize,
                 );
                 receiver.set_mr(
-                    seL4_CapFault_InRecvPhase,
+                    CAP_FAULT_IN_RECV_PHASE,
                     seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_inReceivePhase() as usize,
                 );
-                receiver
-                    .set_lookup_fault_mrs(seL4_CapFault_LookupFailureType, &self.tcbLookupFailure)
+                receiver.set_lookup_fault_mrs(CAP_FAULT_LOOKUP_FAILURE_TYPE, &self.tcbLookupFailure)
             }
             seL4_Fault_tag::seL4_Fault_UnknownSyscall => {
                 self.copy_syscall_fault_mrs(receiver);
                 receiver.set_mr(
-                    n_syscallMessage,
+                    N_SYSCALL_MESSAGE,
                     seL4_Fault::seL4_Fault_UnknownSyscall(&self.tcbFault).get_syscallNumber()
                         as usize,
                 )
@@ -908,26 +907,26 @@ impl tcb_t {
             seL4_Fault_tag::seL4_Fault_UserException => {
                 self.copy_exeception_fault_mrs(receiver);
                 receiver.set_mr(
-                    n_exceptionMessage,
+                    N_EXCEPTON_MESSAGE,
                     seL4_Fault::seL4_Fault_UserException(&self.tcbFault).get_number() as usize,
                 );
                 receiver.set_mr(
-                    n_exceptionMessage + 1,
+                    N_EXCEPTON_MESSAGE + 1,
                     seL4_Fault::seL4_Fault_UserException(&self.tcbFault).get_code() as usize,
                 )
             }
             seL4_Fault_tag::seL4_Fault_VMFault => {
-                receiver.set_mr(seL4_VMFault_IP, self.tcbArch.get_register(ArchReg::FaultIP));
+                receiver.set_mr(VM_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
                 receiver.set_mr(
-                    seL4_VMFault_Addr,
+                    VM_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_address() as usize,
                 );
                 receiver.set_mr(
-                    seL4_VMFault_PrefetchFault,
+                    VM_FAULT_PREFETCH_FAULT,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_instructionFault() as usize,
                 );
                 receiver.set_mr(
-                    seL4_VMFault_FSR,
+                    VM_FAULT_FSR,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_FSR() as usize,
                 )
             }
@@ -943,19 +942,19 @@ impl tcb_t {
         self.tcbState.set_tsType(state as u64);
         schedule_tcb(self);
     }
-    pub fn DebugAppend(&mut self) {}
-    pub fn DebugRemove(&mut self) {}
+    pub fn debug_append(&mut self) {}
+    pub fn debug_remove(&mut self) {}
 
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub fn Ready_Time(&self) -> ticks_t {
         unsafe {
             (*convert_to_mut_type_ref::<sched_context_t>(self.tcbSchedContext).refill_head()).rTime
         }
     }
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
-    pub fn Time_After(&self, new_time: ticks_t) -> bool {
+    #[cfg(feature = "kernel_mcs")]
+    pub fn time_after(&self, new_time: ticks_t) -> bool {
         new_time >= self.Ready_Time()
     }
 
@@ -973,8 +972,8 @@ impl tcb_t {
     }
 
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
-    pub fn Release_Remove(&mut self) {
+    #[cfg(feature = "kernel_mcs")]
+    pub fn release_remove(&mut self) {
         use crate::ksReprogram;
 
         unsafe {
@@ -992,8 +991,8 @@ impl tcb_t {
         }
     }
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
-    pub fn Release_Enqueue(&mut self) {
+    #[cfg(feature = "kernel_mcs")]
+    pub fn release_enqueue(&mut self) {
         use crate::ksReprogram;
 
         assert!(self.tcbState.get_tcbInReleaseQueue() == 0);
@@ -1014,7 +1013,7 @@ impl tcb_t {
                     ksReleaseQueue = queue;
                 } else {
                     let after =
-                        Find_Time_After(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
+                        find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
                     self.queue_insert(convert_to_mut_type_ref(after as usize));
                 }
             }
@@ -1023,25 +1022,25 @@ impl tcb_t {
         self.tcbState.set_tcbInReleaseQueue(1);
     }
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
-    pub fn schedContext_cancelYieldTo(&mut self) {
+    #[cfg(feature = "kernel_mcs")]
+    pub fn sched_context_cancel_yield_to(&mut self) {
         if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
             convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).scYieldFrom = 0;
             self.tcbYieldTo = 0;
         }
     }
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub fn schedContext_completeYieldTo(&mut self) {
         if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
-            convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).setConsumed();
-            self.schedContext_cancelYieldTo();
+            convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).set_consumed();
+            self.sched_context_cancel_yield_to();
         }
     }
     #[inline]
-    #[cfg(feature = "KERNEL_MCS")]
-    pub fn validTimeoutHandler(&mut self) -> bool {
-        let cte = self.get_cspace(tcbTimeoutHandler);
+    #[cfg(feature = "kernel_mcs")]
+    pub fn valid_timeout_handler(&mut self) -> bool {
+        let cte = self.get_cspace(TCB_TIMEOUT_HANDLER);
         cte.capability.get_tag() == cap_tag::cap_endpoint_cap
     }
 }
@@ -1056,10 +1055,10 @@ pub fn set_thread_state(tcb: &mut tcb_t, state: ThreadState) {
     schedule_tcb(tcb);
 }
 #[inline]
-#[cfg(feature = "KERNEL_MCS")]
-pub fn Find_Time_After(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
+#[cfg(feature = "kernel_mcs")]
+pub fn find_time_after(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
     let mut after = tcb;
-    while after.Time_After(new_time) {
+    while after.time_after(new_time) {
         if after.tcbSchedContext != 0 {
             after = convert_to_mut_type_ref::<tcb_t>(after.tcbSchedContext)
         } else {
@@ -1070,8 +1069,8 @@ pub fn Find_Time_After(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
     return after;
 }
 
-#[cfg(feature = "KERNEL_MCS")]
-pub fn tcb_Release_Dequeue() -> *mut tcb_t {
+#[cfg(feature = "kernel_mcs")]
+pub fn tcb_release_dequeue() -> *mut tcb_t {
     use crate::ksReprogram;
 
     unsafe {
@@ -1081,13 +1080,13 @@ pub fn tcb_Release_Dequeue() -> *mut tcb_t {
         let awakened = convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head);
         assert!(awakened.get_ptr() != get_currenct_thread().get_ptr());
 
-        awakened.Release_Remove();
+        awakened.release_remove();
         ksReprogram = true;
 
         return awakened;
     }
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn reply_remove_tcb(tcb: &mut tcb_t) {
     use sel4_common::structures_gen::call_stack;
 

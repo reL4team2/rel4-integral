@@ -3,7 +3,7 @@ pub mod decode;
 mod invoke_cnode;
 pub mod invoke_irq;
 mod invoke_mmu_op;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 mod invoke_sched;
 mod invoke_tcb;
 mod invoke_untyped;
@@ -11,7 +11,7 @@ mod invoke_untyped;
 use core::intrinsics::unlikely;
 
 use log::debug;
-use sel4_common::arch::{msgRegisterNum, ArchReg};
+use sel4_common::arch::{ArchReg, MSG_REGISTER_NUM};
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
 use sel4_common::structures::exception_t;
@@ -24,8 +24,8 @@ use crate::syscall::{handle_fault, lookup_extra_caps_with_buf};
 use sel4_common::ffi::current_fault;
 
 #[no_mangle]
-#[cfg(not(feature = "KERNEL_MCS"))]
-pub fn handleInvocation(isCall: bool, isBlocking: bool) -> exception_t {
+#[cfg(not(feature = "kernel_mcs"))]
+pub fn handle_invocation(isCall: bool, isBlocking: bool) -> exception_t {
     let thread = get_currenct_thread();
     let info = seL4_MessageInfo::from_word_security(thread.tcbArch.get_register(ArchReg::MsgInfo));
     let cptr = thread.tcbArch.get_register(ArchReg::Cap);
@@ -52,8 +52,8 @@ pub fn handleInvocation(isCall: bool, isBlocking: bool) -> exception_t {
     }
 
     let mut length = info.get_length() as usize;
-    if unlikely(length > msgRegisterNum && buffer.is_none()) {
-        length = msgRegisterNum;
+    if unlikely(length > MSG_REGISTER_NUM && buffer.is_none()) {
+        length = MSG_REGISTER_NUM;
     }
 
     let capability = unsafe { (*(lu_ret.slot)).capability.clone() };
@@ -87,9 +87,9 @@ pub fn handleInvocation(isCall: bool, isBlocking: bool) -> exception_t {
     return exception_t::EXCEPTION_NONE;
 }
 #[no_mangle]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 // TODO: MCS
-pub fn handleInvocation(
+pub fn handle_invocation(
     isCall: bool,
     isBlocking: bool,
     canDonate: bool,
@@ -121,8 +121,8 @@ pub fn handleInvocation(
     }
 
     let mut length = info.get_length() as usize;
-    if unlikely(length > msgRegisterNum && buffer.is_none()) {
-        length = msgRegisterNum;
+    if unlikely(length > MSG_REGISTER_NUM && buffer.is_none()) {
+        length = MSG_REGISTER_NUM;
     }
 
     let capability = unsafe { (*(lu_ret.slot)).capability.clone() };

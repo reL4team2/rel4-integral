@@ -14,7 +14,7 @@ pub struct tcb_queue_t {
 
 impl tcb_queue_t {
     /// Append a tcb to the queue
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     pub fn ep_append(&mut self, tcb: &mut tcb_t) {
         if self.head == 0 {
             self.head = tcb.get_ptr();
@@ -26,7 +26,7 @@ impl tcb_queue_t {
         tcb.tcbEPNext = 0;
         self.tail = tcb.get_ptr();
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub fn ep_append(&mut self, tcb: &mut tcb_t) {
         use core::intrinsics::{likely, unlikely};
 

@@ -1,5 +1,5 @@
 use sel4_common::arch::config::{KERNEL_ELF_BASE_OFFSET, PPTR_BASE_OFFSET};
-use sel4_common::sel4_config::{seL4_PageBits, CONFIG_PT_LEVELS, PT_INDEX_BITS};
+use sel4_common::sel4_config::{CONFIG_PT_LEVELS, PT_INDEX_BITS, SEL4_PAGE_BITS};
 use sel4_common::{BIT, MASK};
 
 ///获得虚拟地址`addr`对应的`n`级VPN，
@@ -10,8 +10,8 @@ use sel4_common::{BIT, MASK};
 /// VPN[0] <=> n = 2
 /// ```
 #[inline]
-pub fn RISCV_GET_PT_INDEX(addr: usize, n: usize) -> usize {
-    ((addr) >> (((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + seL4_PageBits))
+pub fn riscv_get_pt_index(addr: usize, n: usize) -> usize {
+    ((addr) >> (((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + SEL4_PAGE_BITS))
         & MASK!(PT_INDEX_BITS)
 }
 
@@ -22,8 +22,8 @@ pub fn RISCV_GET_PT_INDEX(addr: usize, n: usize) -> usize {
 ///
 /// Get n levels page bit size
 #[inline]
-pub fn RISCV_GET_LVL_PGSIZE_BITS(n: usize) -> usize {
-    ((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + seL4_PageBits
+pub fn riscv_get_lvl_pgsize_bits(n: usize) -> usize {
+    ((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + SEL4_PAGE_BITS
 }
 
 /// 获得第n级页表对应的虚拟地址空间的大小
@@ -33,8 +33,8 @@ pub fn RISCV_GET_LVL_PGSIZE_BITS(n: usize) -> usize {
 ///
 /// Get n levels page size
 #[inline]
-pub fn RISCV_GET_LVL_PGSIZE(n: usize) -> usize {
-    BIT!(RISCV_GET_LVL_PGSIZE_BITS(n))
+pub fn riscv_get_lvl_pgsize(n: usize) -> usize {
+    BIT!(riscv_get_lvl_pgsize_bits(n))
 }
 
 ///在`reL4`内核页表中，内核代码，在内核地址空间中被映射了两次，

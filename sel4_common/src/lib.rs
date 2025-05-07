@@ -17,7 +17,7 @@ pub mod object;
 pub mod platform;
 pub mod sel4_bitfield_types;
 pub mod sel4_config;
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub mod smp;
 pub mod structures;
 pub mod utils;
@@ -41,7 +41,7 @@ pub mod structures_gen {
 ///
 /// // call with arguments
 /// // Format is fname(arg_name:type => value) -> ret_type
-/// ffi_call!(handleUnknownSyscall, a1:usize => 1);
+/// ffi_call!(handle_unknown_syscall, a1:usize => 1);
 ///
 /// ffi_call!(some_function);
 ///

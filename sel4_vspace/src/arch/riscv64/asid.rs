@@ -1,7 +1,7 @@
 use core::{arch::asm, intrinsics::unlikely};
 
 use sel4_common::{
-    sel4_config::{asidHighBits, asidLowBits, IT_ASID},
+    sel4_config::{ASID_HIGH_BITS, ASID_LOW_BITS, IT_ASID},
     structures::exception_t,
     structures_gen::{
         cap, cap_asid_pool_cap, cap_page_table_cap, lookup_fault, lookup_fault_invalid_root,
@@ -13,17 +13,17 @@ use sel4_common::{
 use crate::{asid_pool_t, asid_t, findVSpaceForASID_ret, pptr_t, set_vm_root, PTE};
 
 ///存放`asid pool`的数组，每一个下标对应一个`asid pool`，
-///一个`asid pool`可以存放`asidLowBits`个asid值
+///一个`asid pool`可以存放`ASID_LOW_BITS`个asid值
 #[no_mangle]
-pub static mut riscvKSASIDTable: [*mut asid_pool_t; BIT!(asidHighBits)] =
-    [0 as *mut asid_pool_t; BIT!(asidHighBits)];
+pub static mut riscvKSASIDTable: [*mut asid_pool_t; BIT!(ASID_HIGH_BITS)] =
+    [0 as *mut asid_pool_t; BIT!(ASID_HIGH_BITS)];
 
 pub fn write_it_asid_pool(it_ap_cap: &cap_asid_pool_cap, it_lvl1pt_cap: &cap_page_table_cap) {
     let ap = it_ap_cap.get_capASIDPool() as usize;
     unsafe {
         let ptr = (ap + 8 * IT_ASID) as *mut usize;
         *ptr = it_lvl1pt_cap.get_capPTBasePtr() as usize;
-        riscvKSASIDTable[IT_ASID >> asidLowBits] = ap as *mut asid_pool_t;
+        riscvKSASIDTable[IT_ASID >> ASID_LOW_BITS] = ap as *mut asid_pool_t;
     }
 }
 
@@ -37,11 +37,11 @@ pub fn delete_asid(
     default_vspace_cap: &cap,
 ) -> Result<(), lookup_fault> {
     unsafe {
-        let poolPtr = riscvKSASIDTable[asid >> asidLowBits];
-        if poolPtr as usize != 0 && (*poolPtr).array[asid & MASK!(asidLowBits)] == vspace {
+        let poolPtr = riscvKSASIDTable[asid >> ASID_LOW_BITS];
+        if poolPtr as usize != 0 && (*poolPtr).array[asid & MASK!(ASID_LOW_BITS)] == vspace {
             #[cfg(target_arch = "riscv64")]
-            hwASIDFlush(asid);
-            (*poolPtr).array[asid & MASK!(asidLowBits)] = 0 as *mut PTE;
+            hw_asid_flush(asid);
+            (*poolPtr).array[asid & MASK!(ASID_LOW_BITS)] = 0 as *mut PTE;
             set_vm_root(&default_vspace_cap)
         } else {
             Ok(())
@@ -53,7 +53,7 @@ pub fn delete_asid(
 ///
 /// From `riscvKSASIDSpace` set the index-relevant asid pool.
 pub fn set_asid_pool_by_index(index: usize, pool_ptr: pptr_t) {
-    // assert!(index < BIT!(asidHighBits));
+    // assert!(index < BIT!(ASID_HIGH_BITS));
     unsafe {
         riscvKSASIDTable[index] = pool_ptr as *mut asid_pool_t;
     }
@@ -65,7 +65,7 @@ pub fn set_asid_pool_by_index(index: usize, pool_ptr: pptr_t) {
 #[inline]
 pub fn get_asid_pool_by_index(index: usize) -> Option<&'static mut asid_pool_t> {
     unsafe {
-        if unlikely(index >= BIT!(asidHighBits)) {
+        if unlikely(index >= BIT!(ASID_HIGH_BITS)) {
             return None;
         }
         return convert_to_option_mut_type_ref::<asid_pool_t>(riscvKSASIDTable[index] as usize);
@@ -83,14 +83,14 @@ pub fn find_vspace_for_asid(asid: asid_t) -> findVSpaceForASID_ret {
         lookup_fault: None,
     };
 
-    let poolPtr = unsafe { riscvKSASIDTable[asid >> asidLowBits] };
+    let poolPtr = unsafe { riscvKSASIDTable[asid >> ASID_LOW_BITS] };
     if poolPtr as usize == 0 {
         ret.lookup_fault = Some(lookup_fault_invalid_root::new().unsplay());
         ret.vspace_root = None;
         ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
         return ret;
     }
-    let vspace_root = unsafe { (*poolPtr).array[asid & MASK!(asidLowBits)] };
+    let vspace_root = unsafe { (*poolPtr).array[asid & MASK!(ASID_LOW_BITS)] };
     if vspace_root as usize == 0 {
         ret.lookup_fault = Some(lookup_fault_invalid_root::new().unsplay());
         ret.vspace_root = None;
@@ -113,8 +113,8 @@ pub fn delete_asid_pool(
     default_vspace_cap: &cap,
 ) -> Result<(), lookup_fault> {
     unsafe {
-        if riscvKSASIDTable[asid_base >> asidLowBits] == pool {
-            riscvKSASIDTable[asid_base >> asidLowBits] = 0 as *mut asid_pool_t;
+        if riscvKSASIDTable[asid_base >> ASID_LOW_BITS] == pool {
+            riscvKSASIDTable[asid_base >> ASID_LOW_BITS] = 0 as *mut asid_pool_t;
             set_vm_root(default_vspace_cap)
         } else {
             Ok(())
@@ -124,7 +124,7 @@ pub fn delete_asid_pool(
 
 ///清除`TLB`中对应`asid`的项
 #[inline]
-pub fn hwASIDFlush(asid: asid_t) {
+pub fn hw_asid_flush(asid: asid_t) {
     unsafe {
         asm!("sfence.vma x0, {0}",in(reg) asid);
     }

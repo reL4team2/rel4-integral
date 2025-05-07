@@ -46,7 +46,7 @@ pub trait cap_func {
     fn update_data(&self, preserve: bool, new_data: u64) -> Self;
     fn get_cap_size_bits(&self) -> usize;
     fn get_cap_is_physical(&self) -> bool;
-    fn isArchCap(&self) -> bool;
+    fn is_arch_cap(&self) -> bool;
 }
 pub trait cap_arch_func {
     fn arch_updatedata(&self, preserve: bool, new_data: u64) -> Self;
@@ -58,7 +58,7 @@ pub trait cap_arch_func {
 }
 impl cap_func for cap {
     fn update_data(&self, preserve: bool, new_data: u64) -> Self {
-        if self.isArchCap() {
+        if self.is_arch_cap() {
             return self.arch_updatedata(preserve, new_data);
         }
         match self.get_tag() {
@@ -85,7 +85,7 @@ impl cap_func for cap {
             cap_tag::cap_cnode_cap => {
                 let w = CNodeCapData::new(new_data as usize);
                 let guard_size = w.get_guard_size();
-                if guard_size + cap::cap_cnode_cap(self).get_capCNodeRadix() as usize > wordBits {
+                if guard_size + cap::cap_cnode_cap(self).get_capCNodeRadix() as usize > WORD_BITS {
                     return cap_null_cap::new().unsplay();
                 }
                 let guard = w.get_guard() & MASK!(guard_size);
@@ -101,17 +101,17 @@ impl cap_func for cap {
     fn get_cap_size_bits(&self) -> usize {
         match self.get_tag() {
             cap_tag::cap_untyped_cap => cap::cap_untyped_cap(self).get_capBlockSize() as usize,
-            cap_tag::cap_endpoint_cap => seL4_EndpointBits,
-            cap_tag::cap_notification_cap => seL4_NotificationBits,
+            cap_tag::cap_endpoint_cap => SEL4_ENDPOINT_BITS,
+            cap_tag::cap_notification_cap => SEL4_NOTIFICATION_BITS,
             cap_tag::cap_cnode_cap => {
-                cap::cap_cnode_cap(self).get_capCNodeRadix() as usize + seL4_SlotBits
+                cap::cap_cnode_cap(self).get_capCNodeRadix() as usize + SEL4_SLOT_BITS
             }
             cap_tag::cap_page_table_cap => PT_SIZE_BITS,
-            #[cfg(feature = "KERNEL_MCS")]
-            cap_tag::cap_reply_cap => seL4_ReplyBits,
-            #[cfg(not(feature = "KERNEL_MCS"))]
+            #[cfg(feature = "kernel_mcs")]
+            cap_tag::cap_reply_cap => SEL4_REPLY_BITS,
+            #[cfg(not(feature = "kernel_mcs"))]
             cap_tag::cap_reply_cap => 0,
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             cap_tag::cap_sched_context_cap => {
                 cap::cap_sched_context_cap(self).get_capSCSizeBits() as usize
             }
@@ -124,7 +124,7 @@ impl cap_func for cap {
         if self.get_tag() == cap_tag::cap_vspace_cap {
             return true;
         }
-        #[cfg(not(feature = "KERNEL_MCS"))]
+        #[cfg(not(feature = "kernel_mcs"))]
         {
             matches!(
                 self.get_tag(),
@@ -139,7 +139,7 @@ impl cap_func for cap {
                     | cap_tag::cap_thread_cap
             )
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         {
             matches!(
                 self.get_tag(),
@@ -158,7 +158,7 @@ impl cap_func for cap {
         }
     }
 
-    fn isArchCap(&self) -> bool {
+    fn is_arch_cap(&self) -> bool {
         self.get_tag() as usize % 2 != 0
     }
 }
@@ -216,7 +216,7 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
             }
             false
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         cap_tag::cap_sched_context_cap => {
             if cap2.get_tag() == cap_tag::cap_sched_context_cap {
                 return (cap::cap_sched_context_cap(cap1).get_capSCPtr()
@@ -226,14 +226,14 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
             }
             false
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         cap_tag::cap_sched_control_cap => {
             if cap2.get_tag() == cap_tag::cap_sched_control_cap {
                 return true;
             }
             false
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         cap_tag::cap_reply_cap => {
             if cap2.get_tag() == cap_tag::cap_reply_cap {
                 return cap::cap_reply_cap(cap1).get_capReplyPtr()
@@ -242,7 +242,7 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
             false
         }
         _ => {
-            if cap1.isArchCap() && cap2.isArchCap() {
+            if cap1.is_arch_cap() && cap2.is_arch_cap() {
                 arch_same_region_as(cap1, cap2)
             } else {
                 false
@@ -255,7 +255,7 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
 ///  whether two kernel objects use the same memory region.
 ///
 /// A special case is that cap2 is a untyped_cap derived from cap1, in this case, cap1 will excute
-/// setUntypedCapAsFull, so you can assume cap1 and cap2 are different.
+/// set_untyped_cap_as_full, so you can assume cap1 and cap2 are different.
 pub fn same_object_as(cap1: &cap, cap2: &cap) -> bool {
     if cap1.get_tag() == cap_tag::cap_untyped_cap {
         return false;
@@ -265,7 +265,7 @@ pub fn same_object_as(cap1: &cap, cap2: &cap) -> bool {
     {
         return false;
     }
-    if cap1.isArchCap() && cap2.isArchCap() {
+    if cap1.is_arch_cap() && cap2.is_arch_cap() {
         return arch_same_object_as(cap1, cap2);
     }
     same_region_as(cap1, cap2)
@@ -273,7 +273,7 @@ pub fn same_object_as(cap1: &cap, cap2: &cap) -> bool {
 
 /// 判断一个`capability`是否是可撤销的
 pub fn is_cap_revocable(derived_cap: &cap, src_cap: &cap) -> bool {
-    if derived_cap.isArchCap() {
+    if derived_cap.is_arch_cap() {
         return derived_cap.arch_is_cap_revocable(src_cap);
     }
 

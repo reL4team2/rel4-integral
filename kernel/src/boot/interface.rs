@@ -38,7 +38,7 @@ pub fn rust_try_init_kernel(
     )
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn rust_try_init_kernel_secondary_core(hart_id: usize, core_id: usize) -> bool {
@@ -47,7 +47,7 @@ pub fn rust_try_init_kernel_secondary_core(hart_id: usize, core_id: usize) -> bo
 }
 
 #[no_mangle]
-pub fn tcbSchedEnqueue(tcb: *mut tcb_t) {
+pub fn tcb_sched_enqueue(tcb: *mut tcb_t) {
     // panic!("should not be invoke!");
     unsafe {
         (*tcb).sched_enqueue();
@@ -55,7 +55,7 @@ pub fn tcbSchedEnqueue(tcb: *mut tcb_t) {
 }
 
 #[no_mangle]
-pub fn switchToIdleThread() {
+pub fn switch_to_idle_thread() {
     // panic!("should not be invoke!");
     let _ = get_idle_thread().set_vm_root();
     set_current_thread(get_idle_thread());

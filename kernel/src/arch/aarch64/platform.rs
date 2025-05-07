@@ -1,4 +1,4 @@
-use crate::arch::aarch64::fpu::disableFpu;
+use crate::arch::aarch64::fpu::disable_fpu;
 use aarch64_cpu::registers::TPIDR_EL1;
 use aarch64_cpu::registers::{Writeable, CNTKCTL_EL1};
 use core::arch::asm;
@@ -14,12 +14,11 @@ use crate::boot::{
     avail_p_regs_addr, avail_p_regs_size, paddr_to_pptr_reg, res_reg, reserve_region,
     rust_init_freemem,
 };
-use crate::structures::*;
-use crate::utils::{fpsimd_HWCapTest, setVTable};
+use crate::utils::{fpsime_hw_cap_test, set_vtable};
 use log::debug;
 use sel4_vspace::*;
 
-use super::arm_gic::gic_v2::gic_v2::{cpu_initLocalIRQController, dist_init};
+use super::arm_gic::gic_v2::gic_v2::{cpu_init_local_irq_controller, dist_init};
 
 #[allow(unused)]
 pub fn init_cpu() -> bool {
@@ -27,7 +26,7 @@ pub fn init_cpu() -> bool {
 
     // CPU's exception vector table
     unsafe {
-        setVTable(ffi_addr!(arm_vector_table));
+        set_vtable(ffi_addr!(arm_vector_table));
     }
 
     // Setup kernel stack pointer.
@@ -36,31 +35,33 @@ pub fn init_cpu() -> bool {
             + sel4_common::BIT!(CONFIG_KERNEL_STACK_BITS)
     };
 
-    #[cfg(feature = "ENABLE_SMP")]
-    { stack_top |= cpu_id() }
+    #[cfg(feature = "enable_smp")]
+    {
+        stack_top |= cpu_id()
+    }
 
     // CPU's exception vector table
     unsafe {
-        setVTable(ffi_addr!(arm_vector_table));
+        set_vtable(ffi_addr!(arm_vector_table));
     }
     TPIDR_EL1.set(stack_top as u64);
 
-    let haveHWFPU = fpsimd_HWCapTest();
+    let haveHWFPU = fpsime_hw_cap_test();
 
     if haveHWFPU {
         unsafe {
-            disableFpu();
+            disable_fpu();
         }
     }
 
     // initLocalIRQController
-    cpu_initLocalIRQController();
+    cpu_init_local_irq_controller();
 
     // armv_init_user_access
     armv_init_user_access();
 
     unsafe {
-        timer.initTimer();
+        timer.init_timer();
     }
     true
 }
@@ -109,16 +110,16 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
     unsafe { rust_init_freemem(avail_p_regs_size, avail_p_regs_addr, index, res_reg.clone()) }
 }
 
-pub fn cleanInvalidateL1Caches() {
+pub fn clean_invalidate_l1_caches() {
     unsafe {
         asm!("dsb sy;"); // DSB SY
-        cleanInvalidate_D_PoC();
+        clean_invalidate_d_pos();
         asm!("dsb sy;"); // DSB SY
-        invalidate_I_PoU();
+        invalidate_i_pou();
         asm!("dsb sy;"); // DSB SY
     }
 }
-pub fn invalidateLocalTLB() {
+pub fn invalidate_local_tlb() {
     unsafe {
         asm!("dsb sy;"); // DSB SY
         asm!("tlbi vmalle1;");
@@ -127,22 +128,22 @@ pub fn invalidateLocalTLB() {
     }
 }
 
-fn cleanInvalidate_D_PoC() {
-    let clid = readCLID();
+fn clean_invalidate_d_pos() {
+    let clid = read_clid();
     let loc = (clid >> 24) & (1 << 3 - 1);
     for l in 0..loc {
         if ((clid >> l * 3) & ((1 << 3) - 1)) > 1 {
-            cleanInvalidate_D_by_level(l);
+            clean_invalidate_d_by_level(l);
         }
     }
 }
 
 #[inline]
-fn cleanInvalidate_D_by_level(level: usize) {
-    let lsize = readCacheSize(level);
+fn clean_invalidate_d_by_level(level: usize) {
+    let lsize = read_cache_size(level);
     let lbits = (lsize & (1 << 3 - 1)) + 4;
     let assoc = ((lsize >> 3) & (1 << 10 - 1)) + 1;
-    let assoc_bits = wordBits - (assoc - 1).leading_zeros() as usize;
+    let assoc_bits = WORD_BITS - (assoc - 1).leading_zeros() as usize;
     let nsets = ((lsize >> 13) & (1 << 15 - 1)) + 1;
 
     for w in 0..assoc {
@@ -158,13 +159,13 @@ fn cleanInvalidate_D_by_level(level: usize) {
     }
 }
 
-fn invalidate_I_PoU() {
+fn invalidate_i_pou() {
     unsafe {
         asm!("ic iallu;");
         asm!("isb;");
     }
 }
-fn readCLID() -> usize {
+fn read_clid() -> usize {
     let mut clid: usize;
     unsafe {
         asm!(
@@ -175,7 +176,7 @@ fn readCLID() -> usize {
     clid
 }
 
-fn readCacheSize(level: usize) -> usize {
+fn read_cache_size(level: usize) -> usize {
     let mut size: usize;
     let mut csselr_old: usize;
     unsafe {
@@ -198,20 +199,20 @@ fn readCacheSize(level: usize) -> usize {
     }
     size
 }
-
+#[allow(unused_mut)]
 fn armv_init_user_access() {
     let mut val: usize = 0;
-    #[cfg(feature = "ENABLE_ARM_PCNT")]
+    #[cfg(feature = "enable_arm_pcnt")]
     {
         val |= sel4_common::BIT!(0);
     }
-    #[cfg(feature = "ENABLE_ARM_PTMR")]
+    #[cfg(feature = "enable_arm_ptmr")]
     {
         val |= sel4_common::BIT!(9);
     }
     CNTKCTL_EL1.set(val as u64);
 }
 
-pub fn initIRQController() {
+pub fn init_irq_controller() {
     dist_init();
 }

@@ -2,7 +2,7 @@ diff --git a/kernel/src/arch/aarch64/boot.rs b/kernel/src/arch/aarch64/boot.rs
 index 3eded36..74b80c3 100644
 --- a/kernel/src/arch/aarch64/boot.rs
 +++ b/kernel/src/arch/aarch64/boot.rs
-@@ -9,8 +9,8 @@ use crate::arch::aarch64::platform::{cleanInvalidateL1Caches, init_cpu, invalida
+@@ -9,8 +9,8 @@ use crate::arch::aarch64::platform::{clean_invalidate_l1_caches, init_cpu, invalida
  use crate::{
      arch::init_freemem,
      boot::{
@@ -12,7 +12,7 @@ index 3eded36..74b80c3 100644
 +        init_core_state, init_dtb, ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
      },
      config::{BI_FRAME_SIZE_BITS, USER_TOP},
-     structures::{p_region_t, seL4_SlotRegion, v_region_t},
+     structures::{p_region_t, SlotRegion, v_region_t},
 @@ -26,6 +26,8 @@ pub fn try_init_kernel(
      dtb_phys_addr: usize,
      dtb_size: usize,
@@ -50,7 +50,7 @@ index 3eded36..74b80c3 100644
      }
 @@ -102,7 +114,18 @@ pub fn try_init_kernel(
          create_idle_thread();
-         cleanInvalidateL1Caches();
+         clean_invalidate_l1_caches();
          init_core_state(initial_thread);
 -        if !create_untypeds(&root_cnode_cap, boot_mem_reuse_reg) {
 +
@@ -133,7 +133,7 @@ index 1199737..e782e2a 100644
 -pub use untyped::create_untypeds;
 +pub use untyped::{create_untypeds, create_untypeds_for_region};
  
- #[cfg(feature = "ENABLE_SMP")]
+ #[cfg(feature = "enable_smp")]
  pub use utils::{provide_cap, write_slot};
 diff --git a/kernel/src/boot/untyped.rs b/kernel/src/boot/untyped.rs
 index af60762..c3272ba 100644

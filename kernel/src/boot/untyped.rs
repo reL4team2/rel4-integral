@@ -1,11 +1,11 @@
 use super::{ndks_boot, utils::*};
-use crate::structures::{p_region_t, region_t, seL4_SlotPos, seL4_SlotRegion, seL4_UntypedDesc};
+use crate::structures::{p_region_t, region_t, seL4_SlotPos, SlotRegion, UntypedDesc};
 
 use crate::{BIT, IS_ALIGNED, MASK};
 use log::debug;
-use sel4_common::{arch::config::seL4_MaxUntypedBits, utils::MAX_FREE_INDEX};
+use sel4_common::{arch::config::MAX_UNTYPED_BITS, utils::max_free_index};
 use sel4_common::{
-    sel4_config::seL4_MinUntypedBits,
+    sel4_config::SEL4_MIN_UNTYPED_BITS,
     structures_gen::{cap_cnode_cap, cap_untyped_cap},
 };
 
@@ -71,7 +71,7 @@ pub fn create_untypeds(root_cnode_cap: &cap_cnode_cap, boot_mem_reuse_reg: regio
                 );
             }
         }
-        (*ndks_boot.bi_frame).untyped = seL4_SlotRegion {
+        (*ndks_boot.bi_frame).untyped = SlotRegion {
             start: first_untyped_slot,
             end: ndks_boot.slot_pos_cur,
         };
@@ -86,9 +86,9 @@ fn create_untypeds_for_region(
     first_untyped_slot: seL4_SlotPos,
 ) -> bool {
     while !is_reg_empty(&reg) {
-        let mut size_bits = seL4_WordBits - 1 - (reg.end - reg.start).leading_zeros() as usize;
-        if size_bits > seL4_MaxUntypedBits {
-            size_bits = seL4_MaxUntypedBits;
+        let mut size_bits = SEL4_WORD_BITS - 1 - (reg.end - reg.start).leading_zeros() as usize;
+        if size_bits > MAX_UNTYPED_BITS {
+            size_bits = MAX_UNTYPED_BITS;
         }
         if reg.start != 0 {
             let align_bits = reg.start.trailing_zeros() as usize;
@@ -96,7 +96,7 @@ fn create_untypeds_for_region(
                 size_bits = align_bits;
             }
         }
-        if size_bits >= seL4_MinUntypedBits {
+        if size_bits >= SEL4_MIN_UNTYPED_BITS {
             if !provide_untyped_cap(
                 root_cnode_cap,
                 device_memory,
@@ -119,7 +119,7 @@ fn provide_untyped_cap(
     size_bits: usize,
     first_untyped_slot: seL4_SlotPos,
 ) -> bool {
-    if size_bits > seL4_MaxUntypedBits || size_bits < seL4_MinUntypedBits {
+    if size_bits > MAX_UNTYPED_BITS || size_bits < SEL4_MIN_UNTYPED_BITS {
         debug!("Kernel init: Invalid untyped size {}", size_bits);
         return false;
     }
@@ -151,14 +151,14 @@ fn provide_untyped_cap(
     unsafe {
         let i = ndks_boot.slot_pos_cur - first_untyped_slot;
         if i < CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS {
-            (*ndks_boot.bi_frame).untypedList[i] = seL4_UntypedDesc {
+            (*ndks_boot.bi_frame).untypedList[i] = UntypedDesc {
                 paddr: pptr_to_paddr(pptr),
                 sizeBits: size_bits as u8,
                 isDevice: device_memory as u8,
                 padding: [0; 6],
             };
             let ut_cap = cap_untyped_cap::new(
-                MAX_FREE_INDEX(size_bits) as u64,
+                max_free_index(size_bits) as u64,
                 device_memory as u64,
                 size_bits as u64,
                 pptr as u64,

@@ -73,7 +73,7 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         args.push("--bin".into());
         args.push("rel4_kernel".into());
         args.push("--features".into());
-        args.push("BUILD_BINARY".into());
+        args.push("build_binary".into());
     } else {
         args.push("--lib".into());
     }
@@ -92,37 +92,37 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
     }
 
     if opts.mcs.unwrap_or(false) {
-        append_features(&mut args, "KERNEL_MCS".to_string());
+        append_features(&mut args, "kernel_mcs".to_string());
         marcos.push("KERNEL_MCS=true".to_string());
     }
 
     if opts.smc.unwrap_or(false) && target.contains("aarch64") {
-        append_features(&mut args, "ENABLE_SMC".to_string());
+        append_features(&mut args, "enable_smc".to_string());
         marcos.push("ALLOW_SMC_CALLS=true".to_string());
     }
 
     if opts.arm_pcnt && target.contains("aarch64") {
-        append_features(&mut args, "ENABLE_ARM_PCNT".to_string());
+        append_features(&mut args, "enable_arm_pcnt".to_string());
         marcos.push("EXPORT_PCNT_USER=true".to_string());
     }
 
     if opts.arm_ptmr && target.contains("aarch64") {
-        append_features(&mut args, "ENABLE_ARM_PTMR".to_string());
+        append_features(&mut args, "enable_arm_ptmr".to_string());
         marcos.push("EXPORT_PTMR_USER=true".to_string());
     }
 
     if opts.num_nodes > 1 {
-        append_features(&mut args, "ENABLE_SMP".to_string());
+        append_features(&mut args, "enable_smp".to_string());
         marcos.push(format!("MAX_NUM_NODES={}", opts.num_nodes));
     }
 
     //TODO: add fpu config according the opts
     //we think it's default open this option
-    append_features(&mut args, "HAVE_FPU".to_string());
+    append_features(&mut args, "have_fpu".to_string());
     marcos.push("HAVE_FPU=true".to_string());
     match opts.platform.as_str() {
         "spike" => {
-            append_features(&mut args, "RISCV_EXT_D".to_string());
+            append_features(&mut args, "riscv_ext_d".to_string());
             marcos.push("RISCV_EXT_D=true".to_string())
         }
         "qemu-arm-virt" => {}

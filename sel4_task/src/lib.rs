@@ -10,18 +10,18 @@
 #![allow(non_upper_case_globals)]
 
 mod deps;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 mod ffi;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub mod sched_context;
 mod scheduler;
 mod structures;
 pub mod tcb;
 mod tcb_queue;
 mod thread_state;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub use ffi::*;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub mod reply;
 pub use scheduler::*;
 pub use structures::*;

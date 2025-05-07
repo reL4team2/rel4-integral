@@ -135,7 +135,7 @@ block smc_cap {
 }
 #endif
 
--- NB: odd numbers are arch caps (see isArchCap())
+-- NB: odd numbers are arch caps (see is_arch_cap())
 tagged_union cap capType {
     -- 5-bit tag caps
     tag null_cap                    0

@@ -3,15 +3,16 @@ mod c_traps;
 mod exception;
 mod platform;
 
+#[cfg(feature = "have_fpu")]
 pub mod fpu;
 pub use boot::try_init_kernel;
-pub use c_traps::{restore_user_context, fastpath_restore};
+pub use c_traps::{fastpath_restore, restore_user_context};
 use core::arch::asm;
 pub use platform::{init_cpu, init_freemem};
 
-pub use exception::handleUnknownSyscall;
+pub use exception::handle_unknown_syscall;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub use boot::try_init_kernel_secondary_core;
 
 pub fn read_stval() -> usize {

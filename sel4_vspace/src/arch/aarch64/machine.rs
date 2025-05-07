@@ -3,12 +3,12 @@ use core::arch::asm;
 use aarch64_cpu::registers::{Writeable, TTBR0_EL1, TTBR1_EL1};
 use sel4_common::{sel4_config::CONFIG_L1_CACHE_LINE_SIZE_BITS, MASK, ROUND_DOWN};
 #[inline]
-pub fn setCurrentKernelVSpaceRoot(val: usize) {
+pub fn set_current_kernel_vspace_root(val: usize) {
     TTBR1_EL1.set(val as _);
 }
 
 #[inline]
-pub fn setCurrentUserVSpaceRoot(val: usize) {
+pub fn set_current_user_vspace_root(val: usize) {
     TTBR0_EL1.set(val as _);
     // FIXME: use aisd instead of flush tlb
     unsafe { core::arch::asm!("tlbi vmalle1; dsb sy; isb") };

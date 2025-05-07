@@ -1,22 +1,22 @@
 //! `CSpace Table Entry`相关操作的具体实现，包含`cte`链表的插入删除等。
 use super::{
     capability::{is_cap_revocable, same_object_as, same_region_as},
-    deps::{finaliseCap, post_cap_deletion, preemptionPoint},
+    deps::{finalise_cap, post_cap_deletion, preemption_point},
     structures::{finaliseSlot_ret, resolveAddressBits_ret_t},
 };
 use crate::capability::{
     cap_func,
-    zombie::{capCyclicZombie, zombie_func},
+    zombie::{cap_cyclic_zombie, zombie_func},
 };
 use core::intrinsics::{likely, unlikely};
 use core::ptr;
-use sel4_common::utils::{convert_to_option_mut_type_ref, MAX_FREE_INDEX};
+use sel4_common::utils::{convert_to_option_mut_type_ref, max_free_index};
 use sel4_common::{
     sel4_bitfield_types::Bitfield,
     structures_gen::{cap, cap_null_cap, cap_tag, mdb_node},
 };
 use sel4_common::{
-    sel4_config::wordRadix,
+    sel4_config::WORD_RADIX,
     structures::exception_t,
     utils::{convert_to_mut_type_ref, convert_to_type_ref},
     MASK,
@@ -47,7 +47,7 @@ impl cte_t {
     }
 
     pub fn derive_cap(&self, capability: &cap) -> deriveCap_ret {
-        if capability.isArchCap() {
+        if capability.is_arch_cap() {
             return self.arch_derive_cap(capability);
         }
         let mut ret = deriveCap_ret {
@@ -67,7 +67,7 @@ impl cte_t {
                     ret.capability = capability.clone();
                 }
             }
-            #[cfg(not(feature = "KERNEL_MCS"))]
+            #[cfg(not(feature = "kernel_mcs"))]
             cap_tag::cap_reply_cap => {
                 ret.capability = cap_null_cap::new().unsplay();
             }
@@ -117,7 +117,7 @@ impl cte_t {
                 badge == cap::cap_notification_cap(&next.capability).get_capNtfnBadge()
                     && next.cteMDBNode.get_mdbFirstBadged() == 0
             }
-            #[cfg(feature = "ENABLE_SMC")]
+            #[cfg(feature = "enable_smc")]
             cap_tag::cap_smc_cap => {
                 let badge = cap::cap_smc_cap(&self.capability).get_capSMCBadge();
                 if badge == 0 {
@@ -164,17 +164,17 @@ impl cte_t {
 
     ///清除`cte slot`中的`capability`
     /// 因为涉及到几个函数之间的来回调用，不太好理解，所以用一个`CNode cap`删除的例子来帮助理解，
-    /// 假设现在有一个`CNode`的`slot`要执行`delete_all(true)`，会先调用`finalise(true)`，在`finaliseCap`中，
+    /// 假设现在有一个`CNode`的`slot`要执行`delete_all(true)`，会先调用`finalise(true)`，在`finalise_cap`中，
     /// 会将`cnode_cap`设置为`zombie_cap`，然后进入`reduce_zombie`,
     /// `reduce_zombie`会调用最后一个`slot`的`delete_all(false)`函数，然后再次进入`finalise(false)`
-    /// 假设最后一个`slot`存储的`cap`为一个二级`cnode_cap`，则会在`finaliseCap`中生成一个新的`zombie_cap`，
+    /// 假设最后一个`slot`存储的`cap`为一个二级`cnode_cap`，则会在`finalise_cap`中生成一个新的`zombie_cap`，
     /// 之后再次进入`reduce_zombie(false)`，在其中进入`else`分支，
     /// 执行`cteswap`将二级`cnode_cap`中的第一个`cap`与二级`cnode_cap`进行交换，使得二级`cnode_cap`指向自身，变成`cyclicZombie`。
     /// 然后继续清除即可。至于二级`cnode_cap`其实无法被清除。
     unsafe fn finalise(&mut self, immediate: bool) -> finaliseSlot_ret {
         let mut ret = finaliseSlot_ret::default();
         while self.capability.get_tag() != cap_tag::cap_null_cap {
-            let fc_ret = finaliseCap(&self.capability, self.is_final_cap(), false);
+            let fc_ret = finalise_cap(&self.capability, self.is_final_cap(), false);
             if cap_removable(&fc_ret.remainder, self) {
                 ret.status = exception_t::EXCEPTION_NONE;
                 ret.success = true;
@@ -182,7 +182,7 @@ impl cte_t {
                 return ret;
             }
             self.capability = fc_ret.clone().remainder;
-            if !immediate && capCyclicZombie(&fc_ret.remainder, self) {
+            if !immediate && cap_cyclic_zombie(&fc_ret.remainder, self) {
                 ret.status = exception_t::EXCEPTION_NONE;
                 ret.success = false;
                 ret.cleanupInfo = fc_ret.cleanupInfo;
@@ -196,7 +196,7 @@ impl cte_t {
                 return ret;
             }
 
-            let status = preemptionPoint();
+            let status = preemption_point();
             if exception_t::EXCEPTION_NONE != status {
                 ret.status = status;
                 ret.success = false;
@@ -223,7 +223,7 @@ impl cte_t {
     /// 将当前的`cte slot`中的能力清除,要求`cap`是可删除的
     pub fn delete_one(&mut self) {
         if self.capability.get_tag() != cap_tag::cap_null_cap {
-            let fc_ret = unsafe { finaliseCap(&self.capability, self.is_final_cap(), true) };
+            let fc_ret = unsafe { finalise_cap(&self.capability, self.is_final_cap(), true) };
             assert!(
                 cap_removable(&fc_ret.remainder, self)
                     && fc_ret.cleanupInfo.get_tag() == cap_tag::cap_null_cap
@@ -341,7 +341,7 @@ impl cte_t {
                 return status;
             }
 
-            status = unsafe { preemptionPoint() };
+            status = unsafe { preemption_point() };
             if status != exception_t::EXCEPTION_NONE {
                 return status;
             }
@@ -367,7 +367,7 @@ pub fn cte_insert(new_cap: &cap, src_slot: &mut cte_t, dest_slot: &mut cte_t) {
     /* Haskell error: "cteInsert: mdb entry must be empty" */
     assert!(dest_slot.cteMDBNode.get_mdbNext() == 0 && dest_slot.cteMDBNode.get_mdbPrev() == 0);
 
-    setUntypedCapAsFull(srcCap, new_cap, src_slot);
+    set_untyped_cap_as_full(srcCap, new_cap, src_slot);
 
     dest_slot.capability = new_cap.clone();
     dest_slot.cteMDBNode = newMDB.clone();
@@ -477,14 +477,14 @@ fn cap_removable(capability: &cap, slot: *mut cte_t) -> bool {
             n == 0 || (n == 1 && slot == z_slot)
         }
         _ => {
-            panic!("Invalid cap type , finaliseCap should only return Zombie or NullCap");
+            panic!("Invalid cap type , finalise_cap should only return Zombie or NullCap");
         }
     }
 }
 
 /// 如果`srcCap`和`newCap`都是`UntypedCap`，并且指向同一块内存，内存大小也相同，就将`srcCap`记录为没有剩余空间。
 /// 自我认为是防止同一块内存空间被分配两次
-fn setUntypedCapAsFull(srcCap: &cap, newCap: &cap, srcSlot: &mut cte_t) {
+fn set_untyped_cap_as_full(srcCap: &cap, newCap: &cap, srcSlot: &mut cte_t) {
     if srcCap.get_tag() == cap_tag::cap_untyped_cap && newCap.get_tag() == cap_tag::cap_untyped_cap
     {
         assert_eq!(srcSlot.capability.get_tag(), cap_tag::cap_untyped_cap);
@@ -492,7 +492,7 @@ fn setUntypedCapAsFull(srcCap: &cap, newCap: &cap, srcSlot: &mut cte_t) {
             && cap::cap_untyped_cap(srcCap).get_capBlockSize()
                 == cap::cap_untyped_cap(newCap).get_capBlockSize()
         {
-            cap::cap_untyped_cap(&srcSlot.capability).set_capFreeIndex(MAX_FREE_INDEX(
+            cap::cap_untyped_cap(&srcSlot.capability).set_capFreeIndex(max_free_index(
                 cap::cap_untyped_cap(srcCap).get_capBlockSize() as usize,
             ) as u64);
         }
@@ -527,7 +527,7 @@ pub fn resolve_address_bits(
         let levelBits = radixBits + guardBits;
         assert_ne!(levelBits, 0);
         let capGuard = cnode_cap.get_capCNodeGuard() as usize;
-        let guard = (cap_ptr >> ((n_bits - guardBits) & MASK!(wordRadix))) & MASK!(guardBits);
+        let guard = (cap_ptr >> ((n_bits - guardBits) & MASK!(WORD_RADIX))) & MASK!(guardBits);
         if unlikely(guardBits > n_bits || guard != capGuard) {
             ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
             return ret;

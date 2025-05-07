@@ -1,34 +1,34 @@
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_common::sel4_config::seL4_MinSchedContextBits;
+#[cfg(feature = "kernel_mcs")]
+use sel4_common::sel4_config::SEL4_MIN_SCHED_CONTEXT_BITS;
 use sel4_common::{
-    sel4_config::{seL4_TCBBits, CONFIG_MAX_NUM_NODES},
+    sel4_config::{CONFIG_MAX_NUM_NODES, SEL4_TCB_BITS},
     BIT,
 };
 #[repr(align(2048))]
 pub struct ksIdleThreadTCB_data {
-    pub data: [[u8; BIT!(seL4_TCBBits)]; CONFIG_MAX_NUM_NODES],
+    pub data: [[u8; BIT!(SEL4_TCB_BITS)]; CONFIG_MAX_NUM_NODES],
 }
 
-// which should align to BIT!(seL4_MinSchedContextBits)
+// which should align to BIT!(SEL4_MIN_SCHED_CONTEXT_BITS)
 #[repr(align(128))]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub struct ksIdleThreadSC_data {
-    pub data: [[u8; CONFIG_MAX_NUM_NODES]; BIT!(seL4_MinSchedContextBits)],
+    pub data: [[u8; CONFIG_MAX_NUM_NODES]; BIT!(SEL4_MIN_SCHED_CONTEXT_BITS)],
 }
 
 #[no_mangle]
 #[link_section = "._idle_thread"]
 pub static mut ksIdleThreadTCB: ksIdleThreadTCB_data = ksIdleThreadTCB_data {
-    data: [[0; BIT!(seL4_TCBBits)]; CONFIG_MAX_NUM_NODES],
+    data: [[0; BIT!(SEL4_TCB_BITS)]; CONFIG_MAX_NUM_NODES],
 };
 
 #[no_mangle]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub static mut ksIdleThreadSC: ksIdleThreadSC_data = ksIdleThreadSC_data {
-    data: [[0; CONFIG_MAX_NUM_NODES]; BIT!(seL4_MinSchedContextBits)],
+    data: [[0; CONFIG_MAX_NUM_NODES]; BIT!(SEL4_MIN_SCHED_CONTEXT_BITS)],
 };
 
 extern "C" {
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     pub fn doMaskReschedule(mask: usize);
 }

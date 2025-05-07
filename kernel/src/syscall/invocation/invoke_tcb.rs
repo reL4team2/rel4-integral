@@ -3,12 +3,12 @@ use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
 use sel4_common::structures_gen::{cap, cap_thread_cap, notification};
 use sel4_common::{
-    sel4_config::{tcbBuffer, tcbCTable, tcbVTable},
+    sel4_config::{TCB_BUFFER, TCB_CTABLE, TCB_VTABLE},
     structures::{exception_t, seL4_IPCBuffer},
 };
 use sel4_cspace::interface::{cte_insert, cte_t, same_object_as};
 use sel4_ipc::Transfer;
-use sel4_task::{get_currenct_thread, rescheduleRequired, set_thread_state, tcb_t, ThreadState};
+use sel4_task::{get_currenct_thread, reschedule_required, set_thread_state, tcb_t, ThreadState};
 
 use crate::syscall::{do_bind_notification, safe_unbind_notification, utils::get_syscall_arg};
 
@@ -29,8 +29,8 @@ pub fn invoke_tcb_read_registers(
         let mut op_ipc_buffer = thread.lookup_mut_ipc_buffer(true);
         thread.tcbArch.set_register(ArchReg::Badge, 0);
         let mut i: usize = 0;
-        while i < n && i < frameRegNum && i < msgRegisterNum {
-            // setRegister(thread, msgRegister[i], getRegister(src, frameRegisters[i]));
+        while i < n && i < FRAME_REG_NUM && i < MSG_REGISTER_NUM {
+            // setRegister(thread, MSG_REGISTER[i], getRegister(src, FRAME_REGISTERS[i]));
             thread
                 .tcbArch
                 .set_register(ArchReg::Msg(i), src.tcbArch.get_register(ArchReg::Frame(i)));
@@ -38,25 +38,25 @@ pub fn invoke_tcb_read_registers(
         }
 
         if let Some(ipc_buffer) = op_ipc_buffer.as_deref_mut() {
-            while i < n && i < frameRegNum {
+            while i < n && i < FRAME_REG_NUM {
                 ipc_buffer.msg[i] = src.tcbArch.get_register(ArchReg::Frame(i));
                 i += 1;
             }
         }
         let j = i;
         i = 0;
-        while i < gpRegNum && i + frameRegNum < n && i + frameRegNum < msgRegisterNum {
+        while i < GP_REG_NUM && i + FRAME_REG_NUM < n && i + FRAME_REG_NUM < MSG_REGISTER_NUM {
             thread.tcbArch.set_register(
-                // msgRegister[i + frameRegNum],
-                ArchReg::Msg(i + frameRegNum),
+                // MSG_REGISTER[i + FRAME_REG_NUM],
+                ArchReg::Msg(i + FRAME_REG_NUM),
                 src.tcbArch.get_register(ArchReg::GP(i)),
             );
             i += 1;
         }
 
         if let Some(ipc_buffer) = op_ipc_buffer {
-            while i < gpRegNum && i + frameRegNum < n {
-                ipc_buffer.msg[i + frameRegNum] = src.tcbArch.get_register(ArchReg::GP(i));
+            while i < GP_REG_NUM && i + FRAME_REG_NUM < n {
+                ipc_buffer.msg[i + FRAME_REG_NUM] = src.tcbArch.get_register(ArchReg::GP(i));
                 i += 1;
             }
         }
@@ -76,25 +76,29 @@ pub fn invoke_tcb_write_registers(
     _arch: usize,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    if n > frameRegNum + gpRegNum {
-        n = frameRegNum + gpRegNum;
+    if n > FRAME_REG_NUM + GP_REG_NUM {
+        n = FRAME_REG_NUM + GP_REG_NUM;
     }
 
     let mut i = 0;
-    while i < frameRegNum && i < n {
+    while i < FRAME_REG_NUM && i < n {
         dest.tcbArch
             .set_register(ArchReg::Frame(i), get_syscall_arg(i + 2, buffer));
         i += 1;
     }
     i = 0;
-    while i < gpRegNum && i + frameRegNum < n {
-        dest.tcbArch
-            .set_register(ArchReg::GP(i), get_syscall_arg(i + frameRegNum + 2, buffer));
+    while i < GP_REG_NUM && i + FRAME_REG_NUM < n {
+        dest.tcbArch.set_register(
+            ArchReg::GP(i),
+            get_syscall_arg(i + FRAME_REG_NUM + 2, buffer),
+        );
         i += 1;
     }
 
-    dest.tcbArch
-        .set_register(ArchReg::NextIP, dest.tcbArch.get_register(ArchReg::FaultIP));
+    dest.tcbArch.set_register(
+        ArchReg::NEXT_IP,
+        dest.tcbArch.get_register(ArchReg::FAULT_IP),
+    );
 
     if resumeTarget != 0 {
         // cancel_ipc(dest);
@@ -104,7 +108,7 @@ pub fn invoke_tcb_write_registers(
         dest.restart();
     }
     if dest.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -129,13 +133,13 @@ pub fn invoke_tcb_copy_registers(
         dest.restart();
     }
     if transferFrame != 0 {
-        for i in 0..gpRegNum {
+        for i in 0..GP_REG_NUM {
             dest.tcbArch
                 .set_register(ArchReg::GP(i), src.tcbArch.get_register(ArchReg::GP(i)));
         }
     }
     if dest.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -169,7 +173,7 @@ pub fn invoke_tcb_set_priority(target: &mut tcb_t, prio: usize) -> exception_t {
     target.set_priority(prio);
     exception_t::EXCEPTION_NONE
 }
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn invoke_tcb_set_space(
     target: &mut tcb_t,
     slot: &mut cte_t,
@@ -180,8 +184,8 @@ pub fn invoke_tcb_set_space(
     vroot_src_slot: &mut cte_t,
 ) -> exception_t {
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
-    target.tcbFaultHandler = fault_ep;
-    let root_slot = target.get_cspace_mut_ref(tcbCTable);
+    target.TCB_FAULT_HANDLER = fault_ep;
+    let root_slot = target.get_cspace_mut_ref(TCB_CTABLE);
     let status = root_slot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;
@@ -192,7 +196,7 @@ pub fn invoke_tcb_set_space(
         cte_insert(croot_new_cap, croot_src_slot, root_slot);
     }
 
-    let root_vslot = target.get_cspace_mut_ref(tcbVTable);
+    let root_vslot = target.get_cspace_mut_ref(TCB_VTABLE);
     let status = root_vslot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;
@@ -204,9 +208,9 @@ pub fn invoke_tcb_set_space(
     }
     exception_t::EXCEPTION_NONE
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 #[no_mangle]
-pub fn installTCBCap(
+pub fn install_tcb_cap(
     target: &mut tcb_t,
     tCap: &cap,
     slot: &mut cte_t,
@@ -224,7 +228,7 @@ pub fn installTCBCap(
     }
     return e;
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn invoke_tcb_thread_control_caps(
     target: &mut tcb_t,
     slot: &mut cte_t,
@@ -239,17 +243,17 @@ pub fn invoke_tcb_thread_control_caps(
     updateFlags: usize,
 ) -> exception_t {
     use sel4_common::sel4_config::{
-        tcbFaultHandler, tcbTimeoutHandler, thread_control_caps_update_fault,
-        thread_control_caps_update_space, thread_control_caps_update_timeout,
+        TCB_FAULT_HANDLER, TCB_TIMEOUT_HANDLER, THREAD_CONTROL_CAPS_UPDATE_FAULT,
+        THREAD_CONTROL_CAPS_UPDATE_SPACE, THREAD_CONTROL_CAPS_UPDATE_TIMEOUT,
     };
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
-    if updateFlags & thread_control_caps_update_fault != 0 {
+    if updateFlags & THREAD_CONTROL_CAPS_UPDATE_FAULT != 0 {
         if let Some(fh_slot) = fh_srcSlot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
-                tcbFaultHandler,
+                TCB_FAULT_HANDLER,
                 fh_newCap,
                 fh_slot,
             );
@@ -258,13 +262,13 @@ pub fn invoke_tcb_thread_control_caps(
             }
         }
     }
-    if updateFlags & thread_control_caps_update_timeout != 0 {
+    if updateFlags & THREAD_CONTROL_CAPS_UPDATE_TIMEOUT != 0 {
         if let Some(th_slot) = th_srcSlot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
-                tcbTimeoutHandler,
+                TCB_TIMEOUT_HANDLER,
                 th_newCap,
                 th_slot,
             );
@@ -273,13 +277,13 @@ pub fn invoke_tcb_thread_control_caps(
             }
         }
     }
-    if updateFlags & thread_control_caps_update_space != 0 {
+    if updateFlags & THREAD_CONTROL_CAPS_UPDATE_SPACE != 0 {
         if let Some(croot_slot) = croot_src_slot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
-                tcbCTable,
+                TCB_CTABLE,
                 croot_new_cap,
                 croot_slot,
             );
@@ -288,11 +292,11 @@ pub fn invoke_tcb_thread_control_caps(
             }
         }
         if let Some(vroot_slot) = vroot_src_slot {
-            let e = installTCBCap(
+            let e = install_tcb_cap(
                 target,
                 &target_cap,
                 slot,
-                tcbVTable,
+                TCB_VTABLE,
                 vroot_new_cap,
                 vroot_slot,
             );
@@ -302,8 +306,8 @@ pub fn invoke_tcb_thread_control_caps(
         }
     }
 
-    // target.tcbFaultHandler = fault_ep;
-    // let root_slot = target.get_cspace_mut_ref(tcbCTable);
+    // target.TCB_FAULT_HANDLER = fault_ep;
+    // let root_slot = target.get_cspace_mut_ref(TCB_CTABLE);
     // let status = root_slot.delete_all(true);
     // if status != exception_t::EXCEPTION_NONE {
     //     return status;
@@ -314,7 +318,7 @@ pub fn invoke_tcb_thread_control_caps(
     //     cte_insert(croot_new_cap, croot_src_slot, root_slot);
     // }
 
-    // let root_vslot = target.get_cspace_mut_ref(tcbVTable);
+    // let root_vslot = target.get_cspace_mut_ref(TCB_VTABLE);
     // let status = root_vslot.delete_all(true);
     // if status != exception_t::EXCEPTION_NONE {
     //     return status;
@@ -335,7 +339,7 @@ pub fn invoke_tcb_set_ipc_buffer(
     buffer_src_slot: Option<&mut cte_t>,
 ) -> exception_t {
     let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
-    let buffer_slot = target.get_cspace_mut_ref(tcbBuffer);
+    let buffer_slot = target.get_cspace_mut_ref(TCB_BUFFER);
     let status = buffer_slot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;
@@ -349,7 +353,7 @@ pub fn invoke_tcb_set_ipc_buffer(
         }
     }
     if target.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
@@ -370,12 +374,12 @@ pub fn invoke_tcb_unbind_notification(tcb: &mut tcb_t) -> exception_t {
 pub fn invoke_tcb_set_tls_base(thread: &mut tcb_t, base: usize) -> exception_t {
     thread.tcbArch.set_register(ArchReg::TlsBase, base);
     if thread.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[inline]
 pub fn invoke_tcb_set_affinity(thread: &mut tcb_t, affinitiy: usize) -> exception_t {
     thread.sched_dequeue();
@@ -389,7 +393,7 @@ pub fn invoke_tcb_set_affinity(thread: &mut tcb_t, affinitiy: usize) -> exceptio
     }
 
     if thread.is_current() {
-        rescheduleRequired();
+        reschedule_required();
     }
     exception_t::EXCEPTION_NONE
 }

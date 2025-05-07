@@ -1,10 +1,10 @@
 use crate::sel4_config::{
-    seL4_HugePageBits, seL4_LargePageBits, seL4_PageBits, RISCV_4K_Page, RISCV_Giga_Page,
-    RISCV_Mega_Page,
+    RISCV_4K_PAGE, RISCV_GIGA_PAGE, RISCV_MEGA_PAGE, SEL4_HUGE_PAGE_BITS, SEL4_LARGE_PAGE_BITS,
+    SEL4_PAGE_BITS,
 };
 
 /// Represents the type of an object.
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ObjectType {
     UnytpedObject = 0,
@@ -18,7 +18,7 @@ pub enum ObjectType {
     MegaPageObject = 7,
     PageTableObject = 8,
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ObjectType {
     UnytpedObject = 0,
@@ -38,10 +38,10 @@ pub enum ObjectType {
 impl ObjectType {
     pub fn arch_get_object_size(&self) -> usize {
         match *self {
-            ObjectType::GigaPageObject => seL4_HugePageBits,
-            ObjectType::NormalPageObject => seL4_PageBits,
-            ObjectType::MegaPageObject => seL4_LargePageBits,
-            ObjectType::PageTableObject => seL4_PageBits,
+            ObjectType::GigaPageObject => SEL4_HUGE_PAGE_BITS,
+            ObjectType::NormalPageObject => SEL4_PAGE_BITS,
+            ObjectType::MegaPageObject => SEL4_LARGE_PAGE_BITS,
+            ObjectType::PageTableObject => SEL4_PAGE_BITS,
             _ => panic!("unsupported cap type:{}", (*self) as usize),
         }
     }
@@ -53,9 +53,9 @@ impl ObjectType {
     /// The frame type of the object.
     pub fn get_frame_type(&self) -> usize {
         match self {
-            ObjectType::NormalPageObject => RISCV_4K_Page,
-            ObjectType::MegaPageObject => RISCV_Mega_Page,
-            ObjectType::GigaPageObject => RISCV_Giga_Page,
+            ObjectType::NormalPageObject => RISCV_4K_PAGE,
+            ObjectType::MegaPageObject => RISCV_MEGA_PAGE,
+            ObjectType::GigaPageObject => RISCV_GIGA_PAGE,
             _ => {
                 panic!("Invalid frame type: {:?}", self);
             }
