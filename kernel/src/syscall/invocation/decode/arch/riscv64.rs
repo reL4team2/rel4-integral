@@ -37,7 +37,7 @@ use crate::{
 
 use sel4_common::sel4_config::{SEL4_ASID_POOL_BITS, SEL4_RANGE_ERROR, USER_TOP};
 
-use sel4_common::platform::{maxIRQ, IRQ_INVALID};
+use sel4_common::platform::{MAX_IRQ, IRQ_INVALID};
 
 use crate::{
     interrupt::is_irq_active,
@@ -465,13 +465,13 @@ fn get_vspace(lvl1pt_cap: &cap) -> Option<(&mut PTE, usize)> {
 }
 
 pub(crate) fn check_irq(irq: usize) -> exception_t {
-    if irq > maxIRQ || irq == IRQ_INVALID {
+    if irq > MAX_IRQ || irq == IRQ_INVALID {
         unsafe {
             current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 1;
-            current_syscall_error.rangeErrorMax = maxIRQ;
+            current_syscall_error.rangeErrorMax = MAX_IRQ;
             debug!(
-                "Rejecting request for IRQ {}. IRQ is out of range [1..maxIRQ].",
+                "Rejecting request for IRQ {}. IRQ is out of range [1..MAX_IRQ].",
                 irq
             );
             return exception_t::EXCEPTION_SYSCALL_ERROR;

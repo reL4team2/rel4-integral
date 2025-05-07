@@ -1,7 +1,7 @@
 use crate::interrupt::*;
 use core::intrinsics::unlikely;
 use log::debug;
-use sel4_common::platform::{maxIRQ, IRQ_INVALID};
+use sel4_common::platform::{MAX_IRQ, IRQ_INVALID};
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
@@ -33,10 +33,10 @@ pub fn handle_interrupt_entry() -> exception_t {
 
 #[no_mangle]
 pub fn handle_interrput(irq: usize) {
-    if unlikely(irq > maxIRQ) {
+    if unlikely(irq > MAX_IRQ) {
         debug!(
             "Received IRQ {}, which is above the platforms MAX_IRQ of {}\n",
-            irq, maxIRQ
+            irq, MAX_IRQ
         );
         mask_interrupt(true, irq);
         ack_interrupt(irq);

@@ -25,7 +25,7 @@ use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_cspace::interface::*;
 
 use crate::utils::clear_memory;
-use sel4_common::platform::{maxIRQ, IRQ_INVALID, KERNEL_TIMER_IRQ};
+use sel4_common::platform::{MAX_IRQ, IRQ_INVALID, KERNEL_TIMER_IRQ};
 use sel4_common::sel4_config::*;
 
 use sel4_task::*;
@@ -639,7 +639,7 @@ fn create_domain_cap(root_cnode_cap: &cap_cnode_cap) {
 }
 
 fn init_irqs(root_cnode_cap: &cap_cnode_cap) {
-    for i in 0..maxIRQ + 1 {
+    for i in 0..MAX_IRQ + 1 {
         if i != IRQ_INVALID {
             set_irq_state_by_irq(IrqState::IRQInactive, i);
         }

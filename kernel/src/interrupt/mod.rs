@@ -22,14 +22,14 @@ use crate::ffi::{ipi_clear_irq, ipi_get_irq};
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
-        pub const MAX_IRQ: usize = (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + MAX_IRQ;
+        pub const INT_STATE_ARRAY_SIZE: usize = (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + MAX_IRQ;
     } else {
-        pub const MAX_IRQ: usize = maxIRQ;
+        pub const INT_STATE_ARRAY_SIZE: usize = MAX_IRQ;
     }
 }
 
 #[no_mangle]
-pub static mut int_state_irq_table: [usize; MAX_IRQ + 1] = [0; MAX_IRQ + 1];
+pub static mut int_state_irq_table: [usize; INT_STATE_ARRAY_SIZE + 1] = [0; INT_STATE_ARRAY_SIZE + 1];
 
 pub static mut int_state_irq_node_ptr: pptr_t = 0;
 
@@ -284,12 +284,12 @@ pub fn get_active_irq() -> usize {
     use crate::arch::arm_gic::gic_v2::{consts::IRQ_MASK, gic_v2::gic_int_ack};
     let irq = gic_int_ack();
 
-    if (irq & IRQ_MASK as usize) < maxIRQ {
+    if (irq & IRQ_MASK as usize) < MAX_IRQ {
         unsafe_ops!(active_irq[cpu_id()] = irq);
     }
 
     let local_irq = unsafe_ops!(active_irq[cpu_id()]) & IRQ_MASK as usize;
-    let irq2 = match local_irq < maxIRQ {
+    let irq2 = match local_irq < MAX_IRQ {
         true => local_irq,
         false => IRQ_INVALID,
     };
@@ -306,7 +306,7 @@ pub const fn is_irq_valid(_x: usize) -> bool {
             // TODO: not used now
             panic!("not used in aarch64")
         } else {
-            (_x <= maxIRQ) && (_x != IRQ_INVALID)
+            (_x <= MAX_IRQ) && (_x != IRQ_INVALID)
         }
     }
 }

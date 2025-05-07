@@ -25,7 +25,7 @@ pub const KERNEL_TIMER_IRQ: usize = 3;
 
 #[cfg(all(not(feature = "enable_smp")))]
 pub const KERNEL_TIMER_IRQ: usize = 1;
-pub const maxIRQ: usize = KERNEL_TIMER_IRQ;
+pub const MAX_IRQ: usize = KERNEL_TIMER_IRQ;
 pub const IRQ_INVALID: usize = 0;
 {% endif %}
 

@@ -6,7 +6,7 @@ use crate::syscall::{current_lookup_fault, get_syscall_arg, set_thread_state, un
 use crate::syscall::{ensure_empty_slot, get_currenct_thread, lookup_slot_for_cnode_op};
 use log::debug;
 use sel4_common::arch::maskVMRights;
-use sel4_common::platform::maxIRQ;
+use sel4_common::platform::MAX_IRQ;
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::{
     ASID_INVALID, ASID_LOW_BITS, N_ASID_POOLS, SEL4_ALIGNMENT_ERROR, SEL4_ASID_POOL_BITS,
@@ -1063,13 +1063,13 @@ fn decode_vspace_flush_invocation(
 // }
 
 pub(crate) fn check_irq(irq: usize) -> exception_t {
-    if irq > maxIRQ {
+    if irq > MAX_IRQ {
         unsafe {
             current_syscall_error._type = SEL4_RANGE_ERROR;
             current_syscall_error.rangeErrorMin = 0;
-            current_syscall_error.rangeErrorMax = maxIRQ;
+            current_syscall_error.rangeErrorMax = MAX_IRQ;
             debug!(
-                "Rejecting request for IRQ {}. IRQ is out of range [1..maxIRQ].",
+                "Rejecting request for IRQ {}. IRQ is out of range [1..MAX_IRQ].",
                 irq
             );
             return exception_t::EXCEPTION_SYSCALL_ERROR;
