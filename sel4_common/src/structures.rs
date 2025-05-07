@@ -124,7 +124,70 @@ cfg_if::cfg_if! {
             pub irq: usize,
             pub core: usize,
         }
+
+        use crate::platform::{NUM_PPI_MINUS_ONE, NUM_PPI};
+        use crate::sel4_config::CONFIG_MAX_NUM_NODES;
+
+        #[inline]
+        pub fn irq_to_idx(irq: irq_t) -> usize {
+            match irq.irq {
+                0..=NUM_PPI_MINUS_ONE => irq.core * NUM_PPI + irq.irq,
+                _ => (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + irq.irq,
+            }
+        }
+
+        #[inline]
+        pub fn current_cpu_irq_to_idx(irq: usize) -> usize {
+            match irq {
+                0..=NUM_PPI_MINUS_ONE => crate::utils::cpu_id() * NUM_PPI + irq,
+                _ => (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + irq,
+            }
+        }
+        
+        const LOCAL_PPI_MINUS_ONE: usize = CONFIG_MAX_NUM_NODES * NUM_PPI;
+        #[inline]
+        pub fn idx_to_irq(idx: usize) -> usize {
+            match idx {
+                0..=LOCAL_PPI_MINUS_ONE => idx % NUM_PPI,
+                _ => idx - (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI,
+            }
+        }
+
+        #[inline]
+        pub fn to_irqt(idx: usize, cpu: usize) -> irq_t {
+            irq_t {irq: idx, core: cpu}
+        }
+
+        #[inline]
+        pub fn irqt_to_irq(irq: irq_t) -> usize {
+            irq.irq
+        }
     } else {
         pub type irq_t = usize;
+
+        #[inline]
+        pub fn irq_to_idx(irq: irq_t) -> usize {
+            irq
+        }
+
+        #[inline]
+        pub fn current_cpu_irq_to_idx(irq: usize) -> usize {
+            irq
+        }
+
+        #[inline]
+        pub fn idx_to_irq(idx: usize) -> usize {
+            idx
+        }
+
+        #[inline]
+        pub fn tp_irqt(idx: usize, _cpu: usize) -> irq_t {
+            idx
+        }
+
+        #[inline]
+        pub fn irqt_to_irq(irq: irq_t) -> usize {
+            irq
+        }
     }
 }

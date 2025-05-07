@@ -276,7 +276,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 );
                 #[cfg(feature = "enable_smp")]
                 unsafe {
-                    crate::ffi::remoteTCBStall(tcb)
+                    crate::smp::ipi::remote_tcb_stall(tcb)
                 };
                 let cte_ptr = tcb.get_cspace_mut_ref(TCB_CTABLE);
                 safe_unbind_notification(tcb);

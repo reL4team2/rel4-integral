@@ -67,8 +67,23 @@ BEGIN_FUNC(_start)
     bic     x4, x4, x20
     msr     SCTLR, x4
 
-    ldr    x4, =kernel_stack_alloc + BIT(CONFIG_KERNEL_STACK_BITS)
-    mov    sp, x4
+    #ifdef ENABLE_SMP_SUPPORT
+        /* tpidr_el1 has the logic ID of the core, starting from 0 */
+        mrs     x6, tpidr_el1
+        /* Set the sp for each core assuming linear indices */
+        ldr     x5, =BIT(CONFIG_KERNEL_STACK_BITS)
+        mul     x5, x5, x6
+        ldr     x4, =kernel_stack_alloc + BIT(CONFIG_KERNEL_STACK_BITS)
+        add     x4, x4, x5
+        mov     sp, x4
+        /* the kernel stack must be 4-KiB aligned since we use the
+        lowest 12 bits to store the logical core ID. */
+        orr     x6, x6, x4
+        msr     tpidr_el1, x6
+    #else
+        ldr    x4, =kernel_stack_alloc + BIT(CONFIG_KERNEL_STACK_BITS)
+        mov    sp, x4
+    #endif /* ENABLE_SMP_SUPPORT */
 
     /* Attempt to workaround any known ARM errata. */
     

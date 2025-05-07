@@ -420,6 +420,15 @@ impl tcb_t {
         }
     }
 
+    #[cfg(feature = "enable_smp")]
+    #[inline]
+    pub fn update_ipi_reschedule_pending(&self) {
+        unsafe {
+            use super::scheduler::ksSMP;
+            ksSMP[self.tcbAffinity].ipiReschedulePending |= BIT!(self.tcbAffinity);
+        }
+    }
+
     /// Set the VM root of the TCB
     pub fn set_vm_root(&mut self) -> Result<(), lookup_fault> {
         // let threadRoot = &(*getCSpace(thread as usize, TCB_VTABLE)).cap;

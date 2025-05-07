@@ -114,6 +114,7 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
     if opts.num_nodes > 1 {
         append_features(&mut args, "enable_smp".to_string());
         marcos.push(format!("MAX_NUM_NODES={}", opts.num_nodes));
+        marcos.push("ENABLE_SMP_SUPPORT=true".to_string());
     }
 
     //TODO: add fpu config according the opts
