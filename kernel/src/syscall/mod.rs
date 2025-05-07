@@ -6,48 +6,48 @@ use super::arch::handle_unknown_syscall;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
 // use sel4_common::ffi_call;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::arch::ArchReg::*;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_common::sel4_config::tcbCaller;
 
 pub const SysCall: isize = -1;
 pub const SYSCALL_MAX: isize = SysCall;
 pub const SysReplyRecv: isize = -2;
 
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const SysSend: isize = -3;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const SysNBSend: isize = -4;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const SysRecv: isize = -5;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const SysReply: isize = -6;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const SysYield: isize = -7;
 
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysNBSendRecv: isize = -3;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysNBSendWait: isize = -4;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysSend: isize = -5;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysNBSend: isize = -6;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysRecv: isize = -7;
 
 pub const SysNBRecv: isize = -8;
 
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysWait: isize = -9;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysNBWait: isize = -10;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysYield: isize = -11;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SYSCALL_MIN: isize = SysYield;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const SYSCALL_MIN: isize = SysNBRecv;
 
 pub const SysDebugPutChar: isize = SYSCALL_MIN - 1;
@@ -56,11 +56,11 @@ pub const SysDebugHalt: isize = SysDebugDumpScheduler - 1;
 pub const SysDebugCapIdentify: isize = SysDebugHalt - 1;
 pub const SysDebugSnapshot: isize = SysDebugCapIdentify - 1;
 pub const SysDebugNameThread: isize = SysDebugSnapshot - 1;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub const SysGetClock: isize = -30;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub const SysGetClock: isize = -33;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use crate::structures::lookupCap_ret_t;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{
@@ -68,17 +68,17 @@ use sel4_common::structures_gen::{
     seL4_Fault_CapFault,
 };
 use sel4_common::utils::convert_to_mut_type_ref;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_common::utils::ptr_to_mut;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_ipc::Transfer;
 use sel4_ipc::{endpoint_func, notification_func};
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_task::reschedule_required;
 use sel4_task::{
     activateThread, get_currenct_thread, schedule, set_thread_state, tcb_t, ThreadState,
 };
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{charge_budget, get_current_sc, ksConsumed, mcs_preemption_point};
 pub use utils::*;
 
@@ -104,7 +104,7 @@ pub fn slow_path(syscall: usize) {
 }
 
 #[no_mangle]
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn handlesyscall(_syscall: usize) -> exception_t {
     let syscall: isize = _syscall as isize;
     // if hart_id() == 0 {
@@ -156,7 +156,7 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
     exception_t::EXCEPTION_NONE
 }
 #[no_mangle]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn handlesyscall(_syscall: usize) -> exception_t {
     use core::intrinsics::likely;
 
@@ -269,7 +269,7 @@ pub fn handlesyscall(_syscall: usize) -> exception_t {
     activateThread();
     exception_t::EXCEPTION_NONE
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 fn send_fault_ipc(thread: &mut tcb_t, handlerCap: &cap, can_donate: bool) -> bool {
     // TODO: MCS
     if handlerCap.get_tag() == cap_tag::cap_endpoint_cap {
@@ -297,7 +297,7 @@ fn send_fault_ipc(thread: &mut tcb_t, handlerCap: &cap, can_donate: bool) -> boo
         return false;
     }
 }
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
     use sel4_common::structures_gen::seL4_Fault_tag;
 
@@ -339,14 +339,14 @@ fn send_fault_ipc(thread: &mut tcb_t) -> exception_t {
 }
 
 #[inline]
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn handle_fault(thread: &mut tcb_t) {
     if send_fault_ipc(thread) != exception_t::EXCEPTION_NONE {
         set_thread_state(thread, ThreadState::ThreadStateInactive);
     }
 }
 #[inline]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn handle_fault(thread: &mut tcb_t) {
     use sel4_common::sel4_config::tcbFaultHandler;
     let cte = thread.get_cspace(tcbFaultHandler);
@@ -356,7 +356,7 @@ pub fn handle_fault(thread: &mut tcb_t) {
     }
 }
 #[inline]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 #[no_mangle]
 pub fn handleTimeout(tptr: &mut tcb_t) {
     use sel4_common::sel4_config::tcbTimeoutHandler;
@@ -366,7 +366,7 @@ pub fn handleTimeout(tptr: &mut tcb_t) {
     send_fault_ipc(tptr, &cte.capability, false);
 }
 #[inline]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 #[no_mangle]
 pub fn endTimeslice(can_timeout_fault: bool) {
     use sel4_common::structures_gen::seL4_Fault_Timeout;
@@ -388,7 +388,7 @@ pub fn endTimeslice(can_timeout_fault: bool) {
         }
     }
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 #[inline]
 pub fn lookup_reply() -> lookupCap_ret_t {
     use log::debug;
@@ -415,7 +415,7 @@ pub fn lookup_reply() -> lookupCap_ret_t {
     lu_ret
 }
 // TODO: MCS
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 fn handle_reply() {
     let current_thread = get_currenct_thread();
     let caller_slot = current_thread.get_cspace_mut_ref(tcbCaller);
@@ -433,7 +433,7 @@ fn handle_reply() {
         );
     }
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 fn handle_recv(block: bool, canReply: bool) {
     let current_thread = get_currenct_thread();
     let ep_cptr = current_thread.tcbArch.get_register(ArchReg::Cap);
@@ -501,7 +501,7 @@ fn handle_recv(block: bool, canReply: bool) {
     }
 }
 
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 fn handle_recv(block: bool) {
     let current_thread = get_currenct_thread();
     let ep_cptr = current_thread.tcbArch.get_register(ArchReg::Cap);
@@ -556,7 +556,7 @@ fn handle_recv(block: bool) {
 }
 
 fn handle_yield() {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         unsafe {
             let consumed = get_current_sc().scConsumed + ksConsumed;
@@ -564,17 +564,17 @@ fn handle_yield() {
             get_current_sc().scConsumed = consumed;
         }
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     {
         // let thread = get_currenct_thread();
         // let thread_ptr = thread as *mut tcb_t as usize;
         // sel4_common::println!("{}: handle_yield: {:#x}, tcb queued: {}, state: {:?}", thread.get_cpu(), thread_ptr, thread.tcbState.get_tcbQueued(), thread.get_state());
         get_currenct_thread().sched_dequeue();
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         if likely(get_currenct_thread().is_runnable()) {
             get_currenct_thread().sched_append();
         }
-        #[cfg(not(feature = "ENABLE_SMP"))]
+        #[cfg(not(feature = "enable_smp"))]
         get_currenct_thread().sched_append();
 
         reschedule_required();

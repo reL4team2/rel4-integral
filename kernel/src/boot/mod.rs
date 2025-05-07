@@ -10,7 +10,7 @@ use core::mem::size_of;
 use crate::{BIT, ROUND_UP};
 use log::debug;
 use sel4_common::arch::config::PADDR_TOP;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::*;
 use spin::Mutex;
@@ -28,21 +28,21 @@ use sel4_vspace::*;
 pub use root_server::root_server_init;
 pub use untyped::create_untypeds;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub use utils::{provide_cap, write_slot};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::ffi::{clh_lock_acquire, clh_lock_init};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use core::arch::asm;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 
 // #[link_section = ".boot.bss"]
 pub static ksNumCPUs: Mutex<usize> = Mutex::new(0);
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[link_section = ".boot.bss"]
 pub static node_boot_lock: Mutex<usize> = Mutex::new(0);
 
@@ -144,16 +144,16 @@ pub fn bi_finalise(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) 
 
 pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // unsafe {
-    // #[cfg(feature = "ENABLE_SMP")]
+    // #[cfg(feature = "enable_smp")]
     // if scheduler_action as usize != 0 && scheduler_action as usize != 1 {
     //     tcbDebugAppend(scheduler_action);
     // }
     // let idle_thread = {
-    //     #[cfg(not(feature = "ENABLE_SMP"))]
+    //     #[cfg(not(feature = "enable_smp"))]
     //     {
     //         ksIdleThread as *mut tcb_t
     //     }
-    //     #[cfg(feature = "ENABLE_SMP")]
+    //     #[cfg(feature = "enable_smp")]
     //     {
     //         ksSMP[cpu_id()].ksIdleThread as *mut tcb_t
     //     }
@@ -169,15 +169,15 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // 	NODE_STATE(ksConsumed) = 0;
     // 	NODE_STATE(ksReprogram) = true;
     // 	NODE_STATE(ksReleaseHead) = NULL;
-    // 	NODE_STATE(ksCurTime) = getCurrentTime();
+    // 	NODE_STATE(ksCurTime) = get_current_time();
     // #endif
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     unsafe {
         ksCurSC = get_currenct_thread().tcbSchedContext;
         ksConsumed = 0;
         ksReprogram = true;
         ksReleaseQueue.head = 0;
         ksReleaseQueue.tail = 0;
-        ksCurTime = timer.getCurrentTime();
+        ksCurTime = timer.get_current_time();
     }
 }

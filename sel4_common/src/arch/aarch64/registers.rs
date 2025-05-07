@@ -1,27 +1,27 @@
 use crate::arch::ArchReg;
 
 //     X0                          = 0,    /* 0x00 */
-pub const capRegister: usize = 0;
-pub(super) const badgeRegister: usize = 0;
+pub const CAP_REGISTER: usize = 0;
+pub(super) const BADGE_REEGISTER: usize = 0;
 //     X1                          = 1,    /* 0x08 */
-pub(super) const msgInfoRegister: usize = 1;
+pub(super) const MSG_INFO_REGISTER: usize = 1;
 //     X2                          = 2,    /* 0x10 */
 //     X3                          = 3,    /* 0x18 */
 //     X4                          = 4,    /* 0x20 */
 //     X5                          = 5,    /* 0x28 */
 //     X6                          = 6,    /* 0x30 */
 // #ifdef CONFIG_KERNEL_MCS
-//     replyRegister               = 6,
+//     REPLY_REGISTER               = 6,
 // #endif
 //     X7                          = 7,    /* 0x38 */
 //     X8                          = 8,    /* 0x40 */
 // #ifdef CONFIG_KERNEL_MCS
-//     nbsendRecvDest              = 8,
+//     NB_SEND_RECV_DEST              = 8,
 // #endif
-#[cfg(feature = "KERNEL_MCS")]
-pub const replyRegister: usize = 6;
-#[cfg(feature = "KERNEL_MCS")]
-pub const nbsendRecvDest: usize = 8;
+#[cfg(feature = "kernel_mcs")]
+pub const REPLY_REGISTER: usize = 6;
+#[cfg(feature = "kernel_mcs")]
+pub const NB_SEND_RECV_DEST: usize = 8;
 //     X9                          = 9,    /* 0x48 */
 //     X10                         = 10,   /* 0x50 */
 //     X11                         = 11,   /* 0x58 */
@@ -49,9 +49,9 @@ pub const nbsendRecvDest: usize = 8;
 //     /* End of GP registers, the following are additional kernel-saved state. */
 pub(super) const SP_EL0: usize = 31;
 pub(super) const ELR_EL1: usize = 32;
-pub(super) const NextIP: usize = 32;
+pub(super) const NEXT_IP: usize = 32;
 pub(super) const SPSR_EL1: usize = 33;
-pub(super) const FaultIP: usize = 34;
+pub(super) const FAULT_IP: usize = 34;
 //     /* user readable/writable thread ID register.
 //      * name comes from the ARM manual */
 pub(super) const TPIDR_EL0: usize = 35;
@@ -62,23 +62,23 @@ pub(super) const TPIDRRO_EL0: usize = 36;
 // pub const n_contextRegisters: usize = 37;
 // This is n_context registers
 pub const CONTEXT_REG_NUM: usize = 37;
-pub const n_exceptionMessage: usize = 3;
-pub const n_syscallMessage: usize = 12;
-#[cfg(feature = "KERNEL_MCS")]
-pub const n_timeoutMessage: usize = 34;
-pub const msgRegisterNum: usize = 4;
-pub const msgRegister: [usize; msgRegisterNum] = [2, 3, 4, 5];
-#[cfg(not(feature = "KERNEL_MCS"))]
-pub const MAX_MSG_SIZE: usize = n_syscallMessage;
-#[cfg(feature = "KERNEL_MCS")]
-pub const MAX_MSG_SIZE: usize = n_timeoutMessage;
-#[cfg(not(feature = "KERNEL_MCS"))]
-pub const fault_messages: [[usize; MAX_MSG_SIZE]; 2] = [
+pub const N_EXCEPTON_MESSAGE: usize = 3;
+pub const N_SYSCALL_MESSAGE: usize = 12;
+#[cfg(feature = "kernel_mcs")]
+pub const N_TIMEOUT_MESSAGE: usize = 34;
+pub const MSG_REGISTER_NUM: usize = 4;
+pub const MSG_REGISTER: [usize; MSG_REGISTER_NUM] = [2, 3, 4, 5];
+#[cfg(not(feature = "kernel_mcs"))]
+pub const MAX_MSG_SIZE: usize = N_SYSCALL_MESSAGE;
+#[cfg(feature = "kernel_mcs")]
+pub const MAX_MSG_SIZE: usize = N_TIMEOUT_MESSAGE;
+#[cfg(not(feature = "kernel_mcs"))]
+pub const FAULT_MESSAGES: [[usize; MAX_MSG_SIZE]; 2] = [
     [0, 1, 2, 3, 4, 5, 6, 7, 34, 31, 32, 33],
     [34, 31, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
-#[cfg(feature = "KERNEL_MCS")]
-pub const fault_messages: [[usize; MAX_MSG_SIZE]; 3] = [
+#[cfg(feature = "kernel_mcs")]
+pub const FAULT_MESSAGES: [[usize; MAX_MSG_SIZE]; 3] = [
     [
         0, 1, 2, 3, 4, 5, 6, 7, 34, 31, 32, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0,
@@ -92,11 +92,11 @@ pub const fault_messages: [[usize; MAX_MSG_SIZE]; 3] = [
         20, 21, 22, 23, 24, 25, 26, 27, 28,
     ],
 ];
-pub const frameRegNum: usize = 17;
-pub const gpRegNum: usize = 19;
-pub const frameRegisters: [usize; frameRegNum] =
+pub const FRAME_REG_NUM: usize = 17;
+pub const GP_REG_NUM: usize = 19;
+pub const FRAME_REGISTERS: [usize; FRAME_REG_NUM] =
     [34, 31, 33, 0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18, 29, 30];
-pub const gpRegisters: [usize; gpRegNum] = [
+pub const GP_REGISTERS: [usize; GP_REG_NUM] = [
     9, 10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 35, 36,
 ];
 
@@ -108,16 +108,16 @@ impl ArchReg {
             ArchReg::Cap => 0,
             ArchReg::Badge => 0,
             ArchReg::MsgInfo => 1,
-            ArchReg::FaultIP => 34,
-            ArchReg::NextIP => 32,
-            ArchReg::Msg(i) => msgRegister[*i],
-            ArchReg::Frame(i) => frameRegisters[*i],
-            ArchReg::GP(i) => gpRegisters[*i],
-            ArchReg::FaultMessage(id, index) => fault_messages[*id][*index],
-            #[cfg(feature = "KERNEL_MCS")]
-            ArchReg::Reply => replyRegister,
-            #[cfg(feature = "KERNEL_MCS")]
-            ArchReg::nbsRecvDest => nbsendRecvDest,
+            ArchReg::FAULT_IP => 34,
+            ArchReg::NEXT_IP => 32,
+            ArchReg::Msg(i) => MSG_REGISTER[*i],
+            ArchReg::Frame(i) => FRAME_REGISTERS[*i],
+            ArchReg::GP(i) => GP_REGISTERS[*i],
+            ArchReg::FaultMessage(id, index) => FAULT_MESSAGES[*id][*index],
+            #[cfg(feature = "kernel_mcs")]
+            ArchReg::Reply => REPLY_REGISTER,
+            #[cfg(feature = "kernel_mcs")]
+            ArchReg::nbsRecvDest => NB_SEND_RECV_DEST,
         }
     }
 }

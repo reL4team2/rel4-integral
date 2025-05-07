@@ -8,9 +8,9 @@ use crate::structures::{
 use crate::{BIT, ROUND_DOWN};
 use log::debug;
 use sel4_common::arch::{ArchReg, ArchTCB};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::platform::{timer, Timer_func};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::sel4_config::seL4_MinSchedContextBits;
 #[cfg(target_arch = "riscv64")]
 use sel4_common::sel4_config::CONFIG_PT_LEVELS;
@@ -24,7 +24,7 @@ use sel4_common::sel4_config::{
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 #[cfg(target_arch = "riscv64")]
 use sel4_common::structures_gen::cap_page_table_cap;
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 use sel4_common::structures_gen::cap_smc_cap;
 #[cfg(target_arch = "aarch64")]
 use sel4_common::structures_gen::cap_vspace_cap;
@@ -55,7 +55,7 @@ pub static mut rootserver: rootserver_mem_t = rootserver_mem_t {
     boot_info: 0,
     extra_bi: 0,
     tcb: 0,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     sc: 0,
     paging: region_t {
         start: (0),
@@ -85,7 +85,7 @@ pub fn root_server_init(
 
     create_domain_cap(&root_cnode_cap);
     init_irqs(&root_cnode_cap);
-    #[cfg(feature = "ENABLE_SMC")]
+    #[cfg(feature = "enable_smc")]
     init_smc(&root_cnode_cap);
     unsafe {
         rust_populate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr, extra_bi_size);
@@ -109,7 +109,7 @@ pub fn root_server_init(
     // #ifdef CONFIG_KERNEL_MCS
     //     init_sched_control(root_cnode_cap, CONFIG_MAX_NUM_NODES);
     // #endif
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     init_sched_control(&root_cnode_cap, CONFIG_MAX_NUM_NODES);
 
     let ipcbuf_cap = unsafe { create_ipcbuf_frame_cap(&root_cnode_cap, &it_pd_cap, ipcbuf_vptr) };
@@ -129,9 +129,9 @@ pub fn root_server_init(
     if !asid_init(&root_cnode_cap, &it_pd_cap) {
         return None;
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     unsafe {
-        ksCurTime = timer.getCurrentTime()
+        ksCurTime = timer.get_current_time()
     };
 
     let initial = unsafe {
@@ -161,15 +161,15 @@ unsafe fn create_initial_thread(
     ipcbuf_vptr: usize,
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     use sel4_common::sel4_config::CONFIG_TIME_SLICE;
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     use sel4_common::{
-        arch::usToTicks, platform::time_def::US_IN_MS, sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
-        structures_gen::cap_sched_context_cap,
+        arch::us_to_ticks, platform::time_def::US_IN_MS,
+        sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE, structures_gen::cap_sched_context_cap,
     };
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
     }
@@ -202,32 +202,32 @@ unsafe fn create_initial_thread(
 
     tcb.tcbIPCBuffer = ipcbuf_vptr;
     tcb.tcbArch.set_register(ArchReg::Cap, bi_frame_vptr);
-    tcb.tcbArch.set_register(ArchReg::NextIP, ui_v_entry);
-    #[cfg(feature = "KERNEL_MCS")]
+    tcb.tcbArch.set_register(ArchReg::NEXT_IP, ui_v_entry);
+    #[cfg(feature = "kernel_mcs")]
     {
         configure_sched_context(
             tcb,
             convert_to_mut_type_ref(rootserver.sc),
-            usToTicks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
+            us_to_ticks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
         );
     }
     tcb.tcbMCP = seL4_MaxPrio;
     tcb.tcbPriority = seL4_MaxPrio;
     set_thread_state(tcb, ThreadState::ThreadStateRunning);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     tcb.setup_reply_master();
     ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     {
         ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
-        ksDomainTime = usToTicks(ksDomSchedule[ksDomScheduleIdx].length * US_IN_MS);
+        ksDomainTime = us_to_ticks(ksDomSchedule[ksDomScheduleIdx].length * US_IN_MS);
     }
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         tcb.tcbAffinity = 0;
     }
@@ -237,7 +237,7 @@ unsafe fn create_initial_thread(
         cnode.get_offset_slot(seL4_CapInitThreadTCB) as *mut cte_t,
         capability,
     );
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         let capability =
             cap_sched_context_cap::new(tcb.tcbSchedContext as u64, seL4_MinSchedContextBits as u64)
@@ -260,15 +260,15 @@ unsafe fn create_initial_thread(
     ipcbuf_vptr: usize,
     ipcbuf_cap: cap_frame_cap,
 ) -> *mut tcb_t {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     use sel4_common::sel4_config::CONFIG_TIME_SLICE;
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     use sel4_common::{
-        arch::usToTicks, platform::time_def::US_IN_MS, sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
-        structures_gen::cap_sched_context_cap,
+        arch::us_to_ticks, platform::time_def::US_IN_MS,
+        sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE, structures_gen::cap_sched_context_cap,
     };
     let tcb = convert_to_mut_type_ref::<tcb_t>(rootserver.tcb + TCB_OFFSET);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         tcb.tcbTimeSlice = CONFIG_TIME_SLICE;
     }
@@ -302,33 +302,33 @@ unsafe fn create_initial_thread(
 
     tcb.tcbIPCBuffer = ipcbuf_vptr;
     tcb.tcbArch.set_register(ArchReg::Cap, bi_frame_vptr);
-    tcb.tcbArch.set_register(ArchReg::NextIP, ui_v_entry);
-    #[cfg(feature = "KERNEL_MCS")]
+    tcb.tcbArch.set_register(ArchReg::NEXT_IP, ui_v_entry);
+    #[cfg(feature = "kernel_mcs")]
     {
         configure_sched_context(
             tcb,
             convert_to_mut_type_ref(rootserver.sc),
-            usToTicks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
+            us_to_ticks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
         );
     }
     tcb.tcbMCP = seL4_MaxPrio;
     tcb.tcbPriority = seL4_MaxPrio;
     set_thread_state(tcb, ThreadState::ThreadStateRunning);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     tcb.setup_reply_master();
     ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     {
         ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
-        ksDomainTime = usToTicks(ksDomSchedule[ksDomScheduleIdx].length * US_IN_MS);
+        ksDomainTime = us_to_ticks(ksDomSchedule[ksDomScheduleIdx].length * US_IN_MS);
     }
     ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         tcb.tcbAffinity = 0;
     }
@@ -338,7 +338,7 @@ unsafe fn create_initial_thread(
         cnode.get_offset_slot(seL4_CapInitThreadTCB) as *mut cte_t,
         capability,
     );
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         let capability =
             cap_sched_context_cap::new(tcb.tcbSchedContext as u64, seL4_MinSchedContextBits as u64)
@@ -403,7 +403,7 @@ fn create_it_asid_pool(root_cnode_cap: &cap_cnode_cap) -> cap_asid_pool_cap {
     );
     ap_cap
 }
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 pub fn init_smc(root_cnode_cap: &cap_cnode_cap) {
     let capability = cap_smc_cap::new(0).unsplay();
     unsafe {
@@ -412,7 +412,7 @@ pub fn init_smc(root_cnode_cap: &cap_cnode_cap) {
     }
 }
 
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 //TODO: MCS: Done
 fn init_sched_control(root_cnode_cap: &cap_cnode_cap, num_nodes: usize) -> bool {
     use sel4_common::structures_gen::cap_sched_control_cap;
@@ -557,7 +557,7 @@ fn calculate_rootserver_size(it_v_reg: v_region_t, extra_bi_size_bits: usize) ->
         0
     };
     size += BIT!(seL4_VSpaceBits);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         size += BIT!(seL4_MinSchedContextBits);
     }
@@ -625,7 +625,7 @@ unsafe fn create_rootserver_objects(start: usize, it_v_reg: v_region_t, extra_bi
     rootserver.paging.end = rootserver.paging.start + n * BIT!(seL4_PageTableBits);
     rootserver.tcb = alloc_rootserver_obj(seL4_TCBBits, 1);
 
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         rootserver.sc = alloc_rootserver_obj(seL4_MinSchedContextBits, 1);
     }
@@ -655,19 +655,19 @@ fn init_irqs(root_cnode_cap: &cap_cnode_cap) {
         }
     }
     set_irq_state_by_irq(IrqState::IRQTimer, KERNEL_TIMER_IRQ);
-    #[cfg(all(feature = "ENABLE_SMP", target_arch = "riscv64"))]
+    #[cfg(all(feature = "enable_smp", target_arch = "riscv64"))]
     {
         use sel4_common::platform::{INTERRUPT_IPI_0, INTERRUPT_IPI_1};
         set_irq_state_by_irq(IrqState::IRQIPI, INTERRUPT_IPI_0);
         set_irq_state_by_irq(IrqState::IRQIPI, INTERRUPT_IPI_1);
     }
-    #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))]
+    #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
     {
         use crate::arch::arm_gic::irq_to_idx;
-        use sel4_common::arch::config::{irq_remote_call_ipi, irq_reschedule_ipi};
+        use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
         use sel4_common::utils::cpu_id;
-        set_irq_state_by_irq(IrqState::IRQIPI, irq_remote_call_ipi);
-        set_irq_state_by_irq(IrqState::IRQIPI, irq_reschedule_ipi);
+        set_irq_state_by_irq(IrqState::IRQIPI, IRQ_REMOTE_CALL_IPI);
+        set_irq_state_by_irq(IrqState::IRQIPI, IRQ_RESCHEDULE_IPI);
     }
 
     unsafe {

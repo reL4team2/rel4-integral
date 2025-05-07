@@ -65,7 +65,7 @@ pub macro unsafe_ops($expr: expr) {
 }
 
 #[inline]
-pub fn MAX_FREE_INDEX(bits: usize) -> usize {
+pub fn max_free_index(bits: usize) -> usize {
     BIT!(bits - seL4_MinUntypedBits)
 }
 
@@ -142,12 +142,12 @@ pub fn ptr_to_usize_add<T>(ptr: *mut T, offset: usize) -> usize {
 
 #[inline]
 pub fn cpu_id() -> usize {
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         use crate::smp::get_currenct_cpu_index;
         get_currenct_cpu_index()
     }
-    #[cfg(not(feature = "ENABLE_SMP"))]
+    #[cfg(not(feature = "enable_smp"))]
     {
         0
     }

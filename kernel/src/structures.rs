@@ -62,7 +62,7 @@ pub struct BootInfo {
     pub extraBIPages: SlotRegion,
     pub initThreadCNodeSizeBits: usize,
     pub initThreadDomain: usize,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub schedcontrol: SlotRegion,
     pub untyped: SlotRegion,
     pub untypedList: [UntypedDesc; CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS],
@@ -88,7 +88,7 @@ pub struct rootserver_mem_t {
     pub boot_info: usize,
     pub extra_bi: usize,
     pub tcb: usize,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     pub sc: usize,
     pub paging: region_t,
 }

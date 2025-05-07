@@ -38,7 +38,7 @@ pub fn rust_try_init_kernel(
     )
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn rust_try_init_kernel_secondary_core(hart_id: usize, core_id: usize) -> bool {

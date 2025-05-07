@@ -19,7 +19,7 @@ impl satp_t {
     }
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[inline]
 pub fn sfence() {
     use sel4_common::smp::get_sbi_mask_for_all_remote_harts;
@@ -32,7 +32,7 @@ pub fn sfence() {
     remote_sfence_vma(mask, 0, 0);
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[inline]
 pub fn sfence_local() {
     unsafe {
@@ -43,7 +43,7 @@ pub fn sfence_local() {
 ///对汇编指令`sfence.vma`的简单封装，清空`cache`、`tlb`
 ///
 /// Risc-v's sfence.vma
-#[cfg(not(feature = "ENABLE_SMP"))]
+#[cfg(not(feature = "enable_smp"))]
 #[inline]
 pub fn sfence() {
     #[cfg(target_arch = "riscv64")]
@@ -60,8 +60,8 @@ pub fn sfence() {
 pub fn set_vspace_root(addr: usize, asid: usize) {
     let satp = satp_t::new(8usize, asid, addr >> 12);
     satp::write(satp.words);
-    #[cfg(not(feature = "ENABLE_SMP"))]
+    #[cfg(not(feature = "enable_smp"))]
     sfence();
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     sfence_local();
 }

@@ -4,7 +4,7 @@ use crate::sel4_config::{
 };
 
 /// Represents the type of an object.
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ObjectType {
     UnytpedObject = 0,
@@ -18,7 +18,7 @@ pub enum ObjectType {
     MegaPageObject = 7,
     PageTableObject = 8,
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ObjectType {
     UnytpedObject = 0,

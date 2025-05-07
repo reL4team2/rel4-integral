@@ -5,8 +5,8 @@ use core::{
 
 use sel4_common::{
     arch::{
-        getMaxTicksToUs, getMaxUsToTicks, get_kernel_wcet_ticks, get_kernel_wcet_us, ticksToUs,
-        usToTicks, ArchReg::MsgInfo,
+        get_kernel_wcet_ticks, get_kernel_wcet_us, get_max_ticks_to_us, get_max_us_to_ticks,
+        ticks_to_us, us_to_ticks, ArchReg::MsgInfo,
     },
     message_info::seL4_MessageInfo_func,
     platform::time_def::{ticks_t, time_t},
@@ -55,10 +55,10 @@ pub fn min_budget() -> time_t {
     2 * get_kernel_wcet_ticks() * CONFIG_KERNEL_WCET_SCALE
 }
 pub fn max_period_us() -> time_t {
-    getMaxUsToTicks() / 8
+    get_max_us_to_ticks() / 8
 }
 pub fn max_release_time() -> time_t {
-    UINT64_MAX - 5 * usToTicks(max_period_us())
+    UINT64_MAX - 5 * us_to_ticks(max_period_us())
 }
 pub fn refill_absolute_max(sc_cap: &cap_sched_context_cap) -> usize {
     return (BIT!(sc_cap.get_capSCSizeBits() as usize) - size_of::<sched_context_t>())
@@ -370,12 +370,12 @@ impl sched_context {
     }
     pub fn sched_context_update_consumed(&mut self) -> time_t {
         let consumed: ticks_t = self.scConsumed;
-        if consumed >= getMaxTicksToUs() {
-            self.scConsumed -= getMaxTicksToUs();
-            return ticksToUs(getMaxTicksToUs());
+        if consumed >= get_max_ticks_to_us() {
+            self.scConsumed -= get_max_ticks_to_us();
+            return ticks_to_us(get_max_ticks_to_us());
         } else {
             self.scConsumed = 0;
-            return ticksToUs(consumed);
+            return ticks_to_us(consumed);
         }
     }
 }

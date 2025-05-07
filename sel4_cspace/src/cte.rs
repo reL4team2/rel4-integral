@@ -10,7 +10,7 @@ use crate::capability::{
 };
 use core::intrinsics::{likely, unlikely};
 use core::ptr;
-use sel4_common::utils::{convert_to_option_mut_type_ref, MAX_FREE_INDEX};
+use sel4_common::utils::{convert_to_option_mut_type_ref, max_free_index};
 use sel4_common::{
     sel4_bitfield_types::Bitfield,
     structures_gen::{cap, cap_null_cap, cap_tag, mdb_node},
@@ -67,7 +67,7 @@ impl cte_t {
                     ret.capability = capability.clone();
                 }
             }
-            #[cfg(not(feature = "KERNEL_MCS"))]
+            #[cfg(not(feature = "kernel_mcs"))]
             cap_tag::cap_reply_cap => {
                 ret.capability = cap_null_cap::new().unsplay();
             }
@@ -117,7 +117,7 @@ impl cte_t {
                 badge == cap::cap_notification_cap(&next.capability).get_capNtfnBadge()
                     && next.cteMDBNode.get_mdbFirstBadged() == 0
             }
-            #[cfg(feature = "ENABLE_SMC")]
+            #[cfg(feature = "enable_smc")]
             cap_tag::cap_smc_cap => {
                 let badge = cap::cap_smc_cap(&self.capability).get_capSMCBadge();
                 if badge == 0 {
@@ -492,7 +492,7 @@ fn set_untyped_cap_as_full(srcCap: &cap, newCap: &cap, srcSlot: &mut cte_t) {
             && cap::cap_untyped_cap(srcCap).get_capBlockSize()
                 == cap::cap_untyped_cap(newCap).get_capBlockSize()
         {
-            cap::cap_untyped_cap(&srcSlot.capability).set_capFreeIndex(MAX_FREE_INDEX(
+            cap::cap_untyped_cap(&srcSlot.capability).set_capFreeIndex(max_free_index(
                 cap::cap_untyped_cap(srcCap).get_capBlockSize() as usize,
             ) as u64);
         }

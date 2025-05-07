@@ -1,7 +1,7 @@
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use core::intrinsics::likely;
 
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 use crate::arch::aarch64::c_traps::entry_hook;
 use crate::arch::aarch64::consts::*;
 use crate::compatibility::lookup_ipc_buffer;
@@ -30,7 +30,7 @@ use sel4_common::structures_gen::seL4_Fault_UserException;
 use sel4_common::structures_gen::seL4_Fault_VMFault;
 use sel4_common::utils::global_read;
 use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedule};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget_restart, update_timestamp};
 
 use super::instruction::*;
@@ -93,16 +93,16 @@ pub fn handle_unknown_syscall(w: isize) -> exception_t {
     }
     if w == SysGetClock {
         /*no implementation of aarch64 get clock*/
-        let current = timer.getCurrentTime();
+        let current = timer.get_current_time();
         thread.tcbArch.set_register(Cap, current);
         return exception_t::EXCEPTION_NONE;
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     unsafe {
         current_fault = seL4_Fault_UnknownSyscall::new(w as u64).unsplay();
         handle_fault(get_currenct_thread());
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         update_timestamp();
         if likely(check_budget_restart()) {
@@ -119,7 +119,7 @@ pub fn handle_unknown_syscall(w: isize) -> exception_t {
 
 #[no_mangle]
 pub fn handleUserLevelFault(w_a: usize, w_b: usize) -> exception_t {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         update_timestamp();
         if likely(check_budget_restart()) {
@@ -129,7 +129,7 @@ pub fn handleUserLevelFault(w_a: usize, w_b: usize) -> exception_t {
             }
         }
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     unsafe {
         current_fault = seL4_Fault_UserException::new(w_a as u64, w_b as u64).unsplay();
         handle_fault(get_currenct_thread());
@@ -141,7 +141,7 @@ pub fn handleUserLevelFault(w_a: usize, w_b: usize) -> exception_t {
 
 #[no_mangle]
 pub fn handleVMFaultEvent(vm_faultType: usize) -> exception_t {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         update_timestamp();
         if likely(check_budget_restart()) {
@@ -151,7 +151,7 @@ pub fn handleVMFaultEvent(vm_faultType: usize) -> exception_t {
             }
         }
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     {
         let status = handle_vm_fault(vm_faultType);
         if status != exception_t::EXCEPTION_NONE {
@@ -218,7 +218,7 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
             exception_t::EXCEPTION_FAULT
         }
         ARMPrefetchAbort => {
-            let pc = get_currenct_thread().tcbArch.get_register(FaultIP);
+            let pc = get_currenct_thread().tcbArch.get_register(FAULT_IP);
             let fault = get_esr();
             unsafe {
                 current_fault = seL4_Fault_VMFault::new(pc as u64, fault as u64, 1).unsplay();
@@ -234,7 +234,7 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
 }
 
 #[inline(always)]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 pub fn c_handle_vm_fault(type_: usize) -> ! {
     // TODO: NODE_LOCK needed in smp mod, now not supported
     entry_hook();
@@ -244,13 +244,13 @@ pub fn c_handle_vm_fault(type_: usize) -> ! {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 pub fn c_handle_data_fault() -> ! {
     c_handle_vm_fault(seL4_DataFault)
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 pub fn c_handle_instruction_fault() -> ! {
     c_handle_vm_fault(seL4_InstructionFault)
 }

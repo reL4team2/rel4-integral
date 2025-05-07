@@ -6,7 +6,7 @@ use crate::{
     BIT, IS_ALIGNED, MASK,
 };
 use log::debug;
-use sel4_common::arch::{maskVMRights, msgRegisterNum, ArchReg};
+use sel4_common::arch::{maskVMRights, ArchReg, MSG_REGISTER_NUM};
 use sel4_common::ffi::current_fault;
 use sel4_common::sel4_config::seL4_MinUntypedBits;
 use sel4_common::shared_types_bf_gen::seL4_CapRights;
@@ -53,8 +53,8 @@ pub fn OFFSET_TO_FREE_IDNEX(offset: usize) -> usize {
 // #[no_mangle]
 // pub fn getSyscallArg(i: usize, ipc_buffer: *const usize) -> usize {
 //     unsafe {
-//         return if i < msgRegisterNum {
-//             // return getRegister(get_currenct_thread() as *const tcb_t, msgRegister[i]);
+//         return if i < MSG_REGISTER_NUM {
+//             // return getRegister(get_currenct_thread() as *const tcb_t, MSG_REGISTER[i]);
 //             get_currenct_thread().tcbArch.get_register(ArchReg::Msg(i))
 //         } else {
 //             assert_ne!(ipc_buffer as usize, 0);
@@ -81,7 +81,7 @@ pub fn lookup_extra_caps_with_buf(thread: &mut tcb_t, buf: Option<&seL4_IPCBuffe
 // TODO: Remove this option because it not need to check whether is None or Some
 #[inline]
 pub fn get_syscall_arg(i: usize, ipc_buffer: &seL4_IPCBuffer) -> usize {
-    match i < msgRegisterNum {
+    match i < MSG_REGISTER_NUM {
         true => get_currenct_thread().tcbArch.get_register(ArchReg::Msg(i)),
         false => ipc_buffer.msg[i],
     }

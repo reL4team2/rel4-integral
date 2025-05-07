@@ -1,5 +1,5 @@
 use log::debug;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_common::sel4_config::{seL4_DeleteFirst, tcbCaller};
 use sel4_common::structures_gen::{cap, cap_tag, endpoint};
 use sel4_common::{
@@ -85,7 +85,7 @@ pub fn invoke_cnode_mutate(
 }
 
 #[inline]
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn invoke_cnode_save_caller(dest_slot: &mut cte_t) -> exception_t {
     if dest_slot.capability.get_tag() != cap_tag::cap_null_cap {
         debug!("CNode SaveCaller: Destination slot not empty.");

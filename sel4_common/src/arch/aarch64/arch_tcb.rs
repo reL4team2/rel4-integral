@@ -15,7 +15,7 @@ macro_rules! mrs {
         }
     };
 }
-#[cfg(feature = "HAVE_FPU")]
+#[cfg(feature = "have_fpu")]
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct FPUState {
@@ -28,7 +28,7 @@ pub struct FPUState {
 #[derive(Debug, Clone)]
 pub struct ArchTCB {
     pub(in crate::arch) registers: [usize; CONTEXT_REG_NUM],
-    #[cfg(feature = "HAVE_FPU")]
+    #[cfg(feature = "have_fpu")]
     pub(in crate::arch) fpu: FPUState,
 }
 
@@ -39,7 +39,7 @@ impl Default for ArchTCB {
         registers[SPSR_EL1] = (1 << 6) | (1 << 8);
         Self {
             registers,
-            #[cfg(feature = "HAVE_FPU")]
+            #[cfg(feature = "have_fpu")]
             fpu: FPUState {
                 vregs: [0; 64],
                 fpsr: 0,

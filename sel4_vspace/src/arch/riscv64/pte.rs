@@ -2,7 +2,7 @@ use bitflags::bitflags;
 use core::intrinsics::unlikely;
 
 use sel4_common::{
-    arch::{vm_rights_t, RISCVGetReadFromVMRights, RISCVGetWriteFromVMRights},
+    arch::{riscv_get_read_from_vm_rights, riscv_get_write_from_vm_rights, vm_rights_t},
     sel4_config::{seL4_PageBits, seL4_PageTableBits, CONFIG_PT_LEVELS, PT_INDEX_BITS},
     structures::exception_t,
     utils::{convert_to_mut_type_ref, convert_to_type_ref},
@@ -51,8 +51,8 @@ impl PTE {
     /// 创建一个用户使用的页表项（`Global=0`、`User=1`）
     #[inline]
     pub fn make_user_pte(paddr: usize, executable: bool, vm_rights: vm_rights_t) -> Self {
-        let write = RISCVGetWriteFromVMRights(&vm_rights);
-        let read = RISCVGetReadFromVMRights(&vm_rights);
+        let write = riscv_get_write_from_vm_rights(&vm_rights);
+        let read = riscv_get_read_from_vm_rights(&vm_rights);
         if !executable && !read && !write {
             return Self::pte_invalid();
         }

@@ -36,7 +36,7 @@ pub fn init_cpu() -> bool {
             + sel4_common::BIT!(CONFIG_KERNEL_STACK_BITS)
     };
 
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         stack_top |= cpu_id()
     }
@@ -62,7 +62,7 @@ pub fn init_cpu() -> bool {
     armv_init_user_access();
 
     unsafe {
-        timer.initTimer();
+        timer.init_timer();
     }
     true
 }
@@ -203,11 +203,11 @@ fn read_cache_size(level: usize) -> usize {
 
 fn armv_init_user_access() {
     let mut val: usize = 0;
-    #[cfg(feature = "ENABLE_ARM_PCNT")]
+    #[cfg(feature = "enable_arm_pcnt")]
     {
         val |= sel4_common::BIT!(0);
     }
-    #[cfg(feature = "ENABLE_ARM_PTMR")]
+    #[cfg(feature = "enable_arm_ptmr")]
     {
         val |= sel4_common::BIT!(9);
     }

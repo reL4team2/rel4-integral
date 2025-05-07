@@ -1,7 +1,7 @@
 mod decode_cnode_invocation;
 mod decode_domain_invocation;
 pub mod decode_irq_invocation;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub mod decode_sched_invocation;
 
 pub mod arch;
@@ -20,16 +20,16 @@ use sel4_common::{
 };
 use sel4_cspace::interface::cte_t;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_task::tcb_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use crate::kernel::boot::current_syscall_error;
 use crate::syscall::invocation::decode::decode_irq_invocation::decode_irq_handler_invocation;
 
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 use self::arch::decode_arm_smc_invocation;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use self::decode_sched_invocation::{
     decode_sched_context_invocation, decode_sched_control_invocation,
 };
@@ -40,7 +40,7 @@ use self::{
     decode_tcb_invocation::decode_tcb_invocation,
     decode_untyped_invocation::decode_untyed_invocation,
 };
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn decode_invocation(
     label: MessageLabel,
     length: usize,
@@ -139,12 +139,12 @@ pub fn decode_invocation(
         cap_Splayed::irq_handler_cap(data) => {
             decode_irq_handler_invocation(label, data.get_capIRQ() as usize)
         }
-        #[cfg(feature = "ENABLE_SMC")]
+        #[cfg(feature = "enable_smc")]
         cap_Splayed::smc_cap(data) => decode_arm_smc_invocation(label, length, &data, call, buffer),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn decode_invocation(
     label: MessageLabel,
     length: usize,
@@ -285,7 +285,7 @@ pub fn decode_invocation(
             }
             decode_sched_context_invocation(label, &data)
         }
-        #[cfg(feature = "ENABLE_SMC")]
+        #[cfg(feature = "enable_smc")]
         cap_Splayed::smc_cap(data) => decode_arm_smc_invocation(label, length, &data, call, buffer),
         _ => decode_mmu_invocation(label, length, slot, call, buffer),
     }

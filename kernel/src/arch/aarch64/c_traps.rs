@@ -2,13 +2,13 @@ use crate::interrupt::handler::handle_interrupt_entry;
 use crate::syscall::slow_path;
 use core::arch::asm;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::{
     ffi::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
     interrupt::get_active_irq,
 };
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 use sel4_task::*;
 
@@ -35,14 +35,14 @@ pub fn restore_user_context() {
     //     lazy_fpu_restore(NODE_STATE(ksCurThread));
     // #endif /* CONFIG_HAVE_FPU */
     unsafe {
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
             if clh_is_self_in_queue() {
                 clh_lock_release(cpu_id());
             }
         }
 
-        #[cfg(feature = "HAVE_FPU")]
+        #[cfg(feature = "have_fpu")]
         lazy_fpu_restore(get_currenct_thread());
         asm!(
                 "mov     sp, {}                     \n",
@@ -87,13 +87,13 @@ pub fn restore_user_context() {
 pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) {
     use core::arch::asm;
     unsafe {
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
             clh_lock_release(cpu_id());
         }
 
         (*cur_thread).tcbArch.load_thread_local();
-        #[cfg(feature = "HAVE_FPU")]
+        #[cfg(feature = "have_fpu")]
         {
             lazy_fpu_restore(get_currenct_thread());
         }
@@ -146,10 +146,10 @@ pub fn c_handle_interrupt() {
     // }
     entry_hook();
 
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
-        use sel4_common::arch::config::irq_remote_call_ipi;
-        if get_active_irq() != irq_remote_call_ipi {
+        use sel4_common::arch::config::IRQ_REMOTE_CALL_IPI;
+        if get_active_irq() != IRQ_REMOTE_CALL_IPI {
             unsafe {
                 clh_lock_acquire(cpu_id(), true);
             }
@@ -162,7 +162,7 @@ pub fn c_handle_interrupt() {
 
 #[no_mangle]
 pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     unsafe {
         clh_lock_acquire(cpu_id(), false);
     }
@@ -183,7 +183,7 @@ pub fn entry_hook() {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) -> ! {
     // TODO: support NODE_LOCK_SYS for smp mode
     entry_hook();
@@ -193,8 +193,8 @@ pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) -> ! {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(feature = "build_binary")]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) -> ! {
     // TODO: support NODE_LOCK_SYS for smp mode
     entry_hook();
@@ -203,8 +203,8 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) -> ! {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "build_binary")]
+#[cfg(feature = "kernel_mcs")]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -> ! {
     // TODO: support NODE_LOCK_SYS for smp mode
     entry_hook();
@@ -213,7 +213,7 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 pub fn c_handle_undefined_instruction() -> ! {
     // TODO: support NODE_LOCK_SYS for smp mode
     entry_hook();
@@ -227,7 +227,7 @@ pub fn c_handle_undefined_instruction() -> ! {
     restore_user_context();
     unreachable!()
 }
-#[cfg(feature = "HAVE_FPU")]
+#[cfg(feature = "have_fpu")]
 #[no_mangle]
 pub fn c_handle_enfp() -> ! {
     use super::fpu::handle_fpu_fault;

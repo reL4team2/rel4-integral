@@ -8,14 +8,14 @@ use crate::arch::ObjectType;
 use super::sel4_config::*;
 
 #[cfg(target_arch = "riscv64")]
-pub const seL4_ObjectTypeCount: usize = ObjectType::PageTableObject as usize + 1;
+pub const OBJECT_TYPE_COUNT: usize = ObjectType::PageTableObject as usize + 1;
 // FIXED: Need to add 1 to cover all possible object types
 #[cfg(any(target_arch = "aarch64", test))]
-pub const seL4_ObjectTypeCount: usize = ObjectType::seL4_ARM_PageTableObject as usize + 1;
-#[cfg(not(feature = "KERNEL_MCS"))]
-pub const seL4_NonArchObjectTypeCount: usize = ObjectType::CapTableObject as usize + 1;
-#[cfg(feature = "KERNEL_MCS")]
-pub const seL4_NonArchObjectTypeCount: usize = ObjectType::ReplyObject as usize + 1;
+pub const OBJECT_TYPE_COUNT: usize = ObjectType::seL4_ARM_PageTableObject as usize + 1;
+#[cfg(not(feature = "kernel_mcs"))]
+pub const NON_ARCH_OBJECT_TYPE_COUNT: usize = ObjectType::CapTableObject as usize + 1;
+#[cfg(feature = "kernel_mcs")]
+pub const NON_ARCH_OBJECT_TYPE_COUNT: usize = ObjectType::ReplyObject as usize + 1;
 
 impl ObjectType {
     /// Returns the size of the object based on its type.
@@ -28,7 +28,7 @@ impl ObjectType {
     ///
     /// The size of the object.
     pub fn get_object_size(&self, user_object_size: usize) -> usize {
-        if (*self) as usize >= seL4_NonArchObjectTypeCount {
+        if (*self) as usize >= NON_ARCH_OBJECT_TYPE_COUNT {
             return self.arch_get_object_size();
         }
         match self {
@@ -37,9 +37,9 @@ impl ObjectType {
             ObjectType::EndpointObject => seL4_EndpointBits,
             ObjectType::NotificationObject => seL4_NotificationBits,
             ObjectType::CapTableObject => seL4_SlotBits + user_object_size,
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             ObjectType::SchedContextObject => user_object_size,
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             ObjectType::ReplyObject => seL4_ReplyBits,
             _ => panic!("unsupported cap type:{}", (*self) as usize),
         }
@@ -55,7 +55,7 @@ impl ObjectType {
     ///
     /// An Option containing the converted ObjectType, or None if the value is out of range.
     pub fn from_usize(value: usize) -> Option<Self> {
-        if value >= seL4_ObjectTypeCount {
+        if value >= OBJECT_TYPE_COUNT {
             return None;
         }
         unsafe { Some(core::mem::transmute::<u8, ObjectType>(value as u8)) }

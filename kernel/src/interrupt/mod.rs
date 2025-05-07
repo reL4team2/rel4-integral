@@ -16,11 +16,11 @@ use sel4_vspace::pptr_t;
 #[cfg(target_arch = "riscv64")]
 use crate::arch::read_sip;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::ffi::{ipi_clear_irq, ipi_get_irq};
 
 cfg_if::cfg_if! {
-    if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+    if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
         pub const MAX_IRQ: usize = (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI + maxIRQ;
     } else {
         pub const MAX_IRQ: usize = maxIRQ;
@@ -36,7 +36,7 @@ pub static mut int_state_irq_node_ptr: pptr_t = 0;
 // #[link_section = ".boot.bss"]
 pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [irqInvalid; CONFIG_MAX_NUM_NODES];
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum IrqState {
     IRQInactive = 0,
@@ -46,7 +46,7 @@ pub enum IrqState {
     IRQReserved = 4,
 }
 
-#[cfg(not(feature = "ENABLE_SMP"))]
+#[cfg(not(feature = "enable_smp"))]
 #[allow(dead_code)]
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum IrqState {
@@ -190,7 +190,7 @@ pub fn ack_interrupt(irq: usize) {
     unsafe {
         active_irq[cpu_id()] = irqInvalid;
     }
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         if irq == INTERRUPT_IPI_0 || irq == INTERRUPT_IPI_1 {
             unsafe {
@@ -235,7 +235,7 @@ pub fn get_active_irq() -> usize {
         return irq;
     }
     let sip = read_sip();
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         use sel4_common::arch::riscv64::clear_ipi;
         if (sip & BIT!(SIP_SEIP)) != 0 {
@@ -250,7 +250,7 @@ pub fn get_active_irq() -> usize {
             irq = irqInvalid;
         }
     }
-    #[cfg(not(feature = "ENABLE_SMP"))]
+    #[cfg(not(feature = "enable_smp"))]
     if (sip & BIT!(SIP_SEIP)) != 0 {
         irq = 0;
     } else if (sip & BIT!(SIP_STIP)) != 0 {
@@ -312,7 +312,7 @@ pub const fn is_irq_valid(x: usize) -> bool {
 #[inline]
 fn irq_to_idx(irq: usize) -> usize {
     cfg_if::cfg_if! {
-        if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+        if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
             use crate::arch::arm_gic::irq_to_idx;
             irq_to_idx(irq_t { core: cpu_id(), irq: irq })
         } else {
@@ -324,7 +324,7 @@ fn irq_to_idx(irq: usize) -> usize {
 #[inline]
 fn idx_to_irq(idx: usize) -> usize {
     cfg_if::cfg_if! {
-        if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+        if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
             use crate::arch::arm_gic::idx_to_irq;
             idx_to_irq(idx)
         } else {

@@ -16,13 +16,13 @@ use sel4_task::*;
 use super::exception::{handleUserLevelFault, handleVMFaultEvent};
 use crate::interrupt::handler::handle_interrupt_entry;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::{
     ffi::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
     interrupt::get_active_irq,
 };
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 
 #[no_mangle]
@@ -30,7 +30,7 @@ pub fn restore_user_context() {
     unsafe {
         // debug!("restore_user_context");
         let cur_thread_reg: usize = get_currenct_thread().tcbArch.raw_ptr();
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
             if clh_is_self_in_queue() {
                 clh_lock_release(cpu_id());
@@ -44,7 +44,7 @@ pub fn restore_user_context() {
             // debug!("cur_sp: {:#x}", cur_sp);
             *((cur_sp - 8) as *mut usize) = cur_thread_reg;
         }
-        #[cfg(feature = "HAVE_FPU")]
+        #[cfg(feature = "have_fpu")]
         {
             unsafe {
                 lazy_fpu_restore(get_currenct_thread());
@@ -86,7 +86,7 @@ pub fn restore_user_context() {
         "ld  t1, (34*8)(t0)\n",
         "csrw sepc, t1", in(reg) cur_thread_reg);
 
-        #[cfg(not(feature = "ENABLE_SMP"))]
+        #[cfg(not(feature = "enable_smp"))]
         {
             asm!("csrw sscratch, t0")
         }
@@ -106,7 +106,7 @@ pub fn restore_user_context() {
 pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) {
     unsafe {
         let cur_thread_reg = (*cur_thread).tcbArch.raw_ptr() as usize;
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
             if clh_is_self_in_queue() {
                 clh_lock_release(cpu_id());
@@ -121,7 +121,7 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
             let ptr = sp as *mut usize;
             *ptr = (*cur_thread).tcbArch.raw_ptr();
         }
-        #[cfg(feature = "HAVE_FPU")]
+        #[cfg(feature = "have_fpu")]
         {
             use crate::arch::fpu::{is_fpu_enable, set_tcb_fs_state};
             unsafe {
@@ -167,7 +167,7 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
         in(reg) _msgInfo,
         in(reg) cur_thread_reg);
 
-        #[cfg(not(feature = "ENABLE_SMP"))]
+        #[cfg(not(feature = "enable_smp"))]
         {
             asm!("csrw sscratch, t0")
         }
@@ -188,7 +188,7 @@ pub fn c_handle_interrupt() {
     // if hart_id() != 0 {
     //     debug!("c_handle_interrupt");
     // }
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         use sel4_common::platform::INTERRUPT_IPI_0;
         if get_active_irq() != INTERRUPT_IPI_0 {
@@ -204,7 +204,7 @@ pub fn c_handle_interrupt() {
 
 #[no_mangle]
 pub fn c_handle_exception() {
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     unsafe {
         clh_lock_acquire(cpu_id(), false);
     }
@@ -234,10 +234,12 @@ pub fn c_handle_exception() {
             unsafe {
                 if !is_fpu_enable() {
                     handle_fpu_fault();
-                    let pc = get_currenct_thread().tcbArch.get_register(ArchReg::FaultIP);
+                    let pc = get_currenct_thread()
+                        .tcbArch
+                        .get_register(ArchReg::FAULT_IP);
                     get_currenct_thread()
                         .tcbArch
-                        .set_register(ArchReg::NextIP, pc);
+                        .set_register(ArchReg::NEXT_IP, pc);
                 } else {
                     handleUserLevelFault(cause, 0);
                 }
@@ -249,7 +251,7 @@ pub fn c_handle_exception() {
 
 #[no_mangle]
 pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     unsafe {
         clh_lock_acquire(cpu_id(), false);
     }
@@ -261,7 +263,7 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 #[link_section = ".text"]
 pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) {
     use crate::kernel::fastpath::fastpath_call;
@@ -269,18 +271,18 @@ pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) {
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 #[link_section = ".text"]
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     use crate::kernel::fastpath::fastpath_reply_recv;
     fastpath_reply_recv(cptr, msgInfo);
 }
 
 #[no_mangle]
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 #[link_section = ".text"]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     use crate::kernel::fastpath::fastpath_reply_recv;
     fastpath_reply_recv(cptr, msgInfo, reply);

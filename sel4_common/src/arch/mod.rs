@@ -56,8 +56,8 @@ pub enum ArchReg {
     Cap,
     Badge,
     MsgInfo,
-    FaultIP,
-    NextIP,
+    FAULT_IP,
+    NEXT_IP,
     /// Message Registers Msg(offset)
     Msg(usize),
     /// Frame Registers Frame(Offset)
@@ -66,20 +66,20 @@ pub enum ArchReg {
     GP(usize),
     /// Fault Message Reg, (id, index)
     FaultMessage(usize, usize),
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     Reply,
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     nbsRecvDest,
     #[cfg(target_arch = "riscv64")]
     SSTATUS,
 }
 
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use crate::platform::time_def::ticks_t;
 
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn get_kernel_wcet_ticks() -> ticks_t {
-    usToTicks(get_kernel_wcet_us())
+    us_to_ticks(get_kernel_wcet_us())
 }
 
 #[cfg(any(target_arch = "aarch64", test))]

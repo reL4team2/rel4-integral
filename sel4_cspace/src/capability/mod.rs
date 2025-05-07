@@ -107,11 +107,11 @@ impl cap_func for cap {
                 cap::cap_cnode_cap(self).get_capCNodeRadix() as usize + seL4_SlotBits
             }
             cap_tag::cap_page_table_cap => PT_SIZE_BITS,
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             cap_tag::cap_reply_cap => seL4_ReplyBits,
-            #[cfg(not(feature = "KERNEL_MCS"))]
+            #[cfg(not(feature = "kernel_mcs"))]
             cap_tag::cap_reply_cap => 0,
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             cap_tag::cap_sched_context_cap => {
                 cap::cap_sched_context_cap(self).get_capSCSizeBits() as usize
             }
@@ -124,7 +124,7 @@ impl cap_func for cap {
         if self.get_tag() == cap_tag::cap_vspace_cap {
             return true;
         }
-        #[cfg(not(feature = "KERNEL_MCS"))]
+        #[cfg(not(feature = "kernel_mcs"))]
         {
             matches!(
                 self.get_tag(),
@@ -139,7 +139,7 @@ impl cap_func for cap {
                     | cap_tag::cap_thread_cap
             )
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         {
             matches!(
                 self.get_tag(),
@@ -216,7 +216,7 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
             }
             false
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         cap_tag::cap_sched_context_cap => {
             if cap2.get_tag() == cap_tag::cap_sched_context_cap {
                 return (cap::cap_sched_context_cap(cap1).get_capSCPtr()
@@ -226,14 +226,14 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
             }
             false
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         cap_tag::cap_sched_control_cap => {
             if cap2.get_tag() == cap_tag::cap_sched_control_cap {
                 return true;
             }
             false
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         cap_tag::cap_reply_cap => {
             if cap2.get_tag() == cap_tag::cap_reply_cap {
                 return cap::cap_reply_cap(cap1).get_capReplyPtr()

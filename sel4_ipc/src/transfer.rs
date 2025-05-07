@@ -4,10 +4,10 @@ use core::intrinsics::unlikely;
 use super::endpoint::*;
 use super::notification::*;
 
-#[cfg(feature = "KERNEL_MCS")]
-use sel4_common::arch::n_timeoutMessage;
 use sel4_common::arch::ArchReg;
-use sel4_common::arch::{n_exceptionMessage, n_syscallMessage};
+#[cfg(feature = "kernel_mcs")]
+use sel4_common::arch::N_TIMEOUT_MESSAGE;
+use sel4_common::arch::{N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE};
 use sel4_common::fault::*;
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::sel4_config::*;
@@ -19,7 +19,7 @@ use sel4_common::structures_gen::{
 use sel4_common::utils::*;
 use sel4_cspace::interface::*;
 use sel4_task::{possible_switch_to, set_thread_state, tcb_t, ThreadState};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{reply::reply_t, reply_remove_tcb, sched_context::sched_context_t};
 use sel4_vspace::pptr_t;
 
@@ -63,16 +63,16 @@ pub trait Transfer {
         badge: usize,
         grant: bool,
     );
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn do_reply(&mut self, reply: &mut reply_t, grant: bool);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     fn do_reply(&mut self, receiver: &mut tcb_t, slot: &mut cte_t, grant: bool);
 }
 
 impl Transfer for tcb_t {
     fn cancel_ipc(&mut self) {
         let state = &self.tcbState;
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         {
             seL4_Fault_NullFault::new();
         }
@@ -89,11 +89,11 @@ impl Transfer for tcb_t {
             }
 
             ThreadState::ThreadStateBlockedOnReply => {
-                #[cfg(feature = "KERNEL_MCS")]
+                #[cfg(feature = "kernel_mcs")]
                 {
                     reply_remove_tcb(self);
                 }
-                #[cfg(not(feature = "KERNEL_MCS"))]
+                #[cfg(not(feature = "kernel_mcs"))]
                 {
                     self.tcbFault = seL4_Fault_NullFault::new().unsplay();
                     let slot = self.get_cspace(tcbReply);
@@ -202,25 +202,21 @@ impl Transfer for tcb_t {
     fn do_fault_transfer(&self, receiver: &mut tcb_t, badge: usize) {
         let sent = match self.tcbFault.get_tag() {
             seL4_Fault_tag::seL4_Fault_CapFault => {
+                receiver.set_mr(CAP_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
                 receiver.set_mr(
-                    seL4_CapFault_IP,
-                    self.tcbArch.get_register(ArchReg::FaultIP),
-                );
-                receiver.set_mr(
-                    seL4_CapFault_Addr,
+                    CAP_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_address() as usize,
                 );
                 receiver.set_mr(
-                    seL4_CapFault_InRecvPhase,
+                    CAP_FAULT_IN_RECV_PHASE,
                     seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_inReceivePhase() as usize,
                 );
-                receiver
-                    .set_lookup_fault_mrs(seL4_CapFault_LookupFailureType, &self.tcbLookupFailure)
+                receiver.set_lookup_fault_mrs(CAP_FAULT_LOOKUP_FAILURE_TYPE, &self.tcbLookupFailure)
             }
             seL4_Fault_tag::seL4_Fault_UnknownSyscall => {
                 self.copy_syscall_fault_mrs(receiver);
                 receiver.set_mr(
-                    n_syscallMessage,
+                    N_SYSCALL_MESSAGE,
                     seL4_Fault::seL4_Fault_UnknownSyscall(&self.tcbFault).get_syscallNumber()
                         as usize,
                 )
@@ -228,33 +224,33 @@ impl Transfer for tcb_t {
             seL4_Fault_tag::seL4_Fault_UserException => {
                 self.copy_exeception_fault_mrs(receiver);
                 receiver.set_mr(
-                    n_exceptionMessage,
+                    N_EXCEPTON_MESSAGE,
                     seL4_Fault::seL4_Fault_UserException(&self.tcbFault).get_number() as usize,
                 );
                 receiver.set_mr(
-                    n_exceptionMessage + 1,
+                    N_EXCEPTON_MESSAGE + 1,
                     seL4_Fault::seL4_Fault_UserException(&self.tcbFault).get_code() as usize,
                 )
             }
             seL4_Fault_tag::seL4_Fault_VMFault => {
-                receiver.set_mr(seL4_VMFault_IP, self.tcbArch.get_register(ArchReg::FaultIP));
+                receiver.set_mr(VM_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
                 receiver.set_mr(
-                    seL4_VMFault_Addr,
+                    VM_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_address() as usize,
                 );
                 receiver.set_mr(
-                    seL4_VMFault_PrefetchFault,
+                    VM_FAULT_PREFETCH_FAULT,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_instructionFault() as usize,
                 );
                 receiver.set_mr(
-                    seL4_VMFault_FSR,
+                    VM_FAULT_FSR,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_FSR() as usize,
                 )
             }
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             seL4_Fault_tag::seL4_Fault_Timeout => {
                 let len = receiver.set_mr(
-                    seL4_Timeout_Data,
+                    TIMEOUT_DATA,
                     seL4_Fault::seL4_Fault_Timeout(&self.tcbFault).get_badge() as usize,
                 );
                 if let Some(sc) =
@@ -313,7 +309,7 @@ impl Transfer for tcb_t {
                 self.copy_fault_mrs_for_reply(
                     receiver,
                     MessageID_Syscall,
-                    core::cmp::min(length, n_syscallMessage),
+                    core::cmp::min(length, N_SYSCALL_MESSAGE),
                 );
                 return label as usize == 0;
             }
@@ -321,16 +317,16 @@ impl Transfer for tcb_t {
                 self.copy_fault_mrs_for_reply(
                     receiver,
                     MessageID_Exception,
-                    core::cmp::min(length, n_exceptionMessage),
+                    core::cmp::min(length, N_EXCEPTON_MESSAGE),
                 );
                 return label as usize == 0;
             }
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             seL4_Fault_tag::seL4_Fault_Timeout => {
                 self.copy_fault_mrs_for_reply(
                     receiver,
                     MessageID_TimeoutReply,
-                    core::cmp::min(length, n_timeoutMessage),
+                    core::cmp::min(length, N_TIMEOUT_MESSAGE),
                 );
                 return label as usize == 0;
             }
@@ -346,7 +342,7 @@ impl Transfer for tcb_t {
                 self.tcbArch
                     .set_register(ArchReg::Badge, ntfn.get_ntfnMsgIdentifier() as usize);
                 ntfn.set_state(NtfnState::Idle as u64);
-                #[cfg(feature = "KERNEL_MCS")]
+                #[cfg(feature = "kernel_mcs")]
                 {
                     maybe_donate_sched_context(self, ntfn);
                     if let Some(tcbsc) =
@@ -380,7 +376,7 @@ impl Transfer for tcb_t {
             self.do_fault_transfer(receiver, badge)
         }
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn do_reply(&mut self, reply: &mut reply_t, grant: bool) {
         use sel4_common::{ffi::current_fault, structures_gen::seL4_Fault_Timeout};
         use sel4_task::handleTimeout;
@@ -439,7 +435,7 @@ impl Transfer for tcb_t {
             }
         }
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     fn do_reply(&mut self, receiver: &mut tcb_t, slot: &mut cte_t, grant: bool) {
         assert_eq!(receiver.get_state(), ThreadState::ThreadStateBlockedOnReply);
         let fault_type = receiver.tcbFault.get_tag();

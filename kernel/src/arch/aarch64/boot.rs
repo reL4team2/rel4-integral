@@ -21,16 +21,16 @@ use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 use super::platform::init_irq_controller;
 use crate::interrupt::{intStateIRQNodeToR, mask_interrupt, set_irq_state_by_irq, IrqState};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use core::arch::asm;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::ffi::{clh_lock_acquire, clh_lock_init};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::boot::node_boot_lock;
 
 pub fn try_init_kernel(
@@ -130,7 +130,7 @@ pub fn try_init_kernel(
         invalidate_local_tlb();
         // debug!("release_secondary_cores start");
         *ksNumCPUs.lock() = 1;
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         {
             use crate::ffi::{clh_lock_acquire, clh_lock_init};
             use sel4_common::utils::cpu_id;
@@ -150,11 +150,11 @@ pub fn try_init_kernel(
     true
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[inline(always)]
 pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     use core::ops::AddAssign;
-    use sel4_common::arch::config::{irq_remote_call_ipi, irq_reschedule_ipi};
+    use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
     use sel4_common::platform::KERNEL_TIMER_IRQ;
     while node_boot_lock.lock().eq(&0) {}
     // Initialize cpu
@@ -163,8 +163,8 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     for i in 0..sel4_common::platform::NUM_PPI {
         mask_interrupt(true, i);
     }
-    set_irq_state_by_irq(IrqState::IRQIPI, irq_remote_call_ipi);
-    set_irq_state_by_irq(IrqState::IRQIPI, irq_reschedule_ipi);
+    set_irq_state_by_irq(IrqState::IRQIPI, IRQ_REMOTE_CALL_IPI);
+    set_irq_state_by_irq(IrqState::IRQIPI, IRQ_RESCHEDULE_IPI);
     set_irq_state_by_irq(IrqState::IRQTimer, KERNEL_TIMER_IRQ);
 
     unsafe { clh_lock_acquire(cpu_id(), false) };
@@ -174,7 +174,7 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     true
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub(crate) fn release_secondary_cpus() {
     use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
     *node_boot_lock.lock() = 1;

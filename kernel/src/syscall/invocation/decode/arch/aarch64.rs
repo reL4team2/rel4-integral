@@ -22,8 +22,8 @@ use sel4_common::structures_gen::{
 };
 use sel4_common::structures_gen::{lookup_fault_invalid_root, lookup_fault_missing_capability};
 use sel4_common::utils::{
-    convert_ref_type_to_usize, convert_to_mut_type_ref, global_ops, pageBitsForSize, ptr_to_mut,
-    ptr_to_ref, MAX_FREE_INDEX,
+    convert_ref_type_to_usize, convert_to_mut_type_ref, global_ops, max_free_index,
+    pageBitsForSize, ptr_to_mut, ptr_to_ref,
 };
 use sel4_common::{
     arch::MessageLabel,
@@ -46,11 +46,11 @@ use crate::{
     interrupt::is_irq_active,
     syscall::{invocation::invoke_irq::invoke_irq_control, lookupSlotForCNodeOp},
 };
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 use sel4_common::sel4_config::NUM_SMC_REGS;
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 use sel4_common::{
-    arch::msgRegisterNum, arch::ArchReg, arch::MessageLabel::ARMSMCCall,
+    arch::ArchReg, arch::MessageLabel::ARMSMCCall, arch::MSG_REGISTER_NUM,
     structures_gen::cap_smc_cap,
 };
 
@@ -358,7 +358,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         return status;
     }
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
-    cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(MAX_FREE_INDEX(
+    cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(max_free_index(
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
     unsafe {
@@ -1125,7 +1125,7 @@ pub fn arch_decode_irq_control_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 }
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 pub fn decode_arm_smc_invocation(
     label: MessageLabel,
     length: usize,
@@ -1160,7 +1160,7 @@ pub fn decode_arm_smc_invocation(
 
     invoke_smc_call(buffer, call)
 }
-#[cfg(feature = "ENABLE_SMC")]
+#[cfg(feature = "enable_smc")]
 fn invoke_smc_call(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     use core::arch::asm;
 
@@ -1203,7 +1203,7 @@ fn invoke_smc_call(buffer: &seL4_IPCBuffer, call: bool) -> exception_t {
     }
     if call {
         let mut i: usize = 0;
-        while i < msgRegisterNum {
+        while i < MSG_REGISTER_NUM {
             thread.tcbArch.set_register(ArchReg::Msg(i), args[i]);
             i += 1;
         }

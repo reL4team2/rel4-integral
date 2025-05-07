@@ -17,7 +17,7 @@ use sel4_common::{
     arch::maskVMRights,
     sel4_bitfield_types::Bitfield,
     shared_types_bf_gen::seL4_CapRights,
-    utils::{pageBitsForSize, MAX_FREE_INDEX},
+    utils::{max_free_index, pageBitsForSize},
     MASK,
 };
 use sel4_common::{sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref};
@@ -264,7 +264,7 @@ pub fn invoke_asid_control(
 ) -> exception_t {
     use sel4_common::structures_gen::cap_asid_pool_cap;
 
-    cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(MAX_FREE_INDEX(
+    cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(max_free_index(
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
     clear_memory(frame_ptr as *mut u8, pageBitsForSize(RISCV_4K_Page));

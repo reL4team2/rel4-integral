@@ -4,7 +4,7 @@ pub mod gic_v3;
 use sel4_common::structures::irq_t;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "ENABLE_SMP")] {
+    if #[cfg(feature = "enable_smp")] {
         use sel4_common::platform::{NUM_PPI_MINUS_ONE, NUM_PPI};
         use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 

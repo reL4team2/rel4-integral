@@ -1,16 +1,16 @@
 //seL4_VMFault_Msg
-pub const seL4_VMFault_IP: usize = 0;
-pub const seL4_VMFault_Addr: usize = 1;
-pub const seL4_VMFault_PrefetchFault: usize = 2;
-pub const seL4_VMFault_FSR: usize = 3;
-pub const seL4_VMFault_Length: usize = 4;
-pub const seL4_Timeout_Data: usize = 0;
+pub const VM_FAULT_IP: usize = 0;
+pub const VM_FAULT_ADDR: usize = 1;
+pub const VM_FAULT_PREFETCH_FAULT: usize = 2;
+pub const VM_FAULT_FSR: usize = 3;
+pub const VM_FAULT_LENGTH: usize = 4;
+pub const TIMEOUT_DATA: usize = 0;
 
-pub const seL4_CapFault_IP: usize = 0;
-pub const seL4_CapFault_Addr: usize = 1;
-pub const seL4_CapFault_InRecvPhase: usize = 2;
-pub const seL4_CapFault_LookupFailureType: usize = 3;
-pub const seL4_CapFault_BitsLeft: usize = 4;
-pub const seL4_CapFault_DepthMismatch_BitsFound: usize = 5;
-pub const seL4_CapFault_GuardMismatch_GuardFound: usize = seL4_CapFault_DepthMismatch_BitsFound;
-pub const seL4_CapFault_GuardMismatch_BitsFound: usize = 6;
+pub const CAP_FAULT_IP: usize = 0;
+pub const CAP_FAULT_ADDR: usize = 1;
+pub const CAP_FAULT_IN_RECV_PHASE: usize = 2;
+pub const CAP_FAULT_LOOKUP_FAILURE_TYPE: usize = 3;
+pub const CAP_FAULT_BITS_LEFT: usize = 4;
+pub const CAP_FAULT_DEPTH_MISMATCH_BITS_FOUND: usize = 5;
+pub const CAP_FAULT_GUARD_MISMATCH_GUARD_FOUND: usize = CAP_FAULT_DEPTH_MISMATCH_BITS_FOUND;
+pub const CAP_FAULT_GUARD_MISMATCH_BITS_FOUND: usize = 6;

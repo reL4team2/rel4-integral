@@ -8,7 +8,7 @@ use crate::syscall::{
     SysDebugCapIdentify, SysDebugDumpScheduler, SysDebugHalt, SysDebugNameThread, SysDebugPutChar,
     SysDebugSnapshot, SysGetClock,
 };
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use core::intrinsics::likely;
 use log::debug;
 use sel4_common::arch::ArchReg::*;
@@ -22,7 +22,7 @@ use sel4_common::structures_gen::seL4_Fault_UnknownSyscall;
 use sel4_common::structures_gen::seL4_Fault_UserException;
 use sel4_common::structures_gen::seL4_Fault_VMFault;
 use sel4_task::{activateThread, get_currenct_thread, schedule};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget_restart, update_timestamp};
 
 #[no_mangle]
@@ -94,7 +94,7 @@ pub fn handle_unknown_syscall(w: isize) -> exception_t {
 
 #[no_mangle]
 pub fn handleUserLevelFault(w_a: usize, w_b: usize) -> exception_t {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         update_timestamp();
         if likely(check_budget_restart()) {
@@ -104,7 +104,7 @@ pub fn handleUserLevelFault(w_a: usize, w_b: usize) -> exception_t {
             }
         }
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     unsafe {
         current_fault = seL4_Fault_UserException::new(w_a as u64, w_b as u64).unsplay();
         handle_fault(get_currenct_thread());
@@ -116,7 +116,7 @@ pub fn handleUserLevelFault(w_a: usize, w_b: usize) -> exception_t {
 
 #[no_mangle]
 pub fn handleVMFaultEvent(vm_faultType: usize) -> exception_t {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         update_timestamp();
         if likely(check_budget_restart()) {
@@ -126,7 +126,7 @@ pub fn handleVMFaultEvent(vm_faultType: usize) -> exception_t {
             }
         }
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     {
         let status = handle_vm_fault(vm_faultType);
         if status != exception_t::EXCEPTION_NONE {

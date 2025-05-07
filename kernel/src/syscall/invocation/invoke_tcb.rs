@@ -29,8 +29,8 @@ pub fn invoke_tcb_read_registers(
         let mut op_ipc_buffer = thread.lookup_mut_ipc_buffer(true);
         thread.tcbArch.set_register(ArchReg::Badge, 0);
         let mut i: usize = 0;
-        while i < n && i < frameRegNum && i < msgRegisterNum {
-            // setRegister(thread, msgRegister[i], getRegister(src, frameRegisters[i]));
+        while i < n && i < FRAME_REG_NUM && i < MSG_REGISTER_NUM {
+            // setRegister(thread, MSG_REGISTER[i], getRegister(src, FRAME_REGISTERS[i]));
             thread
                 .tcbArch
                 .set_register(ArchReg::Msg(i), src.tcbArch.get_register(ArchReg::Frame(i)));
@@ -38,25 +38,25 @@ pub fn invoke_tcb_read_registers(
         }
 
         if let Some(ipc_buffer) = op_ipc_buffer.as_deref_mut() {
-            while i < n && i < frameRegNum {
+            while i < n && i < FRAME_REG_NUM {
                 ipc_buffer.msg[i] = src.tcbArch.get_register(ArchReg::Frame(i));
                 i += 1;
             }
         }
         let j = i;
         i = 0;
-        while i < gpRegNum && i + frameRegNum < n && i + frameRegNum < msgRegisterNum {
+        while i < GP_REG_NUM && i + FRAME_REG_NUM < n && i + FRAME_REG_NUM < MSG_REGISTER_NUM {
             thread.tcbArch.set_register(
-                // msgRegister[i + frameRegNum],
-                ArchReg::Msg(i + frameRegNum),
+                // MSG_REGISTER[i + FRAME_REG_NUM],
+                ArchReg::Msg(i + FRAME_REG_NUM),
                 src.tcbArch.get_register(ArchReg::GP(i)),
             );
             i += 1;
         }
 
         if let Some(ipc_buffer) = op_ipc_buffer {
-            while i < gpRegNum && i + frameRegNum < n {
-                ipc_buffer.msg[i + frameRegNum] = src.tcbArch.get_register(ArchReg::GP(i));
+            while i < GP_REG_NUM && i + FRAME_REG_NUM < n {
+                ipc_buffer.msg[i + FRAME_REG_NUM] = src.tcbArch.get_register(ArchReg::GP(i));
                 i += 1;
             }
         }
@@ -76,25 +76,29 @@ pub fn invoke_tcb_write_registers(
     _arch: usize,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    if n > frameRegNum + gpRegNum {
-        n = frameRegNum + gpRegNum;
+    if n > FRAME_REG_NUM + GP_REG_NUM {
+        n = FRAME_REG_NUM + GP_REG_NUM;
     }
 
     let mut i = 0;
-    while i < frameRegNum && i < n {
+    while i < FRAME_REG_NUM && i < n {
         dest.tcbArch
             .set_register(ArchReg::Frame(i), get_syscall_arg(i + 2, buffer));
         i += 1;
     }
     i = 0;
-    while i < gpRegNum && i + frameRegNum < n {
-        dest.tcbArch
-            .set_register(ArchReg::GP(i), get_syscall_arg(i + frameRegNum + 2, buffer));
+    while i < GP_REG_NUM && i + FRAME_REG_NUM < n {
+        dest.tcbArch.set_register(
+            ArchReg::GP(i),
+            get_syscall_arg(i + FRAME_REG_NUM + 2, buffer),
+        );
         i += 1;
     }
 
-    dest.tcbArch
-        .set_register(ArchReg::NextIP, dest.tcbArch.get_register(ArchReg::FaultIP));
+    dest.tcbArch.set_register(
+        ArchReg::NEXT_IP,
+        dest.tcbArch.get_register(ArchReg::FAULT_IP),
+    );
 
     if resumeTarget != 0 {
         // cancel_ipc(dest);
@@ -129,7 +133,7 @@ pub fn invoke_tcb_copy_registers(
         dest.restart();
     }
     if transferFrame != 0 {
-        for i in 0..gpRegNum {
+        for i in 0..GP_REG_NUM {
             dest.tcbArch
                 .set_register(ArchReg::GP(i), src.tcbArch.get_register(ArchReg::GP(i)));
         }
@@ -169,7 +173,7 @@ pub fn invoke_tcb_set_priority(target: &mut tcb_t, prio: usize) -> exception_t {
     target.set_priority(prio);
     exception_t::EXCEPTION_NONE
 }
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn invoke_tcb_set_space(
     target: &mut tcb_t,
     slot: &mut cte_t,
@@ -204,7 +208,7 @@ pub fn invoke_tcb_set_space(
     }
     exception_t::EXCEPTION_NONE
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 #[no_mangle]
 pub fn install_tcb_cap(
     target: &mut tcb_t,
@@ -224,7 +228,7 @@ pub fn install_tcb_cap(
     }
     return e;
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn invoke_tcb_thread_control_caps(
     target: &mut tcb_t,
     slot: &mut cte_t,
@@ -375,7 +379,7 @@ pub fn invoke_tcb_set_tls_base(thread: &mut tcb_t, base: usize) -> exception_t {
     exception_t::EXCEPTION_NONE
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 #[inline]
 pub fn invoke_tcb_set_affinity(thread: &mut tcb_t, affinitiy: usize) -> exception_t {
     thread.sched_dequeue();

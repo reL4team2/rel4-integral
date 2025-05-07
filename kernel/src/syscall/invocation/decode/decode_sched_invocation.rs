@@ -2,7 +2,7 @@ use core::intrinsics::unlikely;
 
 use log::debug;
 use sel4_common::{
-    arch::{usToTicks, MessageLabel},
+    arch::{us_to_ticks, MessageLabel},
     platform::time_def::time_t,
     sel4_config::{
         seL4_IllegalOperation, seL4_InvalidCapability, seL4_RangeError, seL4_TruncatedMessage,
@@ -95,9 +95,9 @@ pub fn decode_sched_control_invocation(
             }
 
             let budget_us: time_t = get_syscall_arg(0, buffer);
-            let budget_ticks = usToTicks(budget_us);
+            let budget_ticks = us_to_ticks(budget_us);
             let period_us = get_syscall_arg(TIME_ARG_SIZE, buffer);
-            let period_ticks = usToTicks(period_us);
+            let period_ticks = us_to_ticks(period_us);
             let extra_refills = get_syscall_arg(TIME_ARG_SIZE * 2, buffer);
             let badge = get_syscall_arg(TIME_ARG_SIZE * 2 + 1, buffer);
             let flags = get_syscall_arg(TIME_ARG_SIZE * 2 + 2, buffer);

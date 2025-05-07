@@ -28,7 +28,7 @@ pub static mut KS_FPU_RESTORE_SINCE_SWITCH: usize = 0;
 // TODO: support smp
 static mut IS_FPU_ENABLE_CACHED: bool = false;
 
-#[cfg(feature = "RISCV_EXT_D")]
+#[cfg(feature = "riscv_ext_d")]
 #[inline]
 pub fn save_fpu_state(dest: usize) {
     unsafe {
@@ -71,7 +71,7 @@ pub fn save_fpu_state(dest: usize) {
         (*(dest as *mut FPUState)).fcsr = read_fcsr();
     }
 }
-#[cfg(feature = "RISCV_EXT_F")]
+#[cfg(feature = "riscv_ext_f")]
 #[inline]
 pub fn save_fpu_state(dest: usize) {
     unsafe {
@@ -114,7 +114,7 @@ pub fn save_fpu_state(dest: usize) {
         (*(dest as *mut FPUState)).fcsr = read_fcsr();
     }
 }
-#[cfg(feature = "RISCV_EXT_D")]
+#[cfg(feature = "riscv_ext_d")]
 #[inline]
 pub fn load_fpu_state(src: usize) {
     unsafe {
@@ -157,7 +157,7 @@ pub fn load_fpu_state(src: usize) {
         write_fcsr((*(src as *mut FPUState)).fcsr);
     }
 }
-#[cfg(feature = "RISCV_EXT_F")]
+#[cfg(feature = "riscv_ext_f")]
 #[inline]
 pub fn load_fpu_state(src: usize) {
     unsafe {

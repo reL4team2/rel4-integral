@@ -2,7 +2,7 @@ use crate::transfer::Transfer;
 use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::notification;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{ksCurSC, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, reschedule_required, set_thread_state, tcb_queue_t, tcb_t, ThreadState,
@@ -29,9 +29,9 @@ pub trait notification_func {
     fn get_ptr(&self) -> usize;
     fn send_signal(&mut self, badge: usize);
     fn receive_signal(&mut self, recv_thread: &mut tcb_t, is_blocking: bool);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn reorder_ntfn(&mut self, thread: &mut tcb_t);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     fn maybe_return_sched_context(&mut self, thread: &mut tcb_t);
 }
 impl notification_func for notification {
@@ -91,7 +91,7 @@ impl notification_func for notification {
             self.set_ntfnQueue_tail(0);
             while let Some(thread) = op_thread {
                 set_thread_state(thread, ThreadState::ThreadStateRestart);
-                #[cfg(feature = "KERNEL_MCS")]
+                #[cfg(feature = "kernel_mcs")]
                 {
                     if let Some(sc) =
                         convert_to_option_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
@@ -105,7 +105,7 @@ impl notification_func for notification {
                     }
                     possible_switch_to(thread);
                 }
-                #[cfg(not(feature = "KERNEL_MCS"))]
+                #[cfg(not(feature = "kernel_mcs"))]
                 {
                     thread.sched_enqueue();
                 }
@@ -160,16 +160,16 @@ impl notification_func for notification {
                         tcb.cancel_ipc();
                         set_thread_state(tcb, ThreadState::ThreadStateRunning);
                         tcb.tcbArch.set_register(ArchReg::Badge, badge);
-                        #[cfg(feature = "KERNEL_MCS")]
+                        #[cfg(feature = "kernel_mcs")]
                         {
                             maybe_donate_sched_context(tcb, self);
                             if tcb.is_schedulable() {
                                 possible_switch_to(tcb);
                             }
                         }
-                        #[cfg(not(feature = "KERNEL_MCS"))]
+                        #[cfg(not(feature = "kernel_mcs"))]
                         possible_switch_to(tcb);
-                        #[cfg(feature = "KERNEL_MCS")]
+                        #[cfg(feature = "kernel_mcs")]
                         if let Some(tcbsc) =
                             convert_to_option_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext)
                         {
@@ -203,16 +203,16 @@ impl notification_func for notification {
                     }
                     set_thread_state(dest, ThreadState::ThreadStateRunning);
                     dest.tcbArch.set_register(ArchReg::Badge, badge);
-                    #[cfg(feature = "KERNEL_MCS")]
+                    #[cfg(feature = "kernel_mcs")]
                     {
                         maybe_donate_sched_context(dest, self);
                         if dest.is_schedulable() {
                             possible_switch_to(dest);
                         }
                     }
-                    #[cfg(not(feature = "KERNEL_MCS"))]
+                    #[cfg(not(feature = "kernel_mcs"))]
                     possible_switch_to(dest);
-                    #[cfg(feature = "KERNEL_MCS")]
+                    #[cfg(feature = "kernel_mcs")]
                     if let Some(sc) =
                         convert_to_option_mut_type_ref::<sched_context_t>(dest.tcbSchedContext)
                     {
@@ -253,7 +253,7 @@ impl notification_func for notification {
                     queue.ep_append(recv_thread);
                     self.set_state(NtfnState::Waiting as u64);
                     self.set_queue(&queue);
-                    #[cfg(feature = "KERNEL_MCS")]
+                    #[cfg(feature = "kernel_mcs")]
                     self.maybe_return_sched_context(recv_thread);
                 } else {
                     recv_thread.tcbArch.set_register(ArchReg::Badge, 0);
@@ -265,7 +265,7 @@ impl notification_func for notification {
                     .tcbArch
                     .set_register(ArchReg::Badge, self.get_ntfnMsgIdentifier() as usize);
                 self.set_state(NtfnState::Idle as u64);
-                #[cfg(feature = "KERNEL_MCS")]
+                #[cfg(feature = "kernel_mcs")]
                 {
                     self.maybe_return_sched_context(recv_thread);
                     if recv_thread.tcbSchedContext != unsafe { ksCurSC }
@@ -280,7 +280,7 @@ impl notification_func for notification {
             }
         }
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     #[no_mangle]
     fn reorder_ntfn(&mut self, thread: &mut tcb_t) {
         let mut queue = self.get_queue();
@@ -288,7 +288,7 @@ impl notification_func for notification {
         queue.ep_append(thread);
         self.set_queue(&queue);
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     #[inline]
     fn maybe_return_sched_context(&mut self, thread: &mut tcb_t) {
         if let Some(sc) =
@@ -304,7 +304,7 @@ impl notification_func for notification {
         }
     }
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn maybe_donate_sched_context(tcb: &mut tcb_t, ntfnptr: &notification) {
     if tcb.tcbSchedContext == 0 {
         if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(

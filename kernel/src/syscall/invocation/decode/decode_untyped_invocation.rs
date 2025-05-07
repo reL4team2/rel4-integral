@@ -1,6 +1,6 @@
 use crate::BIT;
 use log::debug;
-use sel4_common::arch::config::seL4_MaxUntypedBits;
+use sel4_common::arch::config::MAX_UNTYPED_BITS;
 use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_cnode_cap;
 use sel4_common::structures_gen::cap_tag;
@@ -66,7 +66,7 @@ pub fn decode_untyed_invocation(
     let node_offset = get_syscall_arg(4, buffer);
     let node_window = get_syscall_arg(5, buffer);
     let obj_size = new_type.get_object_size(user_obj_size);
-    if user_obj_size >= wordBits || obj_size > seL4_MaxUntypedBits {
+    if user_obj_size >= wordBits || obj_size > MAX_UNTYPED_BITS {
         debug!(
             "Untyped Retype: Invalid object size. {} : {}",
             user_obj_size, obj_size
@@ -74,7 +74,7 @@ pub fn decode_untyed_invocation(
         unsafe {
             current_syscall_error._type = seL4_RangeError;
             current_syscall_error.rangeErrorMin = 0;
-            current_syscall_error.rangeErrorMax = seL4_MaxUntypedBits;
+            current_syscall_error.rangeErrorMax = MAX_UNTYPED_BITS;
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -83,7 +83,7 @@ pub fn decode_untyed_invocation(
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     if new_type == ObjectType::SchedContextObject && user_obj_size < seL4_MinSchedContextBits {
         debug!("Untyped retype: Requested a scheduling context too small.");
         unsafe {

@@ -8,14 +8,14 @@ use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
 use sel4_task::{activateThread, schedule, timer_tick};
 
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::ksReprogram;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget, update_timestamp};
 
 #[no_mangle]
 pub fn handle_interrupt_entry() -> exception_t {
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         update_timestamp();
         check_budget();
@@ -66,15 +66,15 @@ pub fn handle_interrput(irq: usize) {
             }
         }
         IrqState::IRQTimer => {
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             {
-                timer.ackDeadlineIRQ();
+                timer.ack_deadline_irq();
                 unsafe { ksReprogram = true };
             }
             timer_tick();
-            timer.resetTimer();
+            timer.reset_timer();
         }
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         IrqState::IRQIPI => {
             use sel4_common::structures::irq_t;
             #[cfg(target_arch = "aarch64")]

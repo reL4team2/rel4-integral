@@ -3,7 +3,7 @@ use crate::structures::{p_region_t, region_t, seL4_SlotPos, SlotRegion, UntypedD
 
 use crate::{BIT, IS_ALIGNED, MASK};
 use log::debug;
-use sel4_common::{arch::config::seL4_MaxUntypedBits, utils::MAX_FREE_INDEX};
+use sel4_common::{arch::config::MAX_UNTYPED_BITS, utils::max_free_index};
 use sel4_common::{
     sel4_config::seL4_MinUntypedBits,
     structures_gen::{cap_cnode_cap, cap_untyped_cap},
@@ -87,8 +87,8 @@ fn create_untypeds_for_region(
 ) -> bool {
     while !is_reg_empty(&reg) {
         let mut size_bits = seL4_WordBits - 1 - (reg.end - reg.start).leading_zeros() as usize;
-        if size_bits > seL4_MaxUntypedBits {
-            size_bits = seL4_MaxUntypedBits;
+        if size_bits > MAX_UNTYPED_BITS {
+            size_bits = MAX_UNTYPED_BITS;
         }
         if reg.start != 0 {
             let align_bits = reg.start.trailing_zeros() as usize;
@@ -119,7 +119,7 @@ fn provide_untyped_cap(
     size_bits: usize,
     first_untyped_slot: seL4_SlotPos,
 ) -> bool {
-    if size_bits > seL4_MaxUntypedBits || size_bits < seL4_MinUntypedBits {
+    if size_bits > MAX_UNTYPED_BITS || size_bits < seL4_MinUntypedBits {
         debug!("Kernel init: Invalid untyped size {}", size_bits);
         return false;
     }
@@ -158,7 +158,7 @@ fn provide_untyped_cap(
                 padding: [0; 6],
             };
             let ut_cap = cap_untyped_cap::new(
-                MAX_FREE_INDEX(size_bits) as u64,
+                max_free_index(size_bits) as u64,
                 device_memory as u64,
                 size_bits as u64,
                 pptr as u64,

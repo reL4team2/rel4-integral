@@ -12,18 +12,18 @@ pub const {{ param.label }}: usize = {{ param.value }};
 
 /* riscv interrupts, fixed */
 {% if arch == "riscv" %}
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub const PLIC_IRQ_OFFSET: usize = 0;
 pub const PLIC_MAX_IRQ: usize = 0;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub const INTERRUPT_IPI_0: usize = 1;
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub const INTERRUPT_IPI_1: usize = 2;
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub const KERNEL_TIMER_IRQ: usize = 3;
 
-#[cfg(all(not(feature = "ENABLE_SMP")))]
+#[cfg(all(not(feature = "enable_smp")))]
 pub const KERNEL_TIMER_IRQ: usize = 1;
 pub const maxIRQ: usize = KERNEL_TIMER_IRQ;
 pub const irqInvalid: usize = 0;
@@ -54,7 +54,7 @@ pub static mut kernel_device_frames: [kernel_frame_t; {{ device_regions | length
 ]; 
 
 /* PHYSICAL MEMORY */
-#[cfg(feature = "BUILD_BINARY")]
+#[cfg(feature = "build_binary")]
 #[link_section = ".boot.text"]
 pub static avail_p_regs: [p_region_t; {{ avail_mem_zones | length }}] = [
 {% for zone in avail_mem_zones %}

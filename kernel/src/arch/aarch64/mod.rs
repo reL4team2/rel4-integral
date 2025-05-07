@@ -6,7 +6,7 @@ pub(self) mod instruction;
 mod pg;
 mod platform;
 
-#[cfg(feature = "HAVE_FPU")]
+#[cfg(feature = "have_fpu")]
 pub mod fpu;
 
 pub mod arm_gic;
@@ -17,5 +17,5 @@ pub use exception::handle_unknown_syscall;
 pub(crate) use pg::set_vm_root_for_flush;
 pub use platform::{init_cpu, init_freemem};
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 pub use boot::try_init_kernel_secondary_core;

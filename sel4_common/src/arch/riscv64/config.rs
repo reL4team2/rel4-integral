@@ -14,4 +14,4 @@ pub const PADDR_TOP: usize = PPTR_TOP - PPTR_BASE_OFFSET;
 pub const RESET_CYCLES: usize = (TIMER_CLOCK_HZ / MS_IN_S) * 2;
 pub const KDEV_BASE: usize = 0xFFFFFFFFC0000000;
 
-pub const seL4_MaxUntypedBits: usize = 38;
+pub const MAX_UNTYPED_BITS: usize = 38;

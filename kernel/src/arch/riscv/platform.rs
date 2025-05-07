@@ -23,11 +23,11 @@ pub fn init_cpu() {
     unsafe {
         stvec::write(trap_entry as usize, TrapMode::Direct);
     }
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     {
         set_sie_mask(BIT!(SIE_SEIE) | BIT!(SIE_STIE) | BIT!(SIE_SSIE));
     }
-    #[cfg(not(feature = "ENABLE_SMP"))]
+    #[cfg(not(feature = "enable_smp"))]
     {
         set_sie_mask(BIT!(SIE_SEIE) | BIT!(SIE_STIE));
     }
@@ -36,7 +36,7 @@ pub fn init_cpu() {
     unsafe {
         set_fs_off();
     }
-    #[cfg(feature = "HAVE_FPU")]
+    #[cfg(feature = "have_fpu")]
     init_fpu();
 }
 

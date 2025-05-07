@@ -9,18 +9,18 @@ use sel4_common::sel4_config::{
     tcbCNodeEntries, tcbCTable, tcbVTable, CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION,
 };
 use sel4_common::structures::exception_t;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::call_stack;
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, endpoint, notification};
 use sel4_common::utils::convert_to_mut_type_ref;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::utils::convert_to_option_mut_type_ref;
 use sel4_cspace::capability::cap_func;
 use sel4_cspace::compatibility::{zombie_new, ZOMBIE_TYPE_ZOMBIE_TCB};
 use sel4_cspace::interface::FinaliseCapRet;
 use sel4_ipc::{endpoint_func, notification_func, Transfer};
 use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::{
     is_cur_domain_expired, ksConsumed, ksCurSC, reply::reply_t, sched_context::sched_context_t,
     update_timestamp, ThreadState,
@@ -203,7 +203,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 let ntfn = convert_to_mut_type_ref::<notification>(
                     cap::cap_notification_cap(capability).get_capNtfnPtr() as usize,
                 );
-                #[cfg(feature = "KERNEL_MCS")]
+                #[cfg(feature = "kernel_mcs")]
                 if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(
                     ntfn.get_ntfnSchedContext() as usize,
                 ) {
@@ -217,7 +217,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
             return fc_ret;
         }
         cap_tag::cap_reply_cap => {
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             if _final {
                 if let Some(reply) = convert_to_option_mut_type_ref::<reply_t>(
                     cap::cap_reply_cap(capability).get_capReplyPtr() as usize,
@@ -274,13 +274,13 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 let tcb = convert_to_mut_type_ref::<tcb_t>(
                     cap::cap_thread_cap(capability).get_capTCBPtr() as usize,
                 );
-                #[cfg(feature = "ENABLE_SMP")]
+                #[cfg(feature = "enable_smp")]
                 unsafe {
                     crate::ffi::remoteTCBStall(tcb)
                 };
                 let cte_ptr = tcb.get_cspace_mut_ref(tcbCTable);
                 safe_unbind_notification(tcb);
-                #[cfg(feature = "KERNEL_MCS")]
+                #[cfg(feature = "kernel_mcs")]
                 if let Some(sc) =
                     convert_to_option_mut_type_ref::<sched_context_t>(tcb.tcbSchedContext)
                 {
@@ -303,7 +303,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                 return fc_ret;
             }
         }
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         cap_tag::cap_sched_context_cap => {
             if _final {
                 let sc = convert_to_mut_type_ref::<sched_context_t>(
@@ -372,7 +372,7 @@ pub fn preemption_point() -> exception_t {
         if ksWorkUnitsCompleted >= CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION {
             ksWorkUnitsCompleted = 0;
 
-            #[cfg(feature = "KERNEL_MCS")]
+            #[cfg(feature = "kernel_mcs")]
             {
                 update_timestamp();
                 let sc = convert_to_mut_type_ref::<sched_context_t>(ksCurSC);
@@ -383,7 +383,7 @@ pub fn preemption_point() -> exception_t {
                     return exception_t::EXCEPTION_PREEMTED;
                 }
             }
-            #[cfg(not(feature = "KERNEL_MCS"))]
+            #[cfg(not(feature = "kernel_mcs"))]
             if is_irq_pending() {
                 return exception_t::EXCEPTION_PREEMTED;
             }

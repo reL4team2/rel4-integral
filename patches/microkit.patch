@@ -133,7 +133,7 @@ index 1199737..e782e2a 100644
 -pub use untyped::create_untypeds;
 +pub use untyped::{create_untypeds, create_untypeds_for_region};
  
- #[cfg(feature = "ENABLE_SMP")]
+ #[cfg(feature = "enable_smp")]
  pub use utils::{provide_cap, write_slot};
 diff --git a/kernel/src/boot/untyped.rs b/kernel/src/boot/untyped.rs
 index af60762..c3272ba 100644

@@ -118,7 +118,7 @@ impl Display for paddr_t {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(all(feature = "ENABLE_SMP", target_arch = "aarch64"))] {
+    if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
         #[repr(C)]
         pub struct irq_t {
             pub irq: usize,

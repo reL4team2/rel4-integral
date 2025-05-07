@@ -9,5 +9,5 @@ sel4_common = { git = "https://github.com/reL4team2/sel4_common.git", branch = "
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 
 [features]
-KERNEL_MCS = []
-ENABLE_SMC = []
+kernel_mcs = []
+enable_smc = []

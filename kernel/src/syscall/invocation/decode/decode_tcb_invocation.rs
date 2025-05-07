@@ -5,7 +5,7 @@
 
 use log::debug;
 use sel4_common::arch::MessageLabel;
-use sel4_common::arch::{frameRegNum, gpRegNum};
+use sel4_common::arch::{FRAME_REG_NUM, GP_REG_NUM};
 use sel4_common::sel4_config::{
     seL4_IllegalOperation, seL4_InvalidCapability, seL4_RangeError, seL4_TruncatedMessage,
     tcbCTable, tcbVTable,
@@ -24,7 +24,7 @@ use crate::{
     kernel::boot::{current_syscall_error, get_extra_cap_by_index},
     syscall::utils::{check_ipc_buffer_vaild, check_prio, get_syscall_arg},
 };
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::sel4_config::{
     thread_control_caps_update_fault, thread_control_caps_update_ipc_buffer,
     thread_control_caps_update_space,
@@ -35,7 +35,7 @@ use crate::syscall::is_valid_vtable_root;
 
 use super::super::invoke_tcb::*;
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 use crate::ffi::remoteTCBStall;
 
 pub const CopyRegisters_suspendSource: usize = 0;
@@ -44,7 +44,7 @@ pub const CopyRegisters_transferFrame: usize = 2;
 pub const CopyRegisters_transferInteger: usize = 3;
 pub const ReadRegisters_suspend: usize = 0;
 
-// #[cfg(feature = "ENABLE_SMP")]
+// #[cfg(feature = "enable_smp")]
 // #[no_mangle]
 // pub fn decode_tcb_invocation(
 //     invLabel: MessageLabel,
@@ -87,7 +87,7 @@ pub const ReadRegisters_suspend: usize = 0;
 //     }
 // }
 
-// #[cfg(not(feature = "ENABLE_SMP"))]
+// #[cfg(not(feature = "enable_smp"))]
 #[no_mangle]
 pub fn decode_tcb_invocation(
     invLabel: MessageLabel,
@@ -117,9 +117,9 @@ pub fn decode_tcb_invocation(
         MessageLabel::TCBConfigure => decode_tcb_configure(capability, length, slot, buffer),
         MessageLabel::TCBSetPriority => decode_set_priority(capability, length, buffer),
         MessageLabel::TCBSetMCPriority => decode_set_mc_priority(capability, length, buffer),
-        #[cfg(not(feature = "KERNEL_MCS"))]
+        #[cfg(not(feature = "kernel_mcs"))]
         MessageLabel::TCBSetSchedParams => decode_set_sched_params(capability, length, buffer),
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         MessageLabel::TCBSetSchedParams => {
             decode_set_sched_params(capability, length, slot, buffer)
         }
@@ -127,10 +127,10 @@ pub fn decode_tcb_invocation(
         MessageLabel::TCBSetSpace => decode_set_space(capability, length, slot, buffer),
         MessageLabel::TCBBindNotification => decode_bind_notification(capability),
         MessageLabel::TCBUnbindNotification => decode_unbind_notification(capability),
-        #[cfg(feature = "KERNEL_MCS")]
+        #[cfg(feature = "kernel_mcs")]
         MessageLabel::TCBSetTimeoutEndpoint => decode_set_timeout_endpoint(capability, slot),
         MessageLabel::TCBSetTLSBase => decode_set_tls_base(capability, length, buffer),
-        #[cfg(feature = "ENABLE_SMP")]
+        #[cfg(feature = "enable_smp")]
         MessageLabel::TCBSetAffinity => decode_set_affinity(capability, length, buffer),
         _ => unsafe {
             debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
@@ -155,7 +155,7 @@ fn decode_read_registers(
     }
     let flags = get_syscall_arg(0, buffer);
     let n = get_syscall_arg(1, buffer);
-    if n < 1 || n > frameRegNum + gpRegNum {
+    if n < 1 || n > FRAME_REG_NUM + GP_REG_NUM {
         debug!(
             "TCB ReadRegisters: Attempted to read an invalid number of registers:{}",
             n
@@ -163,7 +163,7 @@ fn decode_read_registers(
         unsafe {
             current_syscall_error._type = seL4_RangeError;
             current_syscall_error.rangeErrorMin = 1;
-            current_syscall_error.rangeErrorMax = frameRegNum + gpRegNum;
+            current_syscall_error.rangeErrorMax = FRAME_REG_NUM + GP_REG_NUM;
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
     }
@@ -253,9 +253,9 @@ fn decode_tcb_configure(
     target_thread_slot: &mut cte_t,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     let TCBCONFIGURE_ARGS = 3;
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     let TCBCONFIGURE_ARGS = 4;
     if msg_length < TCBCONFIGURE_ARGS
         || get_extra_cap_by_index(0).is_none()
@@ -268,20 +268,20 @@ fn decode_tcb_configure(
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     let fault_ep = get_syscall_arg(0, buffer);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     let croot_data = get_syscall_arg(1, buffer);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     let vroot_data = get_syscall_arg(2, buffer);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     let new_buffer_addr = get_syscall_arg(3, buffer);
 
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     let croot_data = get_syscall_arg(0, buffer);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     let vroot_data = get_syscall_arg(1, buffer);
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     let new_buffer_addr = get_syscall_arg(2, buffer);
 
     let croot_slot = get_extra_cap_by_index(0).unwrap();
@@ -353,7 +353,7 @@ fn decode_tcb_configure(
     }
 
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     let status = invoke_tcb_set_space(
         target_thread,
         target_thread_slot,
@@ -363,7 +363,7 @@ fn decode_tcb_configure(
         vroot_cap,
         vroot_slot,
     );
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     let status = invoke_tcb_thread_control_caps(
         target_thread,
         target_thread_slot,
@@ -464,7 +464,7 @@ fn decode_set_mc_priority(
         new_mcp,
     )
 }
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 fn decode_set_sched_params(
     capability: &cap_thread_cap,
     length: usize,
@@ -512,7 +512,7 @@ fn decode_set_sched_params(
     invoke_tcb_set_mcp(target, new_mcp);
     invoke_tcb_set_priority(target, new_prio)
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 fn decode_set_sched_params(
     capability: &cap_thread_cap,
     length: usize,
@@ -687,7 +687,7 @@ fn decode_set_ipc_buffer(
     )
 }
 
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 fn decode_set_space(
     capability: &cap_thread_cap,
     length: usize,
@@ -765,7 +765,7 @@ fn decode_set_space(
         vroot_slot,
     )
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn valid_fault_handler(capability: &cap) -> bool {
     use sel4_common::structures_gen::cap_Splayed;
 
@@ -792,7 +792,7 @@ pub fn valid_fault_handler(capability: &cap) -> bool {
         }
     }
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 fn decode_set_space(
     capability: &cap_thread_cap,
     length: usize,
@@ -962,7 +962,7 @@ fn decode_unbind_notification(capability: &cap_thread_cap) -> exception_t {
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
     invoke_tcb_unbind_notification(tcb)
 }
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t) -> exception_t {
     use sel4_common::sel4_config::thread_control_caps_update_timeout;
 
@@ -995,7 +995,7 @@ pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t
     )
 }
 
-#[cfg(feature = "ENABLE_SMP")]
+#[cfg(feature = "enable_smp")]
 fn decode_set_affinity(
     capability: &cap_thread_cap,
     length: usize,

@@ -1,16 +1,16 @@
 use crate::ffi::kernel_stack_alloc;
 // use crate::idle_thread;
-use super::{fault_messages, msgRegister, NextIP};
 use super::{sp, CONTEXT_REG_NUM, SSTATUS, SSTATUS_SPIE, SSTATUS_SPP};
+use super::{FAULT_MESSAGES, MSG_REGISTER, NEXT_IP};
 use crate::sel4_config::CONFIG_KERNEL_STACK_BITS;
 use crate::BIT;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone)]
 pub struct FPUState {
-    #[cfg(feature = "RISCV_EXT_D")]
+    #[cfg(feature = "riscv_ext_d")]
     pub regs: [u64; 32],
-    #[cfg(feature = "RISCV_EXT_F")]
+    #[cfg(feature = "riscv_ext_f")]
     pub regs: [u32; 32],
     pub fcsr: u32,
 }
@@ -39,7 +39,7 @@ impl Default for ArchTCB {
 impl ArchTCB {
     /// Config the registers fot the idle thread.
     pub fn config_idle_thread(&mut self, idle_thread: usize, core: usize) {
-        self.registers[NextIP] = idle_thread;
+        self.registers[NEXT_IP] = idle_thread;
         self.registers[SSTATUS] = SSTATUS_SPP | SSTATUS_SPIE;
         self.registers[sp] = unsafe {
             &kernel_stack_alloc.data[core][BIT!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8

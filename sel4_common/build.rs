@@ -46,7 +46,7 @@ fn main() {
     let mut common_defs: Vec<String> = defs.split_whitespace().map(|s| s.to_string()).collect();
     if arch.contains("aarch64") {
         // TODO: enable fpu fault handler if build aarch64, maybe need provide by build command
-        common_defs.push("HAVE_FPU=true".to_string());
+        common_defs.push("have_fpu=true".to_string());
     }
     // TODO: pt levels should config by config file
     common_defs.push("PT_LEVELS=3".to_string());

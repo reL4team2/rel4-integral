@@ -3,14 +3,14 @@ use crate::arch::fpu::lazy_fpu_restore;
 use crate::syscall::{slow_path, SysCall, SysReplyRecv};
 use crate::MASK;
 use core::intrinsics::{likely, unlikely};
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sched_context::sched_context_t;
-use sel4_common::arch::msgRegister;
+use sel4_common::arch::MSG_REGISTER;
 use sel4_common::message_info::seL4_MessageInfo_func;
 use sel4_common::shared_types_bf_gen::seL4_MessageInfo;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::call_stack;
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 use sel4_common::structures_gen::cap_reply_cap;
 use sel4_common::structures_gen::{
     cap, cap_null_cap, cap_tag, endpoint, mdb_node, notification, seL4_Fault_tag, thread_state,
@@ -21,7 +21,7 @@ use sel4_common::{
 };
 use sel4_cspace::interface::*;
 use sel4_ipc::*;
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 use sel4_task::reply::reply_t;
 use sel4_task::*;
 use sel4_vspace::*;
@@ -127,7 +127,7 @@ pub fn fastpath_mi_check(msgInfo: usize) -> bool {
 #[no_mangle]
 pub fn fastpath_copy_mrs(length: usize, src: &mut tcb_t, dest: &mut tcb_t) {
     dest.tcbArch
-        .copy_range(&src.tcbArch, msgRegister[0]..msgRegister[0] + length);
+        .copy_range(&src.tcbArch, MSG_REGISTER[0]..MSG_REGISTER[0] + length);
 }
 
 #[inline]
@@ -174,7 +174,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     if unlikely((ep_cap.get_capCanGrant() == 0) && (ep_cap.get_capCanGrantReply() == 0)) {
         slow_path(SysCall as usize);
     }
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         if unlikely(dest.tcbSchedContext != 0) {
             slow_path(SysCall as usize);
@@ -186,7 +186,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
             slow_path(SysCall as usize);
         }
     }
-    #[cfg(feature = "ENABLE_SMP")]
+    #[cfg(feature = "enable_smp")]
     if unlikely(get_currenct_thread().tcbAffinity != dest.tcbAffinity) {
         slow_path(SysCall as usize);
     }
@@ -203,7 +203,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
 
     current.tcbState.0.arr[0] = ThreadState::ThreadStateBlockedOnReply as u64;
 
-    #[cfg(feature = "KERNEL_MCS")]
+    #[cfg(feature = "kernel_mcs")]
     {
         let reply = dest.tcbState.get_replyObject();
         assert!(dest.tcbState.get_tcbQueued() == 0);
@@ -230,7 +230,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
             call_stack::new(1, sc.get_ptr() as u64);
         sc.scReply = reply as usize;
     }
-    #[cfg(not(feature = "KERNEL_MCS"))]
+    #[cfg(not(feature = "kernel_mcs"))]
     {
         let reply_slot = current.get_cspace_mut_ref(tcbReply);
         let caller_slot = dest.get_cspace_mut_ref(tcbCaller);
@@ -260,7 +260,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
 
 #[inline]
 #[no_mangle]
-#[cfg(not(feature = "KERNEL_MCS"))]
+#[cfg(not(feature = "kernel_mcs"))]
 pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     // sel4_common::println!("enter fastpath_reply_recv");
     let current = get_currenct_thread();
@@ -366,7 +366,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
 
 #[inline]
 #[no_mangle]
-#[cfg(feature = "KERNEL_MCS")]
+#[cfg(feature = "kernel_mcs")]
 pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     // sel4_common::println!("enter fastpath_reply_recv");
 
