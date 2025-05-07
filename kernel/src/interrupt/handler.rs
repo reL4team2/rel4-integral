@@ -1,8 +1,8 @@
 use crate::interrupt::*;
 use core::intrinsics::unlikely;
 use log::debug;
-use sel4_common::platform::{MAX_IRQ, IRQ_INVALID};
 use sel4_common::platform::{timer, Timer_func};
+use sel4_common::platform::{IRQ_INVALID, MAX_IRQ};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
@@ -43,12 +43,12 @@ pub fn handle_interrput(irq: usize) {
         return;
     }
     match get_irq_state(irq) {
-        IrqState::IRQInactive => {
+        IRQState::IRQInactive => {
             debug!("IRQInactive");
             mask_interrupt(true, irq);
             debug!("Received disabled IRQ: {}\n", irq);
         }
-        IrqState::IRQSignal => {
+        IRQState::IRQSignal => {
             debug!("IRQSignal");
             let handler_slot = get_irq_handler_slot(irq);
             let handler_cap = &handler_slot.capability;
@@ -65,7 +65,7 @@ pub fn handle_interrput(irq: usize) {
                 mask_interrupt(true, irq);
             }
         }
-        IrqState::IRQTimer => {
+        IRQState::IRQTimer => {
             #[cfg(feature = "kernel_mcs")]
             {
                 timer.ack_deadline_irq();
@@ -75,7 +75,7 @@ pub fn handle_interrput(irq: usize) {
             timer.reset_timer();
         }
         #[cfg(feature = "enable_smp")]
-        IrqState::IRQIPI => {
+        IRQState::IRQIPI => {
             use sel4_common::structures::irq_t;
             #[cfg(target_arch = "aarch64")]
             unsafe {
@@ -92,7 +92,7 @@ pub fn handle_interrput(irq: usize) {
                 crate::ffi::handleIPI(irq as irq_t, true)
             };
         }
-        IrqState::IRQReserved => {
+        IRQState::IRQReserved => {
             debug!("Received unhandled reserved IRQ: {}\n", irq);
         }
     }

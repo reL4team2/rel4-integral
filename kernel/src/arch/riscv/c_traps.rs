@@ -1,7 +1,7 @@
 use core::arch::asm;
 
 use super::read_scause;
-use crate::syscall::slow_path;
+use crate::syscall::slowpath;
 
 #[cfg(feature = "have_fpu")]
 use crate::arch::fpu::{handle_fpu_fault, is_fpu_enable, lazy_fpu_restore, set_tcb_fs_state};
@@ -253,7 +253,7 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     // if hart_id() == 0 {
     //     debug!("c_handle_syscall: syscall: {},", syscall as isize);
     // }
-    slow_path(syscall);
+    slowpath(syscall);
     // debug!("c_handle_syscall complete");
 }
 

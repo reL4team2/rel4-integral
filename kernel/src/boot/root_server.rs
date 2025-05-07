@@ -1,7 +1,7 @@
 use super::calculate_extra_bi_size_bits;
 use super::utils::{arch_get_n_paging, provide_cap, write_slot};
 use super::{ndks_boot, utils::is_reg_empty};
-use crate::interrupt::{set_irq_state_by_irq, IrqState};
+use crate::interrupt::{set_irq_state_by_irq, IRQState};
 use crate::structures::{
     create_frames_of_region_ret_t, region_t, rootserver_mem_t, v_region_t, BootInfo, SlotRegion,
 };
@@ -25,7 +25,7 @@ use sel4_common::utils::convert_to_mut_type_ref;
 use sel4_cspace::interface::*;
 
 use crate::utils::clear_memory;
-use sel4_common::platform::{MAX_IRQ, IRQ_INVALID, KERNEL_TIMER_IRQ};
+use sel4_common::platform::{IRQ_INVALID, KERNEL_TIMER_IRQ, MAX_IRQ};
 use sel4_common::sel4_config::*;
 
 use sel4_task::*;
@@ -641,23 +641,23 @@ fn create_domain_cap(root_cnode_cap: &cap_cnode_cap) {
 fn init_irqs(root_cnode_cap: &cap_cnode_cap) {
     for i in 0..MAX_IRQ + 1 {
         if i != IRQ_INVALID {
-            set_irq_state_by_irq(IrqState::IRQInactive, i);
+            set_irq_state_by_irq(IRQState::IRQInactive, i);
         }
     }
-    set_irq_state_by_irq(IrqState::IRQTimer, KERNEL_TIMER_IRQ);
+    set_irq_state_by_irq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
     #[cfg(all(feature = "enable_smp", target_arch = "riscv64"))]
     {
         use sel4_common::platform::{INTERRUPT_IPI_0, INTERRUPT_IPI_1};
-        set_irq_state_by_irq(IrqState::IRQIPI, INTERRUPT_IPI_0);
-        set_irq_state_by_irq(IrqState::IRQIPI, INTERRUPT_IPI_1);
+        set_irq_state_by_irq(IRQState::IRQIPI, INTERRUPT_IPI_0);
+        set_irq_state_by_irq(IRQState::IRQIPI, INTERRUPT_IPI_1);
     }
     #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
     {
         use crate::arch::arm_gic::irq_to_idx;
         use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
         use sel4_common::utils::cpu_id;
-        set_irq_state_by_irq(IrqState::IRQIPI, IRQ_REMOTE_CALL_IPI);
-        set_irq_state_by_irq(IrqState::IRQIPI, IRQ_RESCHEDULE_IPI);
+        set_irq_state_by_irq(IRQState::IRQIPI, IRQ_REMOTE_CALL_IPI);
+        set_irq_state_by_irq(IRQState::IRQIPI, IRQ_RESCHEDULE_IPI);
     }
 
     unsafe {
@@ -689,7 +689,7 @@ unsafe fn rust_create_it_address_space(
     );
     let mut i = 0;
     while i < CONFIG_PT_LEVELS - 1 {
-        let mut pt_vptr = ROUND_DOWN!(it_v_reg.start, riscv_get_LVL_PGSIZE_BITS(i));
+        let mut pt_vptr = ROUND_DOWN!(it_v_reg.start, riscv_get_lvl_pgsize_bits(i));
         while pt_vptr < it_v_reg.end {
             if !provide_cap(
                 root_cnode_cap,

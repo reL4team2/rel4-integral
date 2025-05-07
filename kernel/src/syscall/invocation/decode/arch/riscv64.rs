@@ -37,7 +37,7 @@ use crate::{
 
 use sel4_common::sel4_config::{SEL4_ASID_POOL_BITS, SEL4_RANGE_ERROR, USER_TOP};
 
-use sel4_common::platform::{MAX_IRQ, IRQ_INVALID};
+use sel4_common::platform::{IRQ_INVALID, MAX_IRQ};
 
 use crate::{
     interrupt::is_irq_active,

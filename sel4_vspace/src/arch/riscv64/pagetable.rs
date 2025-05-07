@@ -13,7 +13,7 @@ use sel4_common::{
 
 use super::{
     kpptr_to_paddr, map_kernel_devices, riscv_get_lvl_pgsize, set_vspace_root,
-    utils::{riscv_get_LVL_PGSIZE_BITS, riscv_get_pt_index},
+    utils::{riscv_get_lvl_pgsize_bits, riscv_get_pt_index},
 };
 
 ///页表采用`SV39`，该变量是内核使用的页表的根页表（一级页表）
@@ -98,8 +98,8 @@ pub fn rust_map_kernel_window() {
         }
     }
 
-    let mut pptr = ROUND_DOWN!(KERNEL_ELF_BASE, riscv_get_LVL_PGSIZE_BITS(0));
-    let mut paddr = ROUND_DOWN!(KERNEL_ELF_PADDR_BASE, riscv_get_LVL_PGSIZE_BITS(0));
+    let mut pptr = ROUND_DOWN!(KERNEL_ELF_BASE, riscv_get_lvl_pgsize_bits(0));
+    let mut paddr = ROUND_DOWN!(KERNEL_ELF_PADDR_BASE, riscv_get_lvl_pgsize_bits(0));
     // 将根页表`KERNEL_ELF_PADDR_BASE`和`KERNEL_ELF_BASE`处的页表项改为使用`kernel_image_level2_pt`映射
     unsafe {
         KERNEL_ROOT_PAGE_TABLE.map_next_table(

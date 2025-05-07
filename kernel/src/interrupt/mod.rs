@@ -29,7 +29,8 @@ cfg_if::cfg_if! {
 }
 
 #[no_mangle]
-pub static mut int_state_irq_table: [usize; INT_STATE_ARRAY_SIZE + 1] = [0; INT_STATE_ARRAY_SIZE + 1];
+pub static mut int_state_irq_table: [usize; INT_STATE_ARRAY_SIZE + 1] =
+    [0; INT_STATE_ARRAY_SIZE + 1];
 
 pub static mut int_state_irq_node_ptr: pptr_t = 0;
 
@@ -39,7 +40,7 @@ pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [IRQ_INVALID; CONFIG_
 
 #[cfg(feature = "enable_smp")]
 #[derive(PartialEq, Eq, Clone, Copy)]
-pub enum IrqState {
+pub enum IRQState {
     IRQInactive = 0,
     IRQSignal = 1,
     IRQTimer = 2,
@@ -50,7 +51,7 @@ pub enum IrqState {
 #[cfg(not(feature = "enable_smp"))]
 #[allow(dead_code)]
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub enum IrqState {
+pub enum IRQState {
     IRQInactive = 0,
     IRQSignal = 1,
     IRQTimer = 2,
@@ -65,8 +66,8 @@ pub enum IrqState {
 
 /// irq 是从 get_active_irq 获取的，统一为输入 irq
 #[inline]
-pub fn get_irq_state(irq: usize) -> IrqState {
-    unsafe { core::mem::transmute::<u8, IrqState>(int_state_irq_table[irq_to_idx(irq)] as u8) }
+pub fn get_irq_state(irq: usize) -> IRQState {
+    unsafe { core::mem::transmute::<u8, IRQState>(int_state_irq_table[irq_to_idx(irq)] as u8) }
 }
 
 /// 和下面的 delete 都是 index，从 cspace 中删除 slot
@@ -85,7 +86,7 @@ pub fn setIRQState(_irq: usize) -> bool {
 }
 
 /// 有的是 index，有的是 irq，在 cspace 和 decode_irq_control_invocation 中是 index，考虑增加一个新函数
-pub fn set_irq_state_by_irq(state: IrqState, irq: usize) {
+pub fn set_irq_state_by_irq(state: IRQState, irq: usize) {
     unsafe {
         int_state_irq_table[irq_to_idx(irq)] = state as usize;
     }
@@ -96,15 +97,15 @@ pub fn set_irq_state_by_irq(state: IrqState, irq: usize) {
     //         return;
     //     }
     // #endif
-    mask_interrupt(state == IrqState::IRQInactive, irq);
+    mask_interrupt(state == IRQState::IRQInactive, irq);
 }
 
-pub fn set_irq_state_by_index(state: IrqState, index: usize) {
+pub fn set_irq_state_by_index(state: IRQState, index: usize) {
     unsafe {
         int_state_irq_table[index] = state as usize;
     }
 
-    mask_interrupt(state == IrqState::IRQInactive, idx_to_irq(index));
+    mask_interrupt(state == IRQState::IRQInactive, idx_to_irq(index));
 }
 
 #[repr(align(8192))]
@@ -128,7 +129,7 @@ pub extern "C" fn intStateIRQNodeToR() {
 /// 暂时没用，用的话应该和 deleting_irq_handler 一样，都是 index
 #[no_mangle]
 pub fn deletedIRQHandler(index: usize) {
-    set_irq_state_by_index(IrqState::IRQInactive, index);
+    set_irq_state_by_index(IRQState::IRQInactive, index);
 }
 #[inline]
 #[cfg(target_arch = "riscv64")]
@@ -187,15 +188,16 @@ pub fn is_irq_pending() -> bool {
 /// 毫无疑问，应该是 irq
 #[cfg(target_arch = "riscv64")]
 #[no_mangle]
-pub fn ack_interrupt(_irq: usize) {
+#[cfg_attr(not(feature = "enable_smp"), allow(unused_variables))]
+pub fn ack_interrupt(irq: usize) {
     unsafe {
         active_irq[cpu_id()] = IRQ_INVALID;
     }
     #[cfg(feature = "enable_smp")]
     {
-        if _irq == INTERRUPT_IPI_0 || _irq == INTERRUPT_IPI_1 {
+        if irq == INTERRUPT_IPI_0 || irq == INTERRUPT_IPI_1 {
             unsafe {
-                ipi_clear_irq(_irq);
+                ipi_clear_irq(irq);
             }
         }
     }
@@ -216,8 +218,8 @@ pub fn ack_interrupt(irq: usize) {
 /// 同样的问题，decode_irq_control_invocation 中有用到，应该是 index
 #[inline]
 pub fn is_irq_active(index: usize) -> bool {
-    let state = unsafe { core::mem::transmute::<u8, IrqState>(int_state_irq_table[index] as u8) };
-    state != IrqState::IRQInactive
+    let state = unsafe { core::mem::transmute::<u8, IRQState>(int_state_irq_table[index] as u8) };
+    state != IRQState::IRQInactive
 }
 
 // Do not change it
@@ -300,13 +302,14 @@ pub fn get_active_irq() -> usize {
 /// x 是 irq
 #[inline]
 #[allow(dead_code)]
-pub const fn is_irq_valid(_x: usize) -> bool {
+#[cfg_attr(target_arch = "aarch64", allow(unused_variables))]
+pub const fn is_irq_valid(x: usize) -> bool {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "aarch64")] {
             // TODO: not used now
             panic!("not used in aarch64")
         } else {
-            (_x <= MAX_IRQ) && (_x != IRQ_INVALID)
+            (x <= MAX_IRQ) && (x != IRQ_INVALID)
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::interrupt::handler::handle_interrupt_entry;
-use crate::syscall::slow_path;
+use crate::syscall::slowpath;
 use core::arch::asm;
 
 #[cfg(feature = "enable_smp")]
@@ -171,7 +171,7 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     //     debug!("c_handle_syscall: syscall: {},", syscall as isize);
     // }
     // sel4_common::println!("c handle syscall");
-    slow_path(syscall);
+    slowpath(syscall);
     // debug!("c_handle_syscall complete");
 }
 

@@ -92,7 +92,7 @@ use sel4_common::platform::IRQ_INVALID;
 use self::invocation::handle_invocation;
 
 #[no_mangle]
-pub fn slow_path(syscall: usize) {
+pub fn slowpath(syscall: usize) {
     if (syscall as isize) < SYSCALL_MIN || (syscall as isize) > SYSCALL_MAX {
         // using ffi_call! macro to call c function
         handle_unknown_syscall(syscall as isize);

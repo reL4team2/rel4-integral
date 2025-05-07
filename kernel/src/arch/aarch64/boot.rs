@@ -23,7 +23,7 @@ use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 use super::platform::init_irq_controller;
 use crate::interrupt::intStateIRQNodeToR;
 #[cfg(feature = "enable_smp")]
-use crate::interrupt::{mask_interrupt, set_irq_state_by_irq, IrqState};
+use crate::interrupt::{mask_interrupt, set_irq_state_by_irq, IRQState};
 
 #[cfg(feature = "enable_smp")]
 use core::arch::asm;
@@ -167,9 +167,9 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     for i in 0..sel4_common::platform::NUM_PPI {
         mask_interrupt(true, i);
     }
-    set_irq_state_by_irq(IrqState::IRQIPI, IRQ_REMOTE_CALL_IPI);
-    set_irq_state_by_irq(IrqState::IRQIPI, IRQ_RESCHEDULE_IPI);
-    set_irq_state_by_irq(IrqState::IRQTimer, KERNEL_TIMER_IRQ);
+    set_irq_state_by_irq(IRQState::IRQIPI, IRQ_REMOTE_CALL_IPI);
+    set_irq_state_by_irq(IRQState::IRQIPI, IRQ_RESCHEDULE_IPI);
+    set_irq_state_by_irq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
 
     unsafe { clh_lock_acquire(cpu_id(), false) };
     ksNumCPUs.lock().add_assign(1);

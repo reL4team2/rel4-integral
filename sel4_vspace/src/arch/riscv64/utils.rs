@@ -22,7 +22,7 @@ pub fn riscv_get_pt_index(addr: usize, n: usize) -> usize {
 ///
 /// Get n levels page bit size
 #[inline]
-pub fn riscv_get_LVL_PGSIZE_BITS(n: usize) -> usize {
+pub fn riscv_get_lvl_pgsize_bits(n: usize) -> usize {
     ((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + SEL4_PAGE_BITS
 }
 
@@ -34,7 +34,7 @@ pub fn riscv_get_LVL_PGSIZE_BITS(n: usize) -> usize {
 /// Get n levels page size
 #[inline]
 pub fn riscv_get_lvl_pgsize(n: usize) -> usize {
-    BIT!(riscv_get_LVL_PGSIZE_BITS(n))
+    BIT!(riscv_get_lvl_pgsize_bits(n))
 }
 
 ///在`reL4`内核页表中，内核代码，在内核地址空间中被映射了两次，
