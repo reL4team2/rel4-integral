@@ -13,11 +13,6 @@ pub enum ipi_remote_call {
     IpiNumArchRemoteCall,
 }
 
-#[inline]
-pub fn cpu_index_to_id(index: usize) -> usize {
-    return BIT!(index);
-}
-
 pub fn handle_remote_call(call: ipi_remote_call, arg0: usize, arg1: usize, arg2: usize, irq_path: bool) {
     if crate::smp::clh_is_ipi_pending(cpu_id()) {
         match call {

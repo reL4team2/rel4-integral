@@ -20,7 +20,7 @@ use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 use core::arch::asm;
 
 #[cfg(feature = "enable_smp")]
-use crate::ffi::{clh_lock_acquire, clh_lock_init};
+use crate::smp::{clh_lock_acquire, clh_lock_init};
 
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
@@ -115,7 +115,7 @@ pub fn try_init_kernel(
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "enable_smp")]
         {
-            use crate::ffi::{clh_lock_acquire, clh_lock_init};
+            use crate::smp::{clh_lock_acquire, clh_lock_init};
             use sel4_common::utils::cpu_id;
             unsafe {
                 clh_lock_init();

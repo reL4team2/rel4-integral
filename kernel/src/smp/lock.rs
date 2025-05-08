@@ -129,11 +129,7 @@ impl clh_lock {
 
     #[inline]
     pub fn next_node_value(&mut self, cpu: usize) -> clh_qnode_state {
-        let next = self.node_owners[cpu].next.load(Ordering::Acquire);
-        if next.is_null() {
-            return clh_qnode_state::CLHState_Granted;
-        }
-        unsafe { (*next).state }
+        unsafe {self.node_owners[cpu].next.load(Ordering::Acquire).as_mut().unwrap().state()}
     }
 
     #[inline]

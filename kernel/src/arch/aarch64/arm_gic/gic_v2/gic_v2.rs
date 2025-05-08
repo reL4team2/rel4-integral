@@ -103,8 +103,8 @@ pub fn dist_init() {
     GIC_DIST.regs().enable.set(1);
 }
 
-pub fn ipi_send_targets(irq: usize, targets: usize) {
-    let val = irq << 0 | targets << 16;
+pub fn ipi_send_target(irq: usize, target: usize) {
+    let val = irq << 0 | target << 16;
     GIC_DIST.regs().sgi_control.set(val as u32);
 }
 

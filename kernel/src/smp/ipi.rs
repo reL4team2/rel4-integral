@@ -1,25 +1,27 @@
+use core::arch::asm;
 use core::sync::atomic::{AtomicUsize, Ordering, fence};
 use sel4_common::structures::{irq_t, irq_to_idx, idx_to_irq, irqt_to_irq};
 use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
+use sel4_common::arch::cpu_index_to_id;
 use sel4_common::utils::cpu_id;
 use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, WORD_BITS};
 use sel4_task::{ThreadState, SCHEDULER_ACTION_RESUME_CURRENT_THREAD, tcb_t};
-use crate::arch::{ipi_remote_call, cpu_index_to_id};
-use crate::arch::arm_gic::ipi_send_targets;
+use crate::arch::ipi_remote_call;
+use crate::arch::ipi_send_target;
 
 pub const MAX_IPI_ARGS: usize = 3;
 
 #[repr(align(64))]
 struct ipi_sync_barrier {
     count: AtomicUsize,
-    globalsense: usize,
+    globalsense: AtomicUsize,
 }
 
 impl ipi_sync_barrier {
     const fn new() -> Self {
         Self {
             count: AtomicUsize::new(0),
-            globalsense: 0,
+            globalsense: AtomicUsize::new(0),
         }
     }
 }
@@ -41,14 +43,14 @@ fn get_ipi_arg(n: usize) -> usize {
 #[inline]
 pub fn ipi_wait() {
     unsafe {
-        let localsense = barrier.globalsense;
+        let localsense = barrier.globalsense.load(Ordering::Acquire);
         let old = barrier.count.fetch_add(1, Ordering::AcqRel);
         if old == total_core_barrier {
             barrier.count.store(0, Ordering::Release);
-            barrier.globalsense = !localsense;
+            barrier.globalsense.store(!localsense, Ordering::Release);
         }
 
-        while localsense == barrier.globalsense {
+        while localsense == barrier.globalsense.load(Ordering::Acquire) {
             crate::arch::arch_pause();
         }
     }
@@ -66,7 +68,9 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
         sel4_task::set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
         super::clh_set_ipi(cpu_id(), 0);
 
-        // TODO: riscv clear irq
+        #[cfg(target_arch = "riscv")]
+        { crate::arch::ipi_clear_irq(IRQ_REMOTE_CALL_IPI); }
+        
         unsafe { ipi_wait() };
 
         while super::clh_next_node_state(cpu_id()) != super::lock::clh_qnode_state::CLHState_Granted {
@@ -91,7 +95,8 @@ pub fn handle_ipi(irq: usize, irq_path: bool) {
         }
         IRQ_RESCHEDULE_IPI => {
             sel4_task::reschedule_required();
-            // TODO: riscv ifence_local
+            #[cfg(target_arch = "riscv")]
+            unsafe { asm!("fence.i", options(nostack, preserves_flags)); }
         }
         _ => sel4_common::println!("handle_ipi: unknown ipi: {}", irq),
     }
@@ -108,7 +113,7 @@ pub fn ipi_send_mask(irq: usize, mask: usize, block: bool) {
             target_cores[nr_target_cores] = index;
             nr_target_cores += 1;
         } else {
-            ipi_send_targets(irq, cpu_index_to_id(index));
+            ipi_send_target(irq, cpu_index_to_id(index));
         }
         mask2 &= !(crate::BIT!(index));
     }
@@ -116,7 +121,7 @@ pub fn ipi_send_mask(irq: usize, mask: usize, block: bool) {
     if nr_target_cores > 0 {
         fence(Ordering::SeqCst);
         for i in 0..nr_target_cores {
-            ipi_send_targets(irq, cpu_index_to_id(target_cores[i]));
+            ipi_send_target(irq, cpu_index_to_id(target_cores[i]));
         }
     }
 }
@@ -139,7 +144,7 @@ pub fn do_remote_mask_op(func: ipi_remote_call, arg0: usize, arg1: usize, arg2: 
             ipi_args[1] = arg1;
             ipi_args[2] = arg2;
             remote_call = func;
-            total_core_barrier = mask.count_ones() as usize;
+            total_core_barrier = mask2.count_ones() as usize;
         }
 
         fence(Ordering::SeqCst);

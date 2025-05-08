@@ -569,15 +569,6 @@ fn handle_yield() {
         // let thread_ptr = thread as *mut tcb_t as usize;
         // sel4_common::println!("{}: handle_yield: {:#x}, tcb queued: {}, state: {:?}", thread.get_cpu(), thread_ptr, thread.tcbState.get_tcbQueued(), thread.get_state());
         get_currenct_thread().sched_dequeue();
-        #[cfg(feature = "enable_smp")]
-        {
-            use core::intrinsics::likely;
-            if likely(get_currenct_thread().is_runnable()) {
-                get_currenct_thread().sched_append();
-            }
-        }
-
-        #[cfg(not(feature = "enable_smp"))]
         get_currenct_thread().sched_append();
 
         reschedule_required();
