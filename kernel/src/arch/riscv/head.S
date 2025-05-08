@@ -30,7 +30,14 @@ _start:
   la sp, (kernel_stack_alloc + BIT(CONFIG_KERNEL_STACK_BITS))
   csrw sscratch, x0 /* zero sscratch for the init task */
 
-/* todo: add smp support later */
+  #ifdef ENABLE_SMP_SUPPORT
+  /* setup the per-core stack */
+    mv t0, a7
+    slli t0, t0, CONFIG_KERNEL_STACK_BITS
+    add  sp, sp, t0
+    /* put the stack in sscratch */
+    csrw sscratch, sp
+  #endif
 
   /* Call bootstrapping implemented in C with parameters:
    *    a0/x10: user image physical start address

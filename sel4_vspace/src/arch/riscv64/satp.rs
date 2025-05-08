@@ -23,7 +23,7 @@ impl satp_t {
 #[cfg(feature = "enable_smp")]
 #[inline]
 pub fn sfence() {
-    use sel4_common::smp::get_sbi_mask_for_all_remote_harts;
+    use sel4_common::arch::get_sbi_mask_for_all_remote_harts;
 
     unsafe {
         core::arch::asm!("fence w, rw");

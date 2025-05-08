@@ -231,6 +231,12 @@ pub fn get_currenct_thread() -> &'static mut tcb_t {
     }
 }
 
+#[cfg(feature = "enable_smp")]
+#[inline]
+pub fn get_current_thread_on_node(node: usize) -> &'static mut tcb_t {
+    unsafe { convert_to_mut_type_ref::<tcb_t>(ksSMP[node].ksCurThread) }
+}
+
 #[inline]
 /// Get the current thread, and returns a mutable tcb reference to the current thread unsafely.
 pub fn get_currenct_thread_unsafe() -> &'static mut tcb_t {

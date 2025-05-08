@@ -13,6 +13,11 @@ pub use registers::*;
 pub use timer::*;
 pub use vm_rights::*;
 
+#[cfg(feature = "enable_smp")]
+mod smp;
+#[cfg(feature = "enable_smp")]
+pub use smp::*;
+
 pub const PSCI_0_2_FN_BASE: u32 = 0x84000000;
 pub const PSCI_0_2_64BIT: u32 = 0x40000000;
 pub const PSCI_0_2_FN_CPU_SUSPEND: u32 = PSCI_0_2_FN_BASE + 1;

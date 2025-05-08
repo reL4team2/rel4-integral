@@ -93,7 +93,7 @@ pub fn init_kernel(
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-#[cfg(all(feature = "build_binary", feature = "enable_smp"))]
+#[cfg(all(feature = "build_binary", feature = "enable_smp", target_arch = "aarch64"))]
 pub fn init_kernel(
     ui_p_reg_start: usize,
     ui_p_reg_end: usize,
@@ -126,6 +126,49 @@ pub fn init_kernel(
         }
     } else {
         let result = boot::interface::rust_try_init_kernel_secondary_core(cpu_id(), cpu_id());
+    }
+
+    schedule();
+    activateThread();
+}
+
+#[no_mangle]
+#[link_section = ".boot.text"]
+#[cfg(all(feature = "build_binary", feature = "enable_smp", target_arch = "riscv64"))]
+pub fn init_kernel(
+    ui_p_reg_start: usize,
+    ui_p_reg_end: usize,
+    pv_offset: isize,
+    v_entry: usize,
+    dtb_addr_p: usize,
+    dtb_size: usize,
+    hart_id: usize,
+    core_id: usize,
+) {
+    use sel4_common::platform::avail_p_regs;
+    // sel4_common::println!("Now we use rel4 kernel binary");
+    log::set_max_level(log::LevelFilter::Info);
+    boot::interface::pRegsToR(
+        &avail_p_regs as *const p_region_t as *const usize,
+        core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
+    );
+    
+    sel4_common::arch::add_hart_to_core_map(hart_id, core_id);
+    if core_id == 0 {
+        let result = rust_try_init_kernel(
+            ui_p_reg_start,
+            ui_p_reg_end,
+            pv_offset,
+            v_entry,
+            dtb_addr_p,
+            dtb_size,
+        );
+        if !result {
+            log::error!("ERROR: kernel init failed");
+            panic!()
+        }
+    } else {
+        let result = boot::interface::rust_try_init_kernel_secondary_core(hart_id, core_id);
     }
 
     schedule();

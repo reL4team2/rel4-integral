@@ -15,3 +15,8 @@ pub const RESET_CYCLES: usize = (TIMER_CLOCK_HZ / MS_IN_S) * 2;
 pub const KDEV_BASE: usize = 0xFFFFFFFFC0000000;
 
 pub const MAX_UNTYPED_BITS: usize = 38;
+
+#[cfg(feature = "enable_smp")]
+pub const IRQ_REMOTE_CALL_IPI: usize = crate::platform::INTERRUPT_IPI_0;
+#[cfg(feature = "enable_smp")]
+pub const IRQ_RESCHEDULE_IPI: usize = crate::platform::INTERRUPT_IPI_1;

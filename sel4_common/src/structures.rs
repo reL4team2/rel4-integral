@@ -181,7 +181,7 @@ cfg_if::cfg_if! {
         }
 
         #[inline]
-        pub fn tp_irqt(idx: usize, _cpu: usize) -> irq_t {
+        pub fn to_irqt(idx: usize, _cpu: usize) -> irq_t {
             idx
         }
 

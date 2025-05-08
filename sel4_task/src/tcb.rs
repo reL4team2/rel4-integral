@@ -33,7 +33,7 @@ use sel4_vspace::{pptr_t, set_vm_root};
 
 use super::scheduler::{
     add_to_bitmap, get_currenct_thread, possible_switch_to, ready_queues_index, remove_from_bigmap,
-    reschedule_required, schedule_tcb, set_current_thread,
+    reschedule_required, schedule_tcb, set_current_thread, get_current_thread_on_node,
 };
 use super::structures::lookupSlot_raw_ret_t;
 
@@ -164,7 +164,7 @@ impl tcb_t {
     #[inline]
     /// Check if the TCB is current by comparing the tcb pointer
     pub fn is_current(&self) -> bool {
-        self.get_ptr() == get_currenct_thread().get_ptr()
+        self.get_ptr() == get_current_thread_on_node(self.tcbAffinity).get_ptr()
     }
 
     #[inline]
