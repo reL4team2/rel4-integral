@@ -237,6 +237,12 @@ pub fn get_currenct_thread() -> &'static mut tcb_t {
     }
 }
 
+#[cfg(not(feature = "enable_smp"))]
+#[inline]
+pub fn get_current_thread_on_node() -> &'static mut tcb_t {
+    unsafe { convert_to_mut_type_ref::<tcb_t>(ksCurThread) }
+}
+
 #[cfg(feature = "enable_smp")]
 #[inline]
 pub fn get_current_thread_on_node(node: usize) -> &'static mut tcb_t {
@@ -986,6 +992,12 @@ pub fn activateThread() {
         }
         // 诡异的语法...
         ThreadState::ThreadStateIdleThreadState => return {},
+        #[cfg(not(feature = "enable_smp"))]
+        _ => panic!(
+            "current thread is blocked , state id :{}",
+            thread.get_state() as usize
+        ),
+        #[cfg(feature = "enable_smp")]
         _ => panic!(
             "current thread is blocked , state id :{}, cpu: {}",
             thread.get_state() as usize, thread.tcbAffinity
