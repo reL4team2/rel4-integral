@@ -161,6 +161,14 @@ impl tcb_t {
             && self.tcbState.get_tcbInReleaseQueue() == 0
     }
 
+    #[cfg(not(feature = "enable_smp"))]
+    #[inline]
+    /// Check if the TCB is current by comparing the tcb pointer
+    pub fn is_current(&self) -> bool {
+        self.get_ptr() == get_current_thread_on_node().get_ptr()
+    }
+
+    #[cfg(feature = "enable_smp")]
     #[inline]
     /// Check if the TCB is current by comparing the tcb pointer
     pub fn is_current(&self) -> bool {

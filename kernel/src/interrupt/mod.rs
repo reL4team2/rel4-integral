@@ -15,7 +15,7 @@ use sel4_vspace::pptr_t;
 
 #[cfg(target_arch = "riscv64")]
 use crate::arch::read_sip;
-#[cfg(target_arch = "riscv64")]
+#[cfg(all(target_arch = "riscv64", feature = "enable_smp"))]
 use crate::arch::{ipi_get_irq, ipi_clear_irq};
 
 #[cfg(target_arch = "aarch64")]
