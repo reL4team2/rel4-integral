@@ -36,12 +36,13 @@ pub fn restore_user_context() {
                 clh_lock_release(cpu_id());
             }
             // debug!("restore_user_context2");
+            #[allow(unused)]
             let mut cur_sp: usize = 8;
             asm!(
                 "csrr {}, sscratch",
                 out(reg) cur_sp,
             );
-            // debug!("cur_sp: {:#x}", cur_sp);
+            log::debug!("cur_sp: {:#x}", cur_sp);
             *((cur_sp - 8) as *mut usize) = cur_thread_reg;
         }
         #[cfg(feature = "have_fpu")]
@@ -109,7 +110,6 @@ pub fn fastpath_restore(_badge: usize, _msgInfo: usize, cur_thread: *mut tcb_t) 
             if clh_is_self_in_queue() {
                 clh_lock_release(cpu_id());
             }
-            use core::arch::asm;
             let mut sp: usize;
             asm!(
                 "csrr {0}, sscratch",
@@ -187,9 +187,7 @@ pub fn c_handle_interrupt() {
     {
         use sel4_common::platform::INTERRUPT_IPI_0;
         if get_active_irq() != INTERRUPT_IPI_0 {
-            unsafe {
-                clh_lock_acquire(cpu_id(), true);
-            }
+            clh_lock_acquire(cpu_id(), true);
         }
     }
     // debug!("c_handle_interrupt");
@@ -200,9 +198,7 @@ pub fn c_handle_interrupt() {
 #[no_mangle]
 pub fn c_handle_exception() {
     #[cfg(feature = "enable_smp")]
-    unsafe {
-        clh_lock_acquire(cpu_id(), false);
-    }
+    clh_lock_acquire(cpu_id(), true);
     // if hart_id() == 0 {
     //     debug!("c_handle_exception");
     // }
@@ -247,9 +243,7 @@ pub fn c_handle_exception() {
 #[no_mangle]
 pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     #[cfg(feature = "enable_smp")]
-    unsafe {
-        clh_lock_acquire(cpu_id(), false);
-    }
+    clh_lock_acquire(cpu_id(), true);
     // if hart_id() == 0 {
     //     debug!("c_handle_syscall: syscall: {},", syscall as isize);
     // }
@@ -262,6 +256,8 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
 #[link_section = ".text"]
 pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) {
     use crate::kernel::fastpath::fastpath_call;
+    #[cfg(feature = "enable_smp")]
+    clh_lock_acquire(cpu_id(), false);
     fastpath_call(cptr, msgInfo);
 }
 
@@ -271,6 +267,8 @@ pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) {
 #[cfg(not(feature = "kernel_mcs"))]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     use crate::kernel::fastpath::fastpath_reply_recv;
+    #[cfg(feature = "enable_smp")]
+    clh_lock_acquire(cpu_id(), false);
     fastpath_reply_recv(cptr, msgInfo);
 }
 
@@ -280,5 +278,7 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) {
 #[cfg(feature = "kernel_mcs")]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     use crate::kernel::fastpath::fastpath_reply_recv;
+    #[cfg(feature = "enable_smp")]
+    clh_lock_acquire(cpu_id(), false);
     fastpath_reply_recv(cptr, msgInfo, reply);
 }

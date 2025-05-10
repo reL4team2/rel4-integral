@@ -32,7 +32,7 @@ use sel4_cspace::interface::{cte_t, resolve_address_bits};
 use sel4_vspace::{pptr_t, set_vm_root};
 
 use super::scheduler::{
-    add_to_bitmap, get_currenct_thread, possible_switch_to, ready_queues_index, remove_from_bigmap,
+    add_to_bitmap, possible_switch_to, ready_queues_index, remove_from_bigmap,
     reschedule_required, schedule_tcb, set_current_thread, get_current_thread_on_node,
 };
 use super::structures::lookupSlot_raw_ret_t;

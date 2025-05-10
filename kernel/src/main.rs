@@ -125,7 +125,7 @@ pub fn init_kernel(
             panic!()
         }
     } else {
-        let result = boot::interface::rust_try_init_kernel_secondary_core(cpu_id(), cpu_id());
+        boot::interface::rust_try_init_kernel_secondary_core(cpu_id(), cpu_id());
     }
 
     schedule();
@@ -168,7 +168,7 @@ pub fn init_kernel(
             panic!()
         }
     } else {
-        let result = boot::interface::rust_try_init_kernel_secondary_core(hart_id, core_id);
+        boot::interface::rust_try_init_kernel_secondary_core(hart_id, core_id);
     }
 
     schedule();

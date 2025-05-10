@@ -28,15 +28,6 @@ use sel4_vspace::*;
 pub use root_server::root_server_init;
 pub use untyped::create_untypeds;
 
-#[cfg(feature = "enable_smp")]
-pub use utils::{provide_cap, write_slot};
-
-#[cfg(feature = "enable_smp")]
-use core::arch::asm;
-
-#[cfg(feature = "enable_smp")]
-use sel4_common::utils::cpu_id;
-
 // #[link_section = ".boot.bss"]
 pub static ksNumCPUs: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "enable_smp")]

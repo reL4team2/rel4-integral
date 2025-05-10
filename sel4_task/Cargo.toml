@@ -12,3 +12,4 @@ log = "0.4.21"
 [features]
 enable_smp = []
 kernel_mcs = []
+have_fpu = []

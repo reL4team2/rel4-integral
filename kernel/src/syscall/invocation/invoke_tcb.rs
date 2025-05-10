@@ -383,10 +383,8 @@ pub fn invoke_tcb_set_tls_base(thread: &mut tcb_t, base: usize) -> exception_t {
 #[inline]
 pub fn invoke_tcb_set_affinity(thread: &mut tcb_t, affinitiy: usize) -> exception_t {
     thread.sched_dequeue();
-    unsafe {
-        crate::smp::migrate_tcb(thread, affinitiy);
-        thread.tcbAffinity = affinitiy;
-    }
+    crate::smp::migrate_tcb(thread, affinitiy);
+    thread.tcbAffinity = affinitiy;
     // debug!("tcb migrate: {}", thread.tcbAffinity);
     if thread.is_runnable() {
         thread.sched_append();

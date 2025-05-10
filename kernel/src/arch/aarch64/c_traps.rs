@@ -150,9 +150,7 @@ pub fn c_handle_interrupt() {
     {
         use sel4_common::arch::config::IRQ_REMOTE_CALL_IPI;
         if get_active_irq() != IRQ_REMOTE_CALL_IPI {
-            unsafe {
-                clh_lock_acquire(cpu_id(), true);
-            }
+            clh_lock_acquire(cpu_id(), true);
         }
     }
     handle_interrupt_entry();
@@ -162,9 +160,7 @@ pub fn c_handle_interrupt() {
 #[no_mangle]
 pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     #[cfg(feature = "enable_smp")]
-    unsafe {
-        clh_lock_acquire(cpu_id(), false);
-    }
+    clh_lock_acquire(cpu_id(), false);
     entry_hook();
     // if hart_id() == 0 {
     //     debug!("c_handle_syscall: syscall: {},", syscall as isize);
@@ -185,7 +181,7 @@ pub fn entry_hook() {
 #[cfg(feature = "build_binary")]
 pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) -> ! {
     #[cfg(feature = "enable_smp")]
-    unsafe { clh_lock_acquire(cpu_id(), false) };
+    clh_lock_acquire(cpu_id(), false);
     entry_hook();
     use crate::kernel::fastpath::fastpath_call;
     fastpath_call(cptr, msgInfo);
@@ -197,7 +193,7 @@ pub fn c_handle_fastpath_call(cptr: usize, msgInfo: usize) -> ! {
 #[cfg(not(feature = "kernel_mcs"))]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) -> ! {
     #[cfg(feature = "enable_smp")]
-    unsafe { clh_lock_acquire(cpu_id(), false) };
+    clh_lock_acquire(cpu_id(), false);
     entry_hook();
     crate::kernel::fastpath::fastpath_reply_recv(cptr, msgInfo);
     unreachable!()
@@ -208,7 +204,7 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize) -> ! {
 #[cfg(feature = "kernel_mcs")]
 pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -> ! {
     #[cfg(feature = "enable_smp")]
-    unsafe { clh_lock_acquire(cpu_id(), false) };
+    clh_lock_acquire(cpu_id(), false);
     entry_hook();
     crate::kernel::fastpath::fastpath_reply_recv(cptr, msgInfo, reply);
     unreachable!()
@@ -218,7 +214,7 @@ pub fn c_handle_fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) -
 #[cfg(feature = "build_binary")]
 pub fn c_handle_undefined_instruction() -> ! {
     #[cfg(feature = "enable_smp")]
-    unsafe { clh_lock_acquire(cpu_id(), false) };
+    clh_lock_acquire(cpu_id(), false);
     entry_hook();
 
     // Only support aarch64

@@ -1,6 +1,4 @@
-use core::arch::asm;
 use core::sync::atomic::{AtomicUsize, Ordering, fence};
-use sel4_common::structures::{irq_t, irq_to_idx, idx_to_irq, irqt_to_irq};
 use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
 use sel4_common::arch::cpu_index_to_id;
 use sel4_common::utils::cpu_id;
@@ -8,6 +6,7 @@ use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, WORD_BITS};
 use sel4_task::{ThreadState, SCHEDULER_ACTION_RESUME_CURRENT_THREAD, tcb_t};
 use crate::arch::ipi_remote_call;
 use crate::arch::ipi_send_target;
+use crate::boot::interface::switch_to_idle_thread;
 
 pub const MAX_IPI_ARGS: usize = 3;
 
@@ -63,15 +62,15 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
             sel4_task::set_thread_state(thread, ThreadState::ThreadStateRestart);
         }
         thread.sched_enqueue();
-        crate::boot::interface::switch_to_idle_thread();
+        switch_to_idle_thread();
         // TODO: mcs support
         sel4_task::set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
         super::clh_set_ipi(cpu_id(), 0);
 
-        #[cfg(target_arch = "riscv")]
+        #[cfg(target_arch = "riscv64")]
         { crate::arch::ipi_clear_irq(IRQ_REMOTE_CALL_IPI); }
         
-        unsafe { ipi_wait() };
+        ipi_wait();
 
         while super::clh_next_node_state(cpu_id()) != super::lock::clh_qnode_state::CLHState_Granted {
             crate::arch::arch_pause();
@@ -83,7 +82,8 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
         crate::arch::restore_user_context();
     } else {
         thread.sched_enqueue();
-        sel4_task::activateThread();
+        // TODO: mcs support
+        switch_to_idle_thread();
         sel4_task::set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
     }
 }
@@ -95,8 +95,8 @@ pub fn handle_ipi(irq: usize, irq_path: bool) {
         }
         IRQ_RESCHEDULE_IPI => {
             sel4_task::reschedule_required();
-            #[cfg(target_arch = "riscv")]
-            unsafe { asm!("fence.i", options(nostack, preserves_flags)); }
+            #[cfg(target_arch = "riscv64")]
+            unsafe { core::arch::asm!("fence.i", options(nostack, preserves_flags)); }
         }
         _ => sel4_common::println!("handle_ipi: unknown ipi: {}", irq),
     }
@@ -167,4 +167,9 @@ pub fn remote_tcb_stall(tcb: &tcb_t) {
         do_remote_stall(tcb.tcbAffinity);
         tcb.update_ipi_reschedule_pending();
     }
+}
+
+#[cfg(feature = "have_fpu")]
+pub fn remote_switch_fpu_owner(new_owner: usize, cpu: usize) {
+    do_remote_op(ipi_remote_call::IpiRemoteCall_switchFpuOwner, new_owner, 0, 0, cpu);
 }

@@ -9,7 +9,7 @@ use sel4_common::sel4_config::*;
 #[cfg(target_arch = "aarch64")]
 use sel4_common::utils::{global_ops, unsafe_ops};
 use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
-use sel4_common::structures::{irq_t, current_cpu_irq_to_idx, idx_to_irq};
+use sel4_common::structures::{current_cpu_irq_to_idx, idx_to_irq};
 use sel4_cspace::interface::cte_t;
 use sel4_vspace::pptr_t;
 
@@ -44,6 +44,7 @@ pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [IRQ_NONE as usize; C
 pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [IRQ_INVALID; CONFIG_MAX_NUM_NODES];
 
 #[cfg(feature = "enable_smp")]
+#[allow(dead_code)]
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum IRQState {
     IRQInactive = 0,
@@ -95,19 +96,23 @@ pub fn set_irq_state_by_irq(state: IRQState, irq: usize) {
     unsafe {
         int_state_irq_table[current_cpu_irq_to_idx(irq)] = state as usize;
     }
-    // TODO
-    // #if defined ENABLE_SMP_SUPPORT && defined CONFIG_ARCH_ARM
-    //     if (IRQ_IS_PPI(irq) && IRQT_TO_CORE(irq) != getCurrentCPUIndex()) {
-    //         doRemoteMaskPrivateInterrupt(IRQT_TO_CORE(irq), irqState == IRQInactive, IRQT_TO_IDX(irq));
-    //         return;
-    //     }
-    // #endif
     mask_interrupt(state == IRQState::IRQInactive, irq);
 }
 
 pub fn set_irq_state_by_index(state: IRQState, index: usize) {
     unsafe {
         int_state_irq_table[index] = state as usize;
+    }
+
+    #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
+    {
+        use sel4_common::structures::idx_to_irqt;
+        use crate::arch::remote_mask_private_interrupt;
+        let irq = idx_to_irqt(index);
+        if irq.irq < NUM_PPI && irq.core != cpu_id() {
+            remote_mask_private_interrupt(irq.core, state == IRQState::IRQInactive, irq.irq);
+            return;
+        }
     }
 
     mask_interrupt(state == IRQState::IRQInactive, idx_to_irq(index));
@@ -201,9 +206,7 @@ pub fn ack_interrupt(irq: usize) {
     #[cfg(feature = "enable_smp")]
     {
         if irq == INTERRUPT_IPI_0 || irq == INTERRUPT_IPI_1 {
-            unsafe {
-                ipi_clear_irq(irq);
-            }
+            ipi_clear_irq(irq);
         }
     }
     return;
@@ -250,7 +253,7 @@ pub fn get_active_irq() -> usize {
             irq = 0;
         } else if (sip & BIT!(SIP_SSIP)) != 0 {
             clear_ipi();
-            irq = unsafe { ipi_get_irq() };
+            irq = ipi_get_irq();
             // debug!("irq: {}", irq);
         } else if (sip & BIT!(SIP_STIP)) != 0 {
             irq = KERNEL_TIMER_IRQ;

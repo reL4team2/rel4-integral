@@ -154,6 +154,14 @@ cfg_if::cfg_if! {
         }
 
         #[inline]
+        pub fn idx_to_irqt(idx: usize) -> irq_t {
+            match idx {
+                0..=LOCAL_PPI_MINUS_ONE => irq_t {irq: idx % NUM_PPI, core: idx / NUM_PPI},
+                _ => irq_t {irq: idx - (CONFIG_MAX_NUM_NODES - 1) * NUM_PPI, core: 0},
+            }
+        }
+
+        #[inline]
         pub fn to_irqt(idx: usize, cpu: usize) -> irq_t {
             irq_t {irq: idx, core: cpu}
         }
