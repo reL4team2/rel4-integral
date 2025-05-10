@@ -6,6 +6,9 @@ pub use gic_v2::{dist_pending_clr, irq_disable, irq_enable, irq_is_edge_triggere
 use tock_registers::register_structs;
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 
+#[cfg(feature = "enable_smp")]
+pub use gic_v2::ipi_send_target;
+
 register_structs! {
     /// GIC Distributor registers.
     #[allow(non_snake_case)]

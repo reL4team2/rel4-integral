@@ -76,21 +76,7 @@ pub fn handle_interrput(irq: usize) {
         }
         #[cfg(feature = "enable_smp")]
         IRQState::IRQIPI => {
-            use sel4_common::structures::irq_t;
-            #[cfg(target_arch = "aarch64")]
-            unsafe {
-                crate::ffi::handleIPI(
-                    irq_t {
-                        core: sel4_common::utils::cpu_id(),
-                        irq,
-                    },
-                    true,
-                )
-            };
-            #[cfg(target_arch = "riscv64")]
-            unsafe {
-                crate::ffi::handleIPI(irq as irq_t, true)
-            };
+            crate::smp::ipi::handle_ipi(irq, true);
         }
         IRQState::IRQReserved => {
             debug!("Received unhandled reserved IRQ: {}\n", irq);

@@ -103,6 +103,12 @@ pub fn dist_init() {
     GIC_DIST.regs().enable.set(1);
 }
 
+#[allow(unused)]
+pub fn ipi_send_target(irq: usize, target: usize) {
+    let val = irq << 0 | target << 16;
+    GIC_DIST.regs().sgi_control.set(val as u32);
+}
+
 // BOOT_CODE static void dist_init(void)
 // {
 //     word_t i;

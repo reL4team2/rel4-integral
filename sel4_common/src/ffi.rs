@@ -10,11 +10,6 @@ pub struct kernel_stack_alloc_data {
 pub static mut kernel_stack_alloc: kernel_stack_alloc_data = kernel_stack_alloc_data {
     data: [[0_u8; BIT!(CONFIG_KERNEL_STACK_BITS)]; CONFIG_MAX_NUM_NODES],
 };
-#[cfg(feature = "enable_smp")]
-/// This function is used to map the core.
-extern "C" {
-    pub fn coreMap();
-}
 
 #[no_mangle]
 // #[link_section = ".boot.bss"]
