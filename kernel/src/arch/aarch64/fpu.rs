@@ -13,6 +13,8 @@ use sel4_task::{
 
 use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
 use sel4_common::utils::cpu_id;
+
+#[cfg(feature = "enable_smp")]
 use crate::smp::ipi::remote_switch_fpu_owner;
 
 // TODO: support smp
