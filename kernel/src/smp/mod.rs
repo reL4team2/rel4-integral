@@ -41,6 +41,8 @@ pub fn clh_lock_release(cpu: usize) {
 }
 
 pub fn migrate_tcb(tcb: &mut sel4_task::tcb_t, new_core: usize) {
-    // TODO: implement Arch_migrateTCB for arm and riscv
+    #[cfg(feature = "have_fpu")]
+    crate::arch::fpu::fpu_thread_delete(tcb);
+
     tcb.tcbAffinity = new_core;
 }

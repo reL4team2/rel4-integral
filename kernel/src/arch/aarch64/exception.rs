@@ -240,7 +240,7 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
 #[cfg(feature = "build_binary")]
 pub fn c_handle_vm_fault(type_: usize) -> ! {
     #[cfg(feature = "enable_smp")]
-    unsafe { clh_lock_acquire(cpu_id(), false) };
+    clh_lock_acquire(cpu_id(), false);
     entry_hook();
     handleVMFaultEvent(type_);
     restore_user_context();

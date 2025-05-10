@@ -275,9 +275,7 @@ pub fn finalise_cap(capability: &cap, _final: bool, _exposed: bool) -> FinaliseC
                     cap::cap_thread_cap(capability).get_capTCBPtr() as usize,
                 );
                 #[cfg(feature = "enable_smp")]
-                unsafe {
-                    crate::smp::ipi::remote_tcb_stall(tcb)
-                };
+                crate::smp::ipi::remote_tcb_stall(tcb);
                 let cte_ptr = tcb.get_cspace_mut_ref(TCB_CTABLE);
                 safe_unbind_notification(tcb);
                 #[cfg(feature = "kernel_mcs")]

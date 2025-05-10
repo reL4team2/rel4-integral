@@ -1,7 +1,5 @@
-use core::default;
 use core::sync::atomic::{fence, Ordering, AtomicPtr};
-use sel4_common::structures::{irq_t, irq_to_idx, idx_to_irq, to_irqt};
-use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
+use sel4_common::arch::config::IRQ_REMOTE_CALL_IPI;
 
 use sel4_common::sel4_config::*;
 
@@ -94,30 +92,23 @@ impl clh_lock {
     pub fn acquire(&mut self, cpu: usize, irq_path: bool) {
         unsafe {
             self.node_owners[cpu].node.load(Ordering::Acquire).as_mut().unwrap().set_state(clh_qnode_state::CLHState_Pending);
-            while true {
-                match self.head.compare_exchange(
-                    self.head.load(Ordering::Acquire),
-                    self.node_owners[cpu].node.load(Ordering::Acquire),
-                    Ordering::AcqRel,
-                    Ordering::Relaxed,
-                ) {
-                    Ok(old) => {
-                        self.node_owners[cpu].next.store(old, Ordering::Release);
-                        while self.node_owners[cpu].next.load(Ordering::Acquire).as_mut().unwrap().state() != clh_qnode_state::CLHState_Granted {
-                            if self.is_ipi_pending(cpu) {
-                                super::ipi::handle_ipi(IRQ_REMOTE_CALL_IPI, irq_path);
-                            }
-                            crate::arch::arch_pause();
-                        } 
-                        break;
-                    }
-                    Err(_) => {
-                        if self.is_ipi_pending(cpu) {
-                            super::ipi::handle_ipi(IRQ_REMOTE_CALL_IPI, irq_path);
-                        }
-                        crate::arch::arch_pause();
-                    }
+            let mut prev_node: Option<&mut clh_qnode> = None;
+            while prev_node.is_none() {
+                let raw_ptr: *mut clh_qnode = self.head.swap(self.node_owners[cpu].node.load(Ordering::Acquire), Ordering::Relaxed);
+                self.node_owners[cpu].next.store(raw_ptr, Ordering::Release);
+                prev_node = raw_ptr.as_mut();
+
+                if self.is_ipi_pending(cpu) {
+                    super::ipi::handle_ipi(IRQ_REMOTE_CALL_IPI, irq_path);
                 }
+                crate::arch::arch_pause();
+            }
+
+            while self.next_node_value(cpu) != clh_qnode_state::CLHState_Granted {
+                if self.is_ipi_pending(cpu) {
+                    super::ipi::handle_ipi(IRQ_REMOTE_CALL_IPI, irq_path);
+                }
+                crate::arch::arch_pause();
             }
         }
     }

@@ -26,9 +26,6 @@ use crate::interrupt::intStateIRQNodeToR;
 use crate::interrupt::{mask_interrupt, set_irq_state_by_irq, IRQState};
 
 #[cfg(feature = "enable_smp")]
-use core::arch::asm;
-
-#[cfg(feature = "enable_smp")]
 use crate::smp::{clh_lock_acquire, clh_lock_init};
 
 #[cfg(feature = "enable_smp")]
@@ -136,11 +133,9 @@ pub fn try_init_kernel(
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "enable_smp")]
         {
-            unsafe {
-                clh_lock_init();
-                release_secondary_cpus();
-                clh_lock_acquire(cpu_id(), false);
-            }
+            clh_lock_init();
+            release_secondary_cpus();
+            clh_lock_acquire(cpu_id(), false);
         }
 
         println!("Booting all finished, dropped to user space");
@@ -154,7 +149,7 @@ pub fn try_init_kernel(
 
 #[cfg(feature = "enable_smp")]
 #[inline(always)]
-pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
+pub fn try_init_kernel_secondary_core(_hartid: usize, _core_id: usize) -> bool {
     use core::ops::AddAssign;
     use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
     use sel4_common::platform::KERNEL_TIMER_IRQ;
@@ -169,7 +164,7 @@ pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
     set_irq_state_by_irq(IRQState::IRQIPI, IRQ_RESCHEDULE_IPI);
     set_irq_state_by_irq(IRQState::IRQTimer, KERNEL_TIMER_IRQ);
 
-    unsafe { clh_lock_acquire(cpu_id(), false) };
+    clh_lock_acquire(cpu_id(), false);
     ksNumCPUs.lock().add_assign(1);
     init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
 

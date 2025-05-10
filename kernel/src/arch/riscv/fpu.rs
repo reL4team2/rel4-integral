@@ -6,20 +6,19 @@ use core::{
 };
 
 use sel4_common::arch::arch_tcb::FPUState;
-use sel4_task::{get_currenct_thread, tcb_t};
-
+use sel4_task::{
+    get_currenct_thread, tcb_t, get_current_active_fpu_state, set_current_active_fpu_state,
+    get_current_fpu_restore_since_switch, set_current_fpu_restore_since_switch
+};
 use sel4_common::arch::ArchReg;
 use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
+use sel4_common::utils::cpu_id;
+use crate::smp::ipi::remote_switch_fpu_owner;
+
 const SSTATUS_FS: usize = 0x00006000;
 const SSTATUS_FS_CLEAN: u32 = 0x00004000;
 const SSTATUS_FS_INITIAL: u32 = 0x00002000;
 const SSTATUS_FS_DIRTY: u32 = 0x00006000;
-
-#[no_mangle]
-pub static mut ksActiveFPUState: usize = 0;
-
-#[no_mangle]
-pub static mut KS_FPU_RESTORE_SINCE_SWITCH: usize = 0;
 
 // extern "C" {
 //     pub fn saveFpuState(dest: usize);
@@ -260,20 +259,30 @@ pub unsafe fn set_tcb_fs_state(tcb: &mut tcb_t, enabled: bool) {
 
 #[inline]
 #[no_mangle]
-unsafe fn switch_local_fpu_owner(new_owner: usize) {
+pub unsafe fn switch_local_fpu_owner(new_owner: usize) {
     unsafe {
         enable_fpu();
+        let ksActiveFPUState = get_current_active_fpu_state(); 
         if ksActiveFPUState != 0 {
             save_fpu_state(ksActiveFPUState);
         }
 
         if new_owner != 0 {
-            KS_FPU_RESTORE_SINCE_SWITCH = 0;
+            set_current_fpu_restore_since_switch(0);
             load_fpu_state(new_owner as *const FPUState as usize);
         } else {
             disable_fpu();
         }
-        ksActiveFPUState = new_owner;
+        set_current_active_fpu_state(new_owner);
+    }
+}
+
+#[cfg(feature = "enable_smp")]
+pub fn switch_fpu_owner(new_owner: usize, cpu: usize) {
+    if cpu != cpu_id() {
+        remote_switch_fpu_owner(new_owner, cpu);
+    } else {
+        unsafe { switch_local_fpu_owner(new_owner) };
     }
 }
 
@@ -286,9 +295,20 @@ pub(crate) unsafe fn handle_fpu_fault() {
 
 #[inline(always)]
 unsafe fn native_thread_using_fpu(thread: &mut tcb_t) -> bool {
-    return thread.tcbArch.fpu_state_ptr() as usize == ksActiveFPUState;
+    return thread.tcbArch.fpu_state_ptr() as usize == get_current_active_fpu_state();
 }
 
+#[cfg(feature = "enable_smp")]
+#[inline(always)]
+pub fn fpu_thread_delete(thread: &mut tcb_t) {
+    unsafe {
+        if native_thread_using_fpu(thread) {
+            switch_fpu_owner(0, thread.tcbAffinity);
+        }
+    }
+}
+
+#[cfg(not(feature = "enable_smp"))]
 #[inline(always)]
 pub fn fpu_thread_delete(thread: &mut tcb_t) {
     unsafe {
@@ -309,17 +329,18 @@ pub fn init_fpu() {
 #[inline(always)]
 #[allow(unused)]
 pub unsafe fn lazy_fpu_restore(thread: &mut tcb_t) {
-    if ksActiveFPUState != 0 {
-        if unlikely(KS_FPU_RESTORE_SINCE_SWITCH > CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH) {
+    if get_current_active_fpu_state() != 0 {
+        let current_fpu_restore = get_current_fpu_restore_since_switch();
+        if unlikely(current_fpu_restore > CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH) {
             switch_local_fpu_owner(0);
-            KS_FPU_RESTORE_SINCE_SWITCH = 0
+            set_current_fpu_restore_since_switch(0);
         } else {
             if likely(native_thread_using_fpu(thread)) {
                 enable_fpu();
             } else {
                 disable_fpu();
             }
-            KS_FPU_RESTORE_SINCE_SWITCH += 1;
+            set_current_fpu_restore_since_switch(current_fpu_restore + 1);
         }
     }
 }

@@ -8,9 +8,10 @@ use sel4_common::utils::cpu_id;
 use crate::smp::clh_is_ipi_pending;
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum ipi_remote_call {
     IpiRemoteCall_Stall = 0,
-    IpiRemoteCall_InvalidateTranslationSingle,
+    IpiRemoteCall_switchFpuOwner,
     IpiNumArchRemoteCall,
 }
 
@@ -38,6 +39,7 @@ pub fn handle_remote_call(call: ipi_remote_call, arg0: usize, arg1: usize, arg2:
     if clh_is_ipi_pending(cpu_id()) {
         match call {
             ipi_remote_call::IpiRemoteCall_Stall => { crate::smp::ipi::ipi_stall_core_cb(irq_path); }
+            ipi_remote_call::IpiRemoteCall_switchFpuOwner => unsafe { crate::arch::fpu::switch_local_fpu_owner(arg0); }
             _ => { sel4_common::println!("handle_remote_call: call: {:?}, arg0: {}, arg1: {}, arg2: {}", call, arg0, arg1, arg2); }
         }
         crate::smp::clh_set_ipi(cpu_id(), 0);
@@ -48,7 +50,7 @@ pub fn handle_remote_call(call: ipi_remote_call, arg0: usize, arg1: usize, arg2:
     }
 }
 
-pub fn ipi_clear_irq(irq: usize) {
+pub fn ipi_clear_irq(_irq: usize) {
     unsafe {
         ipi_irq[cpu_id()] = IRQ_INVALID;
     }

@@ -292,11 +292,29 @@ pub fn set_vm_root_for_flush_with_thread_root(
 #[inline]
 pub fn invalidate_tlb_by_asid(asid: asid_t) {
     invalidate_local_tlb_asid(asid);
+    #[cfg(feature = "enable_smp")]
+    {
+        extern "C" {
+            fn remote_invalidate_tlb_asid(asid: asid_t);
+        }
+        unsafe {
+            remote_invalidate_tlb_asid(asid);
+        }
+    }
 }
 
 #[inline]
 pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: vptr_t) {
     invalidate_local_tlb_va_asid((asid << 48) | vaddr >> SEL4_PAGE_BITS);
+    #[cfg(feature = "enable_smp")]
+    {
+        extern "C" {
+            fn remote_invalidate_translation_single(vptr: usize);
+        }
+        unsafe {
+            remote_invalidate_translation_single((asid << 48) | vaddr >> SEL4_PAGE_BITS);
+        }
+    }
 }
 
 // pub fn unmap_page_upper_directory(asid: asid_t, vaddr: vptr_t, pud: &PUDE) {
