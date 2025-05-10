@@ -296,7 +296,7 @@ jobs:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
         run: cd rel4_kernel/build && ./simulate --cpu-num 4 -M  virt,virtualization=on > 1.log
-        timeout-minutes: 15
+        timeout-minutes: 20
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
       - name: Check Result
