@@ -1095,7 +1095,7 @@ pub fn tcb_release_dequeue() -> *mut tcb_t {
         assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head).tcbSchedPrev == 0);
 
         let awakened = convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head);
-        assert!(awakened.get_ptr() != get_currenct_thread().get_ptr());
+        assert!(awakened.get_ptr() != crate::get_currenct_thread().get_ptr());
 
         awakened.release_remove();
         ksReprogram = true;
