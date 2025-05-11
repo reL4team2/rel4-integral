@@ -93,7 +93,11 @@ pub fn init_kernel(
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-#[cfg(all(feature = "build_binary", feature = "enable_smp", target_arch = "aarch64"))]
+#[cfg(all(
+    feature = "build_binary",
+    feature = "enable_smp",
+    target_arch = "aarch64"
+))]
 pub fn init_kernel(
     ui_p_reg_start: usize,
     ui_p_reg_end: usize,
@@ -134,7 +138,11 @@ pub fn init_kernel(
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-#[cfg(all(feature = "build_binary", feature = "enable_smp", target_arch = "riscv64"))]
+#[cfg(all(
+    feature = "build_binary",
+    feature = "enable_smp",
+    target_arch = "riscv64"
+))]
 pub fn init_kernel(
     ui_p_reg_start: usize,
     ui_p_reg_end: usize,
@@ -152,7 +160,7 @@ pub fn init_kernel(
         &avail_p_regs as *const p_region_t as *const usize,
         core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
     );
-    
+
     sel4_common::arch::add_hart_to_core_map(hart_id, core_id);
     if core_id == 0 {
         let result = rust_try_init_kernel(

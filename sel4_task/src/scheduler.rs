@@ -1000,7 +1000,8 @@ pub fn activateThread() {
         #[cfg(feature = "enable_smp")]
         _ => panic!(
             "current thread is blocked , state id :{}, cpu: {}",
-            thread.get_state() as usize, thread.tcbAffinity
+            thread.get_state() as usize,
+            thread.tcbAffinity
         ),
     }
 }

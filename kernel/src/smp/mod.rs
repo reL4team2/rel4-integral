@@ -1,5 +1,5 @@
-pub mod lock;
 pub mod ipi;
+pub mod lock;
 
 use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 

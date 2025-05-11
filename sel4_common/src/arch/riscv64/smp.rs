@@ -1,7 +1,7 @@
-use crate::BIT;
 use crate::ffi::kernel_stack_alloc;
-use core::arch::asm;
 use crate::sel4_config::{CONFIG_KERNEL_STACK_BITS, CONFIG_MAX_NUM_NODES};
+use crate::BIT;
+use core::arch::asm;
 
 #[derive(Clone, Copy)]
 pub struct core_map_t {

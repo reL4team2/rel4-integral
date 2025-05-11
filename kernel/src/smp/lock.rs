@@ -1,4 +1,4 @@
-use core::sync::atomic::{fence, Ordering, AtomicPtr};
+use core::sync::atomic::{fence, AtomicPtr, Ordering};
 use sel4_common::arch::config::IRQ_REMOTE_CALL_IPI;
 
 use sel4_common::sel4_config::*;
@@ -6,7 +6,7 @@ use sel4_common::sel4_config::*;
 #[derive(PartialEq, Copy, Clone)]
 pub enum clh_qnode_state {
     CLHState_Granted = 0,
-    CLHState_Pending
+    CLHState_Pending,
 }
 
 // TODO: L1 Cache page size fixed to 64 bytes
@@ -18,7 +18,9 @@ struct clh_qnode {
 
 impl clh_qnode {
     pub const fn new() -> Self {
-        Self { state: clh_qnode_state::CLHState_Granted }
+        Self {
+            state: clh_qnode_state::CLHState_Granted,
+        }
     }
 
     fn set_state(&mut self, state: clh_qnode_state) {
@@ -70,10 +72,15 @@ impl clh_lock {
 
     pub fn init(&mut self) {
         for i in 0..CONFIG_MAX_NUM_NODES {
-            self.node_owners[i].node.store(self.nodes[i].raw_ptr(), Ordering::Release);
+            self.node_owners[i]
+                .node
+                .store(self.nodes[i].raw_ptr(), Ordering::Release);
         }
         self.nodes[CONFIG_MAX_NUM_NODES].set_state(clh_qnode_state::CLHState_Granted);
-        self.head.store(self.nodes[CONFIG_MAX_NUM_NODES].raw_ptr(), Ordering::Release);
+        self.head.store(
+            self.nodes[CONFIG_MAX_NUM_NODES].raw_ptr(),
+            Ordering::Release,
+        );
     }
 
     #[inline]
@@ -84,17 +91,31 @@ impl clh_lock {
     #[inline]
     pub fn is_self_in_queue(&self) -> bool {
         let cpu = sel4_common::utils::cpu_id();
-        let value = unsafe {self.node_owners[cpu].node.load(Ordering::Acquire).read().state()};
+        let value = unsafe {
+            self.node_owners[cpu]
+                .node
+                .load(Ordering::Acquire)
+                .read()
+                .state()
+        };
         value == clh_qnode_state::CLHState_Pending
     }
 
     #[inline]
     pub fn acquire(&mut self, cpu: usize, irq_path: bool) {
         unsafe {
-            self.node_owners[cpu].node.load(Ordering::Acquire).as_mut().unwrap().set_state(clh_qnode_state::CLHState_Pending);
+            self.node_owners[cpu]
+                .node
+                .load(Ordering::Acquire)
+                .as_mut()
+                .unwrap()
+                .set_state(clh_qnode_state::CLHState_Pending);
             let mut prev_node: Option<&mut clh_qnode> = None;
             while prev_node.is_none() {
-                let raw_ptr: *mut clh_qnode = self.head.swap(self.node_owners[cpu].node.load(Ordering::Acquire), Ordering::Relaxed);
+                let raw_ptr: *mut clh_qnode = self.head.swap(
+                    self.node_owners[cpu].node.load(Ordering::Acquire),
+                    Ordering::Relaxed,
+                );
                 self.node_owners[cpu].next.store(raw_ptr, Ordering::Release);
                 prev_node = raw_ptr.as_mut();
 
@@ -120,14 +141,26 @@ impl clh_lock {
 
     #[inline]
     pub fn next_node_value(&mut self, cpu: usize) -> clh_qnode_state {
-        unsafe {self.node_owners[cpu].next.load(Ordering::Acquire).as_mut().unwrap().state()}
+        unsafe {
+            self.node_owners[cpu]
+                .next
+                .load(Ordering::Acquire)
+                .as_mut()
+                .unwrap()
+                .state()
+        }
     }
 
     #[inline]
     pub fn release(&mut self, cpu: usize) {
         fence(Ordering::Release);
         unsafe {
-            self.node_owners[cpu].node.load(Ordering::Acquire).as_mut().unwrap().set_state(clh_qnode_state::CLHState_Granted);
+            self.node_owners[cpu]
+                .node
+                .load(Ordering::Acquire)
+                .as_mut()
+                .unwrap()
+                .set_state(clh_qnode_state::CLHState_Granted);
             let next = self.node_owners[cpu].next.load(Ordering::Acquire);
             self.node_owners[cpu].node.store(next, Ordering::Release);
         }

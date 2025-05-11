@@ -6,20 +6,23 @@ use crate::BIT;
 use core::arch::asm;
 use sel4_common::platform::*;
 use sel4_common::sel4_config::*;
+use sel4_common::structures::{current_cpu_irq_to_idx, idx_to_irq};
+use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
 #[cfg(target_arch = "aarch64")]
 use sel4_common::utils::{global_ops, unsafe_ops};
-use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
-use sel4_common::structures::{current_cpu_irq_to_idx, idx_to_irq};
 use sel4_cspace::interface::cte_t;
 use sel4_vspace::pptr_t;
 
 #[cfg(target_arch = "riscv64")]
 use crate::arch::read_sip;
 #[cfg(all(target_arch = "riscv64", feature = "enable_smp"))]
-use crate::arch::{ipi_get_irq, ipi_clear_irq};
+use crate::arch::{ipi_clear_irq, ipi_get_irq};
 
 #[cfg(target_arch = "aarch64")]
-use crate::arch::arm_gic::gic_v2::{consts::{IRQ_MASK, IRQ_NONE}, gic_v2::gic_int_ack};
+use crate::arch::arm_gic::gic_v2::{
+    consts::{IRQ_MASK, IRQ_NONE},
+    gic_v2::gic_int_ack,
+};
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
@@ -37,7 +40,8 @@ pub static mut int_state_irq_node_ptr: pptr_t = 0;
 
 #[cfg(target_arch = "aarch64")]
 #[no_mangle]
-pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [IRQ_NONE as usize; CONFIG_MAX_NUM_NODES];
+pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] =
+    [IRQ_NONE as usize; CONFIG_MAX_NUM_NODES];
 
 #[cfg(target_arch = "riscv64")]
 #[no_mangle]
@@ -73,7 +77,9 @@ pub enum IRQState {
 /// irq 是从 get_active_irq 获取的，统一为输入 irq
 #[inline]
 pub fn get_irq_state(irq: usize) -> IRQState {
-    unsafe { core::mem::transmute::<u8, IRQState>(int_state_irq_table[current_cpu_irq_to_idx(irq)] as u8) }
+    unsafe {
+        core::mem::transmute::<u8, IRQState>(int_state_irq_table[current_cpu_irq_to_idx(irq)] as u8)
+    }
 }
 
 /// 和下面的 delete 都是 index，从 cspace 中删除 slot
@@ -106,8 +112,8 @@ pub fn set_irq_state_by_index(state: IRQState, index: usize) {
 
     #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
     {
-        use sel4_common::structures::idx_to_irqt;
         use crate::arch::remote_mask_private_interrupt;
+        use sel4_common::structures::idx_to_irqt;
         let irq = idx_to_irqt(index);
         if irq.irq < NUM_PPI && irq.core != cpu_id() {
             remote_mask_private_interrupt(irq.core, state == IRQState::IRQInactive, irq.irq);

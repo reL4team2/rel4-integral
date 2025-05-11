@@ -6,9 +6,9 @@ pub(self) mod instruction;
 mod pg;
 mod platform;
 
+pub mod arm_gic;
 #[cfg(feature = "have_fpu")]
 pub mod fpu;
-pub mod arm_gic;
 #[cfg(feature = "enable_smp")]
 pub use arm_gic::ipi_send_target;
 

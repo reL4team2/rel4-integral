@@ -95,7 +95,9 @@ pub fn decode_tcb_invocation(
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
     #[cfg(feature = "enable_smp")]
-    crate::smp::ipi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(capability.get_capTCBPtr() as usize));
+    crate::smp::ipi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(
+        capability.get_capTCBPtr() as usize
+    ));
     match invLabel {
         MessageLabel::TCBReadRegisters => decode_read_registers(capability, length, call, buffer),
         MessageLabel::TCBWriteRegisters => decode_write_registers(capability, length, buffer),

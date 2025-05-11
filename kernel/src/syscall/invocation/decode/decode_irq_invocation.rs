@@ -78,10 +78,10 @@ pub fn decode_irq_handler_invocation(label: MessageLabel, index: usize) -> excep
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
             #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
             {
+                use crate::arch::remote_mask_private_interrupt;
                 use sel4_common::platform::NUM_PPI;
                 use sel4_common::structures::idx_to_irqt;
                 use sel4_common::utils::cpu_id;
-                use crate::arch::remote_mask_private_interrupt;
                 let irq = idx_to_irqt(index);
                 if irq.irq < NUM_PPI && irq.core != cpu_id() {
                     remote_mask_private_interrupt(irq.core, false, irq.irq);

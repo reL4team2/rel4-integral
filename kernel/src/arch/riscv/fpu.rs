@@ -6,13 +6,13 @@ use core::{
 };
 
 use sel4_common::arch::arch_tcb::FPUState;
-use sel4_task::{
-    get_currenct_thread, tcb_t, get_current_active_fpu_state, set_current_active_fpu_state,
-    get_current_fpu_restore_since_switch, set_current_fpu_restore_since_switch
-};
 use sel4_common::arch::ArchReg;
 use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
 use sel4_common::utils::cpu_id;
+use sel4_task::{
+    get_currenct_thread, get_current_active_fpu_state, get_current_fpu_restore_since_switch,
+    set_current_active_fpu_state, set_current_fpu_restore_since_switch, tcb_t,
+};
 
 #[cfg(feature = "enable_smp")]
 use crate::smp::ipi::remote_switch_fpu_owner;
@@ -264,7 +264,7 @@ pub unsafe fn set_tcb_fs_state(tcb: &mut tcb_t, enabled: bool) {
 pub unsafe fn switch_local_fpu_owner(new_owner: usize) {
     unsafe {
         enable_fpu();
-        let ksActiveFPUState = get_current_active_fpu_state(); 
+        let ksActiveFPUState = get_current_active_fpu_state();
         if ksActiveFPUState != 0 {
             save_fpu_state(ksActiveFPUState);
         }

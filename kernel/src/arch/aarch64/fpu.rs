@@ -7,8 +7,8 @@ use core::{
 
 use sel4_common::arch::arch_tcb::FPUState;
 use sel4_task::{
-    get_currenct_thread, tcb_t, get_current_active_fpu_state, set_current_active_fpu_state,
-    get_current_fpu_restore_since_switch, set_current_fpu_restore_since_switch
+    get_currenct_thread, get_current_active_fpu_state, get_current_fpu_restore_since_switch,
+    set_current_active_fpu_state, set_current_fpu_restore_since_switch, tcb_t,
 };
 
 use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;

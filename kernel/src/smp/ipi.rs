@@ -1,12 +1,12 @@
-use core::sync::atomic::{AtomicUsize, Ordering, fence};
-use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
-use sel4_common::arch::cpu_index_to_id;
-use sel4_common::utils::cpu_id;
-use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, WORD_BITS};
-use sel4_task::{ThreadState, SCHEDULER_ACTION_RESUME_CURRENT_THREAD, tcb_t};
 use crate::arch::ipi_remote_call;
 use crate::arch::ipi_send_target;
 use crate::boot::interface::switch_to_idle_thread;
+use core::sync::atomic::{fence, AtomicUsize, Ordering};
+use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
+use sel4_common::arch::cpu_index_to_id;
+use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, WORD_BITS};
+use sel4_common::utils::cpu_id;
+use sel4_task::{tcb_t, ThreadState, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
 
 pub const MAX_IPI_ARGS: usize = 3;
 
@@ -33,9 +33,7 @@ static mut remote_call: ipi_remote_call = ipi_remote_call::IpiRemoteCall_Stall;
 #[inline]
 fn get_ipi_arg(n: usize) -> usize {
     assert!(n < MAX_IPI_ARGS);
-    let arg = unsafe {
-        ipi_args[n]
-    };
+    let arg = unsafe { ipi_args[n] };
     return arg;
 }
 
@@ -68,11 +66,14 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
         super::clh_set_ipi(cpu_id(), 0);
 
         #[cfg(target_arch = "riscv64")]
-        { crate::arch::ipi_clear_irq(IRQ_REMOTE_CALL_IPI); }
-        
+        {
+            crate::arch::ipi_clear_irq(IRQ_REMOTE_CALL_IPI);
+        }
+
         ipi_wait();
 
-        while super::clh_next_node_state(cpu_id()) != super::lock::clh_qnode_state::CLHState_Granted {
+        while super::clh_next_node_state(cpu_id()) != super::lock::clh_qnode_state::CLHState_Granted
+        {
             crate::arch::arch_pause();
         }
 
@@ -90,13 +91,21 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
 
 pub fn handle_ipi(irq: usize, irq_path: bool) {
     match irq {
-        IRQ_REMOTE_CALL_IPI => {
-            unsafe {crate::arch::handle_remote_call(remote_call, get_ipi_arg(0), get_ipi_arg(1), get_ipi_arg(2), irq_path);}
-        }
+        IRQ_REMOTE_CALL_IPI => unsafe {
+            crate::arch::handle_remote_call(
+                remote_call,
+                get_ipi_arg(0),
+                get_ipi_arg(1),
+                get_ipi_arg(2),
+                irq_path,
+            );
+        },
         IRQ_RESCHEDULE_IPI => {
             sel4_task::reschedule_required();
             #[cfg(target_arch = "riscv64")]
-            unsafe { core::arch::asm!("fence.i", options(nostack, preserves_flags)); }
+            unsafe {
+                core::arch::asm!("fence.i", options(nostack, preserves_flags));
+            }
         }
         _ => sel4_common::println!("handle_ipi: unknown ipi: {}", irq),
     }
@@ -135,7 +144,13 @@ pub fn do_mask_reschedule(mask: usize) {
     }
 }
 
-pub fn do_remote_mask_op(func: ipi_remote_call, arg0: usize, arg1: usize, arg2: usize, mask: usize) {
+pub fn do_remote_mask_op(
+    func: ipi_remote_call,
+    arg0: usize,
+    arg1: usize,
+    arg2: usize,
+    mask: usize,
+) {
     let mut mask2 = mask;
     mask2 &= !(crate::BIT!(cpu_id()));
     if mask2 != 0 {
@@ -171,5 +186,11 @@ pub fn remote_tcb_stall(tcb: &tcb_t) {
 
 #[cfg(feature = "have_fpu")]
 pub fn remote_switch_fpu_owner(new_owner: usize, cpu: usize) {
-    do_remote_op(ipi_remote_call::IpiRemoteCall_switchFpuOwner, new_owner, 0, 0, cpu);
+    do_remote_op(
+        ipi_remote_call::IpiRemoteCall_switchFpuOwner,
+        new_owner,
+        0,
+        0,
+        cpu,
+    );
 }

@@ -92,10 +92,7 @@ pub fn asm_gen(dir: &str, name: &str, inc_dir: Vec<&str>, defs: &Vec<String>, ou
     }
     build_args.push(&src);
 
-    let defs_vec: Vec<String> = defs
-        .iter()
-        .map(|d| format!("-D{}", d))
-        .collect();
+    let defs_vec: Vec<String> = defs.iter().map(|d| format!("-D{}", d)).collect();
 
     for d in defs_vec.iter() {
         build_args.push(d.as_str());

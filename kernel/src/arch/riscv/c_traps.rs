@@ -18,8 +18,8 @@ use crate::interrupt::handler::handle_interrupt_entry;
 
 #[cfg(feature = "enable_smp")]
 use crate::{
-    smp::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
     interrupt::get_active_irq,
+    smp::{clh_is_self_in_queue, clh_lock_acquire, clh_lock_release},
 };
 
 #[cfg(feature = "enable_smp")]

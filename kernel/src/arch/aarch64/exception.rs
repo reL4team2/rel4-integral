@@ -33,13 +33,13 @@ use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedul
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget_restart, update_timestamp};
 
+use super::instruction::*;
+#[cfg(feature = "build_binary")]
+use super::restore_user_context;
 #[cfg(feature = "enable_smp")]
 use crate::smp::clh_lock_acquire;
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
-use super::instruction::*;
-#[cfg(feature = "build_binary")]
-use super::restore_user_context;
 
 #[no_mangle]
 pub fn handle_unknown_syscall(w: isize) -> exception_t {
