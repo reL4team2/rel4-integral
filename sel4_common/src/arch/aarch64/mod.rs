@@ -73,13 +73,28 @@ fn psci_hvc_call(func: u32, arg0: usize, arg1: usize, arg2: usize) -> usize {
     ret
 }
 
+/// psci "smc" method call
+fn psci_smc_call(func: u32, arg0: usize, arg1: usize, arg2: usize) -> usize {
+    let ret;
+    unsafe {
+        core::arch::asm!(
+            "smc #0",
+            inlateout("x0") func as usize => ret,
+            in("x1") arg0,
+            in("x2") arg1,
+            in("x3") arg2,
+        )
+    }
+    ret
+}
+
 fn psci_call(func: u32, arg0: usize, arg1: usize, arg2: usize) -> Result<(), PsciError> {
     // let ret = match axconfig::PSCI_METHOD {
     //     "smc" => arm_smccc_smc(func, arg0, arg1, arg2),
     //     "hvc" => psci_hvc_call(func, arg0, arg1, arg2),
     //     _ => panic!("Unknown PSCI method: {}", axconfig::PSCI_METHOD),
     // };
-    let ret = psci_hvc_call(func, arg0, arg1, arg2);
+    let ret = psci_smc_call(func, arg0, arg1, arg2);
     if ret == 0 {
         Ok(())
     } else {
