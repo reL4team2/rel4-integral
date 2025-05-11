@@ -5,7 +5,7 @@
 #![allow(non_upper_case_globals)]
 #![feature(decl_macro)]
 #![feature(core_intrinsics)]
-mod arch;
+pub mod arch;
 mod asid;
 mod boot;
 mod pagetable;

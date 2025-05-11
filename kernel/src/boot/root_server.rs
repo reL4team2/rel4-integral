@@ -653,9 +653,7 @@ fn init_irqs(root_cnode_cap: &cap_cnode_cap) {
     }
     #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
     {
-        use crate::arch::arm_gic::irq_to_idx;
         use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
-        use sel4_common::utils::cpu_id;
         set_irq_state_by_irq(IRQState::IRQIPI, IRQ_REMOTE_CALL_IPI);
         set_irq_state_by_irq(IRQState::IRQIPI, IRQ_RESCHEDULE_IPI);
     }

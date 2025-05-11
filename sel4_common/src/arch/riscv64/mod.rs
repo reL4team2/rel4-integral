@@ -17,11 +17,17 @@ use riscv::register::time;
 pub use timer::*;
 pub use vm_rights::*;
 
+#[cfg(feature = "enable_smp")]
+mod smp;
+#[cfg(feature = "enable_smp")]
+pub use smp::*;
+
 const SBI_SET_TIMER: usize = 0;
 const SBI_CONSOLE_PUTCHAR: usize = 1;
 const SBI_CONSOLE_GETCHAR: usize = 2;
 
 const SBI_CLEAR_IPI: usize = 3;
+const SBI_SEND_IPI: usize = 4;
 const SBI_REMOTE_SFENCE_VMA: usize = 6;
 const SBI_SHUTDOWN: usize = 8;
 const SYSCALL_WRITE: usize = 64;
@@ -64,4 +70,11 @@ pub fn remote_sfence_vma(hart_mask: usize, start: usize, size: usize) {
 
 pub fn get_time() -> usize {
     time::read()
+}
+
+#[cfg(feature = "enable_smp")]
+#[no_mangle]
+pub fn sbi_send_ipi(hart_mask: usize) {
+    let addr = (&hart_mask) as *const usize as usize;
+    sbi_call(4, addr, 0, 0);
 }

@@ -5,14 +5,12 @@
 //! new threads to run, managing ready queues, and handling domain scheduling.
 //!
 #[cfg(feature = "enable_smp")]
-use crate::deps::doMaskReschedule;
+use crate::deps::do_mask_reschedule;
 use core::arch::asm;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
 #[cfg(feature = "enable_smp")]
-use sel4_common::ffi::kernel_stack_alloc;
-#[cfg(feature = "enable_smp")]
-use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, SEL4_TCB_BITS};
+use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 use sel4_common::sel4_config::{
     CONFIG_NUM_DOMAINS, CONFIG_NUM_PRIORITIES, CONFIG_TIME_SLICE, L2_BITMAP_SIZE, NUM_READY_QUEUES,
     TCB_OFFSET, WORD_BITS, WORD_RADIX,
@@ -62,9 +60,9 @@ pub struct SmpStateData {
     /// Action to be taken by the scheduler.
     pub ksSchedulerAction: usize,
     /// Number of debug TCBs (Thread Control Blocks).
-    pub fpu1: usize,
+    pub ksActiveFPUState: usize,
     // TODO: Cache Line 对齐
-    pub fpu2: usize,
+    pub ks_fpu_restore_since_switch: usize,
     // TODO: Cache Line 对齐
     pub ksDebugTCBs: usize,
     // TODO: Cache Line 对齐
@@ -80,8 +78,8 @@ pub static mut ksSMP: [SmpStateData; CONFIG_MAX_NUM_NODES] = [SmpStateData {
     ksCurThread: 0,
     ksIdleThread: 0,
     ksSchedulerAction: 1,
-    fpu1: 0,
-    fpu2: 0,
+    ksActiveFPUState: 0,
+    ks_fpu_restore_since_switch: 0,
     ksDebugTCBs: 0,
 }; CONFIG_MAX_NUM_NODES];
 
@@ -118,6 +116,14 @@ pub static mut ksIdleThread: usize = 0;
 
 #[no_mangle]
 pub static mut ksSchedulerAction: usize = 1;
+
+#[cfg(feature = "have_fpu")]
+#[no_mangle]
+pub static mut ksActiveFPUState: usize = 0;
+
+#[cfg(feature = "have_fpu")]
+#[no_mangle]
+pub static mut ks_fpu_restore_since_switch: usize = 0;
 
 #[no_mangle]
 #[cfg(feature = "kernel_mcs")]
@@ -231,6 +237,18 @@ pub fn get_currenct_thread() -> &'static mut tcb_t {
     }
 }
 
+#[cfg(not(feature = "enable_smp"))]
+#[inline]
+pub fn get_current_thread_on_node() -> &'static mut tcb_t {
+    unsafe { convert_to_mut_type_ref::<tcb_t>(ksCurThread) }
+}
+
+#[cfg(feature = "enable_smp")]
+#[inline]
+pub fn get_current_thread_on_node(node: usize) -> &'static mut tcb_t {
+    unsafe { convert_to_mut_type_ref::<tcb_t>(ksSMP[node].ksCurThread) }
+}
+
 #[inline]
 /// Get the current thread, and returns a mutable tcb reference to the current thread unsafely.
 pub fn get_currenct_thread_unsafe() -> &'static mut tcb_t {
@@ -280,6 +298,66 @@ pub fn set_current_thread(thread: &tcb_t) {
 /// Get the current domain.
 pub fn get_current_domain() -> usize {
     unsafe { ksCurDomain }
+}
+
+#[cfg(feature = "have_fpu")]
+#[inline]
+pub fn get_current_active_fpu_state() -> usize {
+    unsafe {
+        #[cfg(feature = "enable_smp")]
+        {
+            ksSMP[cpu_id()].ksActiveFPUState
+        }
+        #[cfg(not(feature = "enable_smp"))]
+        {
+            ksActiveFPUState
+        }
+    }
+}
+
+#[cfg(feature = "have_fpu")]
+#[inline]
+pub fn set_current_active_fpu_state(state: usize) {
+    unsafe {
+        #[cfg(feature = "enable_smp")]
+        {
+            ksSMP[cpu_id()].ksActiveFPUState = state;
+        }
+        #[cfg(not(feature = "enable_smp"))]
+        {
+            ksActiveFPUState = state;
+        }
+    }
+}
+
+#[cfg(feature = "have_fpu")]
+#[inline]
+pub fn get_current_fpu_restore_since_switch() -> usize {
+    unsafe {
+        #[cfg(feature = "enable_smp")]
+        {
+            ksSMP[cpu_id()].ks_fpu_restore_since_switch
+        }
+        #[cfg(not(feature = "enable_smp"))]
+        {
+            ks_fpu_restore_since_switch
+        }
+    }
+}
+
+#[cfg(feature = "have_fpu")]
+#[inline]
+pub fn set_current_fpu_restore_since_switch(state: usize) {
+    unsafe {
+        #[cfg(feature = "enable_smp")]
+        {
+            ksSMP[cpu_id()].ks_fpu_restore_since_switch = state;
+        }
+        #[cfg(not(feature = "enable_smp"))]
+        {
+            ks_fpu_restore_since_switch = state;
+        }
+    }
 }
 
 #[inline]
@@ -786,7 +864,7 @@ pub fn schedule() {
     set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
     #[cfg(feature = "enable_smp")]
     unsafe {
-        doMaskReschedule(ksSMP[cpu_id()].ipiReschedulePending);
+        do_mask_reschedule(ksSMP[cpu_id()].ipiReschedulePending);
         ksSMP[cpu_id()].ipiReschedulePending = 0;
     }
     #[cfg(feature = "kernel_mcs")]
@@ -914,9 +992,16 @@ pub fn activateThread() {
         }
         // 诡异的语法...
         ThreadState::ThreadStateIdleThreadState => return {},
+        #[cfg(not(feature = "enable_smp"))]
         _ => panic!(
             "current thread is blocked , state id :{}",
             thread.get_state() as usize
+        ),
+        #[cfg(feature = "enable_smp")]
+        _ => panic!(
+            "current thread is blocked , state id :{}, cpu: {}",
+            thread.get_state() as usize,
+            thread.tcbAffinity
         ),
     }
 }

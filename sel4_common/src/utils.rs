@@ -144,8 +144,8 @@ pub fn ptr_to_usize_add<T>(ptr: *mut T, offset: usize) -> usize {
 pub fn cpu_id() -> usize {
     #[cfg(feature = "enable_smp")]
     {
-        use crate::smp::get_currenct_cpu_index;
-        get_currenct_cpu_index()
+        use crate::arch::get_current_cpu_index;
+        get_current_cpu_index()
     }
     #[cfg(not(feature = "enable_smp"))]
     {

@@ -20,7 +20,7 @@ use sel4_vspace::{kpptr_to_paddr, rust_map_kernel_window};
 use core::arch::asm;
 
 #[cfg(feature = "enable_smp")]
-use crate::ffi::{clh_lock_acquire, clh_lock_init};
+use crate::smp::{clh_lock_acquire, clh_lock_init};
 
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
@@ -115,13 +115,9 @@ pub fn try_init_kernel(
         *ksNumCPUs.lock() = 1;
         #[cfg(feature = "enable_smp")]
         {
-            use crate::ffi::{clh_lock_acquire, clh_lock_init};
-            use sel4_common::utils::cpu_id;
-            unsafe {
-                clh_lock_init();
-                release_secondary_cores();
-                clh_lock_acquire(cpu_id(), false);
-            }
+            clh_lock_init();
+            release_secondary_cores();
+            clh_lock_acquire(cpu_id(), false);
         }
 
         println!("Booting all finished, dropped to user space");
@@ -145,13 +141,13 @@ pub(crate) fn release_secondary_cores() {
 
 #[cfg(feature = "enable_smp")]
 #[inline(always)]
-pub fn try_init_kernel_secondary_core(hartid: usize, core_id: usize) -> bool {
+pub fn try_init_kernel_secondary_core(_hartid: usize, _core_id: usize) -> bool {
     use core::ops::AddAssign;
     while node_boot_lock.lock().eq(&0) {}
     // debug!("start try_init_kernel_secondary_core");
     crate::arch::init_cpu();
     debug!("init cpu compl");
-    unsafe { clh_lock_acquire(cpu_id(), false) }
+    clh_lock_acquire(cpu_id(), false);
     ksNumCPUs.lock().add_assign(1);
     init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
     debug!("init_core_state compl");

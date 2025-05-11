@@ -36,6 +36,10 @@ use sel4_task::{check_budget_restart, update_timestamp};
 use super::instruction::*;
 #[cfg(feature = "build_binary")]
 use super::restore_user_context;
+#[cfg(feature = "enable_smp")]
+use crate::smp::clh_lock_acquire;
+#[cfg(feature = "enable_smp")]
+use sel4_common::utils::cpu_id;
 
 #[no_mangle]
 pub fn handle_unknown_syscall(w: isize) -> exception_t {
@@ -237,7 +241,8 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
 #[inline(always)]
 #[cfg(feature = "build_binary")]
 pub fn c_handle_vm_fault(type_: usize) -> ! {
-    // TODO: NODE_LOCK needed in smp mod, now not supported
+    #[cfg(feature = "enable_smp")]
+    clh_lock_acquire(cpu_id(), false);
     entry_hook();
     handleVMFaultEvent(type_);
     restore_user_context();

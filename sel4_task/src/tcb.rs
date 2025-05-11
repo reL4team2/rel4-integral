@@ -32,8 +32,8 @@ use sel4_cspace::interface::{cte_t, resolve_address_bits};
 use sel4_vspace::{pptr_t, set_vm_root};
 
 use super::scheduler::{
-    add_to_bitmap, get_currenct_thread, possible_switch_to, ready_queues_index, remove_from_bigmap,
-    reschedule_required, schedule_tcb, set_current_thread,
+    add_to_bitmap, get_current_thread_on_node, possible_switch_to, ready_queues_index,
+    remove_from_bigmap, reschedule_required, schedule_tcb, set_current_thread,
 };
 use super::structures::lookupSlot_raw_ret_t;
 
@@ -161,10 +161,18 @@ impl tcb_t {
             && self.tcbState.get_tcbInReleaseQueue() == 0
     }
 
+    #[cfg(not(feature = "enable_smp"))]
     #[inline]
     /// Check if the TCB is current by comparing the tcb pointer
     pub fn is_current(&self) -> bool {
-        self.get_ptr() == get_currenct_thread().get_ptr()
+        self.get_ptr() == get_current_thread_on_node().get_ptr()
+    }
+
+    #[cfg(feature = "enable_smp")]
+    #[inline]
+    /// Check if the TCB is current by comparing the tcb pointer
+    pub fn is_current(&self) -> bool {
+        self.get_ptr() == get_current_thread_on_node(self.tcbAffinity).get_ptr()
     }
 
     #[inline]
@@ -417,6 +425,15 @@ impl tcb_t {
                     ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
                 }
             }
+        }
+    }
+
+    #[cfg(feature = "enable_smp")]
+    #[inline]
+    pub fn update_ipi_reschedule_pending(&self) {
+        unsafe {
+            use super::scheduler::ksSMP;
+            ksSMP[self.tcbAffinity].ipiReschedulePending |= BIT!(self.tcbAffinity);
         }
     }
 
@@ -1078,7 +1095,7 @@ pub fn tcb_release_dequeue() -> *mut tcb_t {
         assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head).tcbSchedPrev == 0);
 
         let awakened = convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head);
-        assert!(awakened.get_ptr() != get_currenct_thread().get_ptr());
+        assert!(awakened.get_ptr() != crate::get_currenct_thread().get_ptr());
 
         awakened.release_remove();
         ksReprogram = true;

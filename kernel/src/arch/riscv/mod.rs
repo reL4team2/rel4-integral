@@ -5,6 +5,13 @@ mod platform;
 
 #[cfg(feature = "have_fpu")]
 pub mod fpu;
+
+#[cfg(feature = "enable_smp")]
+pub mod smp;
+
+#[cfg(feature = "enable_smp")]
+pub use smp::*;
+
 pub use boot::try_init_kernel;
 pub use c_traps::{fastpath_restore, restore_user_context};
 use core::arch::asm;

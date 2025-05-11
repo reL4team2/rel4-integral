@@ -28,8 +28,10 @@ mod syscall;
 mod utils;
 
 mod compatibility;
-mod ffi;
 mod interfaces_impl;
+
+#[cfg(feature = "enable_smp")]
+mod smp;
 
 pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
 

@@ -17,8 +17,6 @@ pub mod object;
 pub mod platform;
 pub mod sel4_bitfield_types;
 pub mod sel4_config;
-#[cfg(feature = "enable_smp")]
-pub mod smp;
 pub mod structures;
 pub mod utils;
 pub mod vm_rights;

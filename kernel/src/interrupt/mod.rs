@@ -6,8 +6,7 @@ use crate::BIT;
 use core::arch::asm;
 use sel4_common::platform::*;
 use sel4_common::sel4_config::*;
-#[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
-use sel4_common::structures::irq_t;
+use sel4_common::structures::{current_cpu_irq_to_idx, idx_to_irq};
 use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
 #[cfg(target_arch = "aarch64")]
 use sel4_common::utils::{global_ops, unsafe_ops};
@@ -16,9 +15,14 @@ use sel4_vspace::pptr_t;
 
 #[cfg(target_arch = "riscv64")]
 use crate::arch::read_sip;
+#[cfg(all(target_arch = "riscv64", feature = "enable_smp"))]
+use crate::arch::{ipi_clear_irq, ipi_get_irq};
 
-#[cfg(feature = "enable_smp")]
-use crate::ffi::{ipi_clear_irq, ipi_get_irq};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::arm_gic::gic_v2::{
+    consts::{IRQ_MASK, IRQ_NONE},
+    gic_v2::gic_int_ack,
+};
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
@@ -34,11 +38,17 @@ pub static mut int_state_irq_table: [usize; INT_STATE_ARRAY_SIZE + 1] =
 
 pub static mut int_state_irq_node_ptr: pptr_t = 0;
 
+#[cfg(target_arch = "aarch64")]
 #[no_mangle]
-// #[link_section = ".boot.bss"]
+pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] =
+    [IRQ_NONE as usize; CONFIG_MAX_NUM_NODES];
+
+#[cfg(target_arch = "riscv64")]
+#[no_mangle]
 pub static mut active_irq: [usize; CONFIG_MAX_NUM_NODES] = [IRQ_INVALID; CONFIG_MAX_NUM_NODES];
 
 #[cfg(feature = "enable_smp")]
+#[allow(dead_code)]
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum IRQState {
     IRQInactive = 0,
@@ -67,7 +77,9 @@ pub enum IRQState {
 /// irq 是从 get_active_irq 获取的，统一为输入 irq
 #[inline]
 pub fn get_irq_state(irq: usize) -> IRQState {
-    unsafe { core::mem::transmute::<u8, IRQState>(int_state_irq_table[irq_to_idx(irq)] as u8) }
+    unsafe {
+        core::mem::transmute::<u8, IRQState>(int_state_irq_table[current_cpu_irq_to_idx(irq)] as u8)
+    }
 }
 
 /// 和下面的 delete 都是 index，从 cspace 中删除 slot
@@ -88,21 +100,25 @@ pub fn setIRQState(_irq: usize) -> bool {
 /// 有的是 index，有的是 irq，在 cspace 和 decode_irq_control_invocation 中是 index，考虑增加一个新函数
 pub fn set_irq_state_by_irq(state: IRQState, irq: usize) {
     unsafe {
-        int_state_irq_table[irq_to_idx(irq)] = state as usize;
+        int_state_irq_table[current_cpu_irq_to_idx(irq)] = state as usize;
     }
-    // TODO
-    // #if defined ENABLE_SMP_SUPPORT && defined CONFIG_ARCH_ARM
-    //     if (IRQ_IS_PPI(irq) && IRQT_TO_CORE(irq) != getCurrentCPUIndex()) {
-    //         doRemoteMaskPrivateInterrupt(IRQT_TO_CORE(irq), irqState == IRQInactive, IRQT_TO_IDX(irq));
-    //         return;
-    //     }
-    // #endif
     mask_interrupt(state == IRQState::IRQInactive, irq);
 }
 
 pub fn set_irq_state_by_index(state: IRQState, index: usize) {
     unsafe {
         int_state_irq_table[index] = state as usize;
+    }
+
+    #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
+    {
+        use crate::arch::remote_mask_private_interrupt;
+        use sel4_common::structures::idx_to_irqt;
+        let irq = idx_to_irqt(index);
+        if irq.irq < NUM_PPI && irq.core != cpu_id() {
+            remote_mask_private_interrupt(irq.core, state == IRQState::IRQInactive, irq.irq);
+            return;
+        }
     }
 
     mask_interrupt(state == IRQState::IRQInactive, idx_to_irq(index));
@@ -196,9 +212,7 @@ pub fn ack_interrupt(irq: usize) {
     #[cfg(feature = "enable_smp")]
     {
         if irq == INTERRUPT_IPI_0 || irq == INTERRUPT_IPI_1 {
-            unsafe {
-                ipi_clear_irq(irq);
-            }
+            ipi_clear_irq(irq);
         }
     }
     return;
@@ -211,7 +225,7 @@ pub fn ack_interrupt(irq: usize) {
         crate::arch::arm_gic::gic_v2::dist_pending_clr(irq);
     }
     crate::arch::arm_gic::gic_v2::gic_v2::ack_irq(irq);
-    global_ops!(active_irq[cpu_id()] = 0);
+    global_ops!(active_irq[cpu_id()] = IRQ_NONE as usize);
     return;
 }
 
@@ -245,7 +259,7 @@ pub fn get_active_irq() -> usize {
             irq = 0;
         } else if (sip & BIT!(SIP_SSIP)) != 0 {
             clear_ipi();
-            irq = unsafe { ipi_get_irq() };
+            irq = ipi_get_irq();
             // debug!("irq: {}", irq);
         } else if (sip & BIT!(SIP_STIP)) != 0 {
             irq = KERNEL_TIMER_IRQ;
@@ -283,7 +297,6 @@ pub fn get_active_irq() -> usize {
             irq = IRQ_INVALID;
         }
     */
-    use crate::arch::arm_gic::gic_v2::{consts::IRQ_MASK, gic_v2::gic_int_ack};
     let irq = gic_int_ack();
 
     if (irq & IRQ_MASK as usize) < MAX_IRQ {
@@ -310,30 +323,6 @@ pub const fn is_irq_valid(x: usize) -> bool {
             panic!("not used in aarch64")
         } else {
             (x <= MAX_IRQ) && (x != IRQ_INVALID)
-        }
-    }
-}
-
-#[inline]
-fn irq_to_idx(irq: usize) -> usize {
-    cfg_if::cfg_if! {
-        if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
-            use crate::arch::arm_gic::irq_to_idx;
-            irq_to_idx(irq_t { core: cpu_id(), irq: irq })
-        } else {
-            irq as usize
-        }
-    }
-}
-
-#[inline]
-fn idx_to_irq(idx: usize) -> usize {
-    cfg_if::cfg_if! {
-        if #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))] {
-            use crate::arch::arm_gic::idx_to_irq;
-            idx_to_irq(idx)
-        } else {
-            idx
         }
     }
 }

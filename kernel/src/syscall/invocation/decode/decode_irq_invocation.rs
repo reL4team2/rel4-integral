@@ -71,10 +71,23 @@ pub fn decode_irq_control_invocation(
     }
 }
 
-pub fn decode_irq_handler_invocation(label: MessageLabel, irq: usize) -> exception_t {
+pub fn decode_irq_handler_invocation(label: MessageLabel, index: usize) -> exception_t {
+    let irq = sel4_common::structures::idx_to_irq(index);
     return match label {
         MessageLabel::IRQAckIRQ => {
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+            #[cfg(all(feature = "enable_smp", target_arch = "aarch64"))]
+            {
+                use crate::arch::remote_mask_private_interrupt;
+                use sel4_common::platform::NUM_PPI;
+                use sel4_common::structures::idx_to_irqt;
+                use sel4_common::utils::cpu_id;
+                let irq = idx_to_irqt(index);
+                if irq.irq < NUM_PPI && irq.core != cpu_id() {
+                    remote_mask_private_interrupt(irq.core, false, irq.irq);
+                    return exception_t::EXCEPTION_NONE;
+                }
+            }
             mask_interrupt(false, irq);
             exception_t::EXCEPTION_NONE
         }
