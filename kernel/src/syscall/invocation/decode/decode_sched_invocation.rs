@@ -42,6 +42,14 @@ pub fn decode_sched_context_invocation(
 ) -> exception_t {
     // sel4_common::println!("go into decode sched context invocation");
     let sc = convert_to_mut_type_ref::<sched_context_t>(capability.get_capSCPtr() as usize);
+    
+    #[cfg(feature = "enable_smp")]
+    {
+        if sc.scTcb != 0 {
+            crate::smp::ipi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(sc.scTcb));
+        }
+    }
+    
     match inv_label {
         MessageLabel::SchedContextConsumed => {
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);

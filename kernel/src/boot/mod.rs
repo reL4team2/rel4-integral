@@ -159,13 +159,13 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // 	NODE_STATE(ksReleaseHead) = NULL;
     // 	NODE_STATE(ksCurTime) = get_current_time();
     // #endif
-    #[cfg(feature = "kernel_mcs")]
-    unsafe {
-        ksCurSC = get_currenct_thread().tcbSchedContext;
-        ksConsumed = 0;
-        ksReprogram = true;
-        ksReleaseQueue.head = 0;
-        ksReleaseQueue.tail = 0;
-        ksCurTime = timer.get_current_time();
+    #[cfg(feature = "kernel_mcs")] 
+    {
+        set_current_sc(get_currenct_thread().tcbSchedContext);
+        set_consumed(0);
+        set_reprogram(true);
+        get_release_queue_ptr().head = 0;
+        get_release_queue_ptr().tail = 0;
+        set_current_time(timer.get_current_time());
     }
 }

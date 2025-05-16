@@ -18,7 +18,7 @@ use sel4_common::{
 };
 
 use crate::{
-    get_currenct_thread, get_current_sc, ksCurSC, ksCurTime, ksReprogram, ksSchedulerAction,
+    get_currenct_thread, get_current_sc, get_current_sc_raw, get_current_time, set_reprogram, ksSchedulerAction,
     reschedule_required, tcb_t,
 };
 
@@ -76,7 +76,7 @@ impl sched_context {
     }
     #[inline]
     pub fn is_current(&self) -> bool {
-        self.get_ptr() == unsafe { ksCurSC }
+        self.get_ptr() == get_current_sc_raw()
     }
     #[inline]
     pub fn sc_released(&mut self) -> bool {
@@ -99,7 +99,7 @@ impl sched_context {
     pub fn postpone(&self) {
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).sched_dequeue();
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).release_enqueue();
-        unsafe { ksReprogram = true };
+        set_reprogram(true);
     }
     #[inline]
     fn refill_pop_head(&mut self) -> *mut refill_t {
@@ -162,7 +162,7 @@ impl sched_context {
         assert!(budget >= min_budget());
         unsafe {
             (*self.refill_head()).rAmount = budget;
-            (*self.refill_head()).rTime = ksCurTime;
+            (*self.refill_head()).rTime = get_current_time();
         }
         self.maybe_add_empty_tail();
     }
@@ -183,8 +183,8 @@ impl sched_context {
             return;
         }
         if self.refill_ready() {
-            unsafe { (*self.refill_head()).rTime = ksCurTime };
-            unsafe { ksReprogram = true };
+            unsafe { (*self.refill_head()).rTime = get_current_time() };
+            set_reprogram(true);
             while self.refill_head_overlapping() {
                 let old_head = self.refill_pop_head();
                 unsafe {
@@ -197,7 +197,7 @@ impl sched_context {
     }
     #[inline]
     pub fn refill_ready(&mut self) -> bool {
-        unsafe { (*self.refill_head()).rTime <= ksCurTime + get_kernel_wcet_ticks() }
+        unsafe { (*self.refill_head()).rTime <= get_current_time() + get_kernel_wcet_ticks() }
     }
     #[inline]
     pub fn refill_index(&self, index: usize) -> *mut refill_t {
@@ -259,7 +259,7 @@ impl sched_context {
             self.scPeriod = new_period;
 
             if self.refill_ready() {
-                (*self.refill_head()).rTime = ksCurTime;
+                (*self.refill_head()).rTime = get_current_time();
             }
 
             if (*self.refill_head()).rAmount >= new_budget {
@@ -311,6 +311,8 @@ impl sched_context {
         assert!(tcb.tcbSchedContext == 0);
         tcb.tcbSchedContext = self.get_ptr();
         self.scTcb = tcb.get_ptr();
+        #[cfg(feature = "enable_smp")]
+        crate::smp::migrate_tcb(tcb, self.scCore);
         if self.sc_sporadic() && self.sc_active() && !self.is_current() {
             self.refill_unblock_check()
         }
@@ -332,6 +334,8 @@ impl sched_context {
     }
     pub fn sched_context_unbind_all_tcbs(&mut self) {
         if self.scTcb != 0 {
+            #[cfg(feature = "enable_smp")]
+            crate::smp::ipi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(sc.scTcb));
             self.sched_context_unbind_tcb(convert_to_mut_type_ref::<tcb_t>(self.scTcb));
         }
     }
@@ -340,6 +344,8 @@ impl sched_context {
         assert!(to.get_ptr() != 0);
         assert!(to.tcbSchedContext == 0);
         if let Some(from) = convert_to_option_mut_type_ref::<tcb_t>(self.scTcb) {
+            #[cfg(feature = "enable_smp")]
+            crate::smp::ipi::remote_tcb_stall(from);
             from.sched_dequeue();
             from.release_remove();
             from.tcbSchedContext = 0;
@@ -348,7 +354,9 @@ impl sched_context {
             }
         }
         self.scTcb = to.get_ptr();
-        to.tcbSchedContext = self.get_ptr()
+        to.tcbSchedContext = self.get_ptr();
+        #[cfg(feature = "enable_smp")]
+        crate::smp::migrate_tcb(to, self.scCore);
     }
     pub fn sched_context_bind_ntfn(&mut self, ntfn: &mut notification_t) {
         ntfn.set_ntfnSchedContext(self.get_ptr() as u64);

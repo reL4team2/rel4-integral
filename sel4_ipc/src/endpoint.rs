@@ -5,7 +5,7 @@ use sel4_common::structures_gen::endpoint;
 use sel4_common::structures_gen::seL4_Fault_tag::seL4_Fault_NullFault;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
 #[cfg(feature = "kernel_mcs")]
-use sel4_task::{ksCurSC, reply::reply_t, sched_context::sched_context_t};
+use sel4_task::{get_current_sc_raw, reply::reply_t, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, reschedule_required, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
     ThreadState,
@@ -144,8 +144,8 @@ impl endpoint_func for endpoint {
                                 )
                                 .sc_sporadic()
                             {
-                                assert!(thread.tcbSchedContext != unsafe { ksCurSC });
-                                if thread.tcbSchedContext != unsafe { ksCurSC } {
+                                assert!(thread.tcbSchedContext != get_current_sc_raw());
+                                if thread.tcbSchedContext != get_current_sc_raw() {
                                     convert_to_mut_type_ref::<sched_context_t>(
                                         thread.tcbSchedContext,
                                     )
@@ -205,8 +205,8 @@ impl endpoint_func for endpoint {
                                 )
                                 .sc_sporadic()
                                 {
-                                    assert!(thread.tcbSchedContext != unsafe { ksCurSC });
-                                    if thread.tcbSchedContext != unsafe { ksCurSC } {
+                                    assert!(thread.tcbSchedContext != get_current_sc_raw());
+                                    if thread.tcbSchedContext != get_current_sc_raw() {
                                         convert_to_mut_type_ref::<sched_context_t>(
                                             thread.tcbSchedContext,
                                         )
@@ -381,7 +381,7 @@ impl endpoint_func for endpoint {
                 if let Some(sc) =
                     convert_to_option_mut_type_ref::<sched_context_t>(dest_thread.tcbSchedContext)
                 {
-                    if sc.sc_sporadic() && dest_thread.tcbSchedContext != unsafe { ksCurSC } {
+                    if sc.sc_sporadic() && dest_thread.tcbSchedContext != get_current_sc_raw() {
                         sc.refill_unblock_check();
                     }
                 }
@@ -513,11 +513,9 @@ impl endpoint_func for endpoint {
                     convert_to_option_mut_type_ref::<sched_context_t>(sender.tcbSchedContext)
                 {
                     if sc.sc_sporadic() {
-                        unsafe {
-                            assert!(sender.tcbSchedContext != ksCurSC);
-                            if sender.tcbSchedContext != ksCurSC {
-                                sc.refill_unblock_check();
-                            }
+                        assert!(sender.tcbSchedContext != get_current_sc_raw());
+                        if sender.tcbSchedContext != get_current_sc_raw() {
+                            sc.refill_unblock_check();
                         }
                     }
                 }

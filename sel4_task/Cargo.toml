@@ -8,6 +8,7 @@ sel4_common = { git = "https://github.com/reL4team2/sel4_common.git", branch = "
 sel4_cspace = { git = "https://github.com/reL4team2/sel4_cspace.git", branch = "master" }
 sel4_vspace = { git = "https://github.com/reL4team2/sel4_vspace.git", branch = "master" }
 log = "0.4.21"
+cfg-if = "1.0"
 
 [features]
 enable_smp = []

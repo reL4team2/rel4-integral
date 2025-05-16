@@ -94,6 +94,8 @@ fn create_object(
             // unsafe {
             //     tcbDebugAppend(tcb as *mut tcb_t);
             // }
+            #[cfg(feature = "enable_smp")]
+            { tcb.tcbAffinity = sel4_common::utils::cpu_id(); }
             return cap_thread_cap::new(tcb.get_ptr() as u64).unsplay();
         }
         ObjectType::CapTableObject => {

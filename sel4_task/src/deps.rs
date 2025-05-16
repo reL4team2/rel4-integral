@@ -13,7 +13,7 @@ pub struct ksIdleThreadTCB_data {
 #[repr(align(128))]
 #[cfg(feature = "kernel_mcs")]
 pub struct ksIdleThreadSC_data {
-    pub data: [[u8; CONFIG_MAX_NUM_NODES]; BIT!(SEL4_MIN_SCHED_CONTEXT_BITS)],
+    pub data: [[u8; BIT!(SEL4_MIN_SCHED_CONTEXT_BITS)]; CONFIG_MAX_NUM_NODES],
 }
 
 #[no_mangle]
@@ -25,7 +25,7 @@ pub static mut ksIdleThreadTCB: ksIdleThreadTCB_data = ksIdleThreadTCB_data {
 #[no_mangle]
 #[cfg(feature = "kernel_mcs")]
 pub static mut ksIdleThreadSC: ksIdleThreadSC_data = ksIdleThreadSC_data {
-    data: [[0; CONFIG_MAX_NUM_NODES]; BIT!(SEL4_MIN_SCHED_CONTEXT_BITS)],
+    data: [[0; BIT!(SEL4_MIN_SCHED_CONTEXT_BITS)]; CONFIG_MAX_NUM_NODES],
 };
 
 extern "C" {
