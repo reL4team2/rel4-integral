@@ -251,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [qemu-arm-virt]
+        platform: [qemu-arm-virt, spike]
         include:
           - platform: qemu-arm-virt
             arch: aarch64
@@ -295,8 +295,8 @@ jobs:
         env:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
-        run: cd rel4_kernel/build && ./simulate --cpu-num 4 -M  virt,virtualization=on > 1.log
-        timeout-minutes: 20
+        run: cd rel4_kernel/build && ./simulate --cpu-num 4 > 1.log
+        timeout-minutes: 25
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
       - name: Check Result

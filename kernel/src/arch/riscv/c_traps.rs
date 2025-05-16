@@ -198,7 +198,7 @@ pub fn c_handle_interrupt() {
 #[no_mangle]
 pub fn c_handle_exception() {
     #[cfg(feature = "enable_smp")]
-    clh_lock_acquire(cpu_id(), true);
+    clh_lock_acquire(cpu_id(), false);
     // if hart_id() == 0 {
     //     debug!("c_handle_exception");
     // }
@@ -243,7 +243,7 @@ pub fn c_handle_exception() {
 #[no_mangle]
 pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     #[cfg(feature = "enable_smp")]
-    clh_lock_acquire(cpu_id(), true);
+    clh_lock_acquire(cpu_id(), false);
     // if hart_id() == 0 {
     //     debug!("c_handle_syscall: syscall: {},", syscall as isize);
     // }
