@@ -18,7 +18,7 @@ use sel4_common::{
 };
 
 use crate::{
-    get_currenct_thread, get_current_sc, get_current_sc_raw, get_current_time, set_reprogram, ksSchedulerAction,
+    get_currenct_thread, get_current_sc, get_current_sc_raw, get_current_time, set_reprogram, get_ks_scheduler_action,
     reschedule_required, tcb_t,
 };
 
@@ -312,7 +312,9 @@ impl sched_context {
         tcb.tcbSchedContext = self.get_ptr();
         self.scTcb = tcb.get_ptr();
         #[cfg(feature = "enable_smp")]
-        crate::smp::migrate_tcb(tcb, self.scCore);
+        unsafe {
+            crate::ffi::migrate_tcb(tcb, self.scCore);
+        }
         if self.sc_sporadic() && self.sc_active() && !self.is_current() {
             self.refill_unblock_check()
         }
@@ -335,7 +337,9 @@ impl sched_context {
     pub fn sched_context_unbind_all_tcbs(&mut self) {
         if self.scTcb != 0 {
             #[cfg(feature = "enable_smp")]
-            crate::smp::ipi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(sc.scTcb));
+            unsafe {
+                crate::ffi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(self.scTcb));
+            }
             self.sched_context_unbind_tcb(convert_to_mut_type_ref::<tcb_t>(self.scTcb));
         }
     }
@@ -345,18 +349,22 @@ impl sched_context {
         assert!(to.tcbSchedContext == 0);
         if let Some(from) = convert_to_option_mut_type_ref::<tcb_t>(self.scTcb) {
             #[cfg(feature = "enable_smp")]
-            crate::smp::ipi::remote_tcb_stall(from);
+            unsafe {
+                crate::ffi::remote_tcb_stall(from);
+            }
             from.sched_dequeue();
             from.release_remove();
             from.tcbSchedContext = 0;
-            if from.is_current() || from.get_ptr() == unsafe { ksSchedulerAction } {
+            if from.is_current() || from.get_ptr() == get_ks_scheduler_action() {
                 reschedule_required();
             }
         }
         self.scTcb = to.get_ptr();
         to.tcbSchedContext = self.get_ptr();
         #[cfg(feature = "enable_smp")]
-        crate::smp::migrate_tcb(to, self.scCore);
+        unsafe {
+            crate::ffi::migrate_tcb(to, self.scCore);
+        }
     }
     pub fn sched_context_bind_ntfn(&mut self, ntfn: &mut notification_t) {
         ntfn.set_ntfnSchedContext(self.get_ptr() as u64);

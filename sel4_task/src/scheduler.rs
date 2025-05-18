@@ -260,6 +260,21 @@ pub fn get_currenct_thread() -> &'static mut tcb_t {
     }
 }
 
+#[inline]
+pub fn get_currenct_thread_raw() -> usize {
+    unsafe {
+        #[cfg(feature = "enable_smp")]
+        {
+            ksSMP[cpu_id()].ksCurThread
+        }
+        #[cfg(not(feature = "enable_smp"))]
+        {
+            ksCurThread
+        }
+    }
+}
+
+
 #[cfg(not(feature = "enable_smp"))]
 #[inline]
 pub fn get_current_thread_on_node() -> &'static mut tcb_t {
@@ -283,21 +298,6 @@ pub fn get_currenct_thread_unsafe() -> &'static mut tcb_t {
         #[cfg(not(feature = "enable_smp"))]
         {
             convert_to_mut_type_ref_unsafe::<tcb_t>(ksCurThread)
-        }
-    }
-}
-
-#[inline]
-/// Set the action to be taken by current scheduler.
-pub fn set_current_scheduler_action(action: usize) {
-    unsafe {
-        #[cfg(feature = "enable_smp")]
-        {
-            ksSMP[cpu_id()].ksSchedulerAction = action;
-        }
-        #[cfg(not(feature = "enable_smp"))]
-        {
-            ksSchedulerAction = action;
         }
     }
 }
@@ -841,7 +841,7 @@ pub fn awaken() {
         let awakened = tcb_release_dequeue();
         /* the currently running thread cannot have just woken up */
         unsafe {
-            assert!((*awakened).get_ptr() != ksCurThread);
+            assert!((*awakened).get_ptr() != get_currenct_thread_raw());
             /* round robin threads should not be in the release queue */
             assert!(
                 !convert_to_mut_type_ref::<sched_context_t>((*awakened).tcbSchedContext)

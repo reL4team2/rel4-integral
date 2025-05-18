@@ -181,6 +181,7 @@ pub fn do_remote_stall(cpu: usize) {
 }
 
 #[cfg(not(feature = "kernel_mcs"))]
+#[no_mangle]
 pub fn remote_tcb_stall(tcb: &tcb_t) {
     if tcb.tcbAffinity != cpu_id() && tcb.is_current() {
         do_remote_stall(tcb.tcbAffinity);
@@ -189,6 +190,7 @@ pub fn remote_tcb_stall(tcb: &tcb_t) {
 }
 
 #[cfg(feature = "kernel_mcs")]
+#[no_mangle]
 pub fn remote_tcb_stall(tcb: &tcb_t) {
     if tcb.tcbAffinity != cpu_id() && tcb.is_current() && tcb.tcbSchedContext != 0 {
         do_remote_stall(tcb.tcbAffinity);

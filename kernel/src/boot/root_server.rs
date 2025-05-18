@@ -211,7 +211,7 @@ unsafe fn create_initial_thread(
     }
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
-    #[cfg(feature = "enable_smp")]
+    #[cfg(all(eature = "enable_smp", not(feature = "kernel_mcs")))]
     {
         tcb.tcbAffinity = 0;
     }
@@ -311,7 +311,7 @@ unsafe fn create_initial_thread(
     ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
-    #[cfg(feature = "enable_smp")]
+    #[cfg(all(eature = "enable_smp", not(feature = "kernel_mcs")))]
     {
         tcb.tcbAffinity = 0;
     }

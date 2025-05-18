@@ -16,7 +16,7 @@ use sel4_common::{
 };
 use sel4_cspace::interface::cte_t;
 use sel4_task::{
-    get_currenct_thread, ksCurThread,
+    get_currenct_thread, get_currenct_thread_raw,
     sched_context::{
         max_period_us, min_budget, min_budget_us, refill_absolute_max, sched_context,
         sched_context_t, MIN_REFILLS,
@@ -58,7 +58,7 @@ pub fn decode_sched_context_invocation(
         MessageLabel::SchedContextBind => decode_sched_context_bind(sc),
         MessageLabel::SchedContextUnbindObject => decode_sched_context_unbind_object(sc),
         MessageLabel::SchedContextUnbind => {
-            if sc.scTcb == unsafe { ksCurThread } {
+            if sc.scTcb == get_currenct_thread_raw() {
                 debug!("SchedContext UnbindObject: cannot unbind sc of current thread");
                 unsafe {
                     current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
@@ -209,7 +209,7 @@ pub fn decode_sched_context_unbind_object(sc: &mut sched_context) -> exception_t
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            if sc.scTcb == unsafe { ksCurThread } {
+            if sc.scTcb == get_currenct_thread_raw() {
                 debug!("SchedContext UnbindObject: cannot unbind sc of current thread");
                 unsafe {
                     current_syscall_error._type = SEL4_ILLEGAL_OPERATION;

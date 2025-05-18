@@ -40,6 +40,7 @@ pub fn clh_lock_release(cpu: usize) {
     unsafe { big_kernel_lock.release(cpu) }
 }
 
+#[no_mangle]
 pub fn migrate_tcb(tcb: &mut sel4_task::tcb_t, new_core: usize) {
     #[cfg(feature = "have_fpu")]
     crate::arch::fpu::fpu_thread_delete(tcb);

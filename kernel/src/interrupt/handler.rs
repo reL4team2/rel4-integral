@@ -19,7 +19,7 @@ pub fn handle_interrupt_entry() -> exception_t {
     {
         cfg_if::cfg_if! {
             if #[cfg(feature = "enable_smp")] {
-                if crate::smp::clh_is_self_in_queue {
+                if crate::smp::clh_is_self_in_queue() {
                     update_timestamp();
                     check_budget();
                 }
@@ -37,7 +37,7 @@ pub fn handle_interrupt_entry() -> exception_t {
 
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "enable_smp", feature = "kernel_mcs"))] {
-            if crate::smp::clh_is_self_in_queue {
+            if crate::smp::clh_is_self_in_queue() {
                 schedule();
                 activateThread();
             }

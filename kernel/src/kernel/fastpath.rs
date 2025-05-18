@@ -213,7 +213,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         assert!(current.tcbState.get_tcbInReleaseQueue() == 0);
         current.tcbState.set_replyObject(reply);
 
-        convert_to_mut_type_ref::<reply_t>(reply as usize).replyTCB = unsafe { ksCurThread };
+        convert_to_mut_type_ref::<reply_t>(reply as usize).replyTCB = get_currenct_thread_raw();
 
         let sc = convert_to_mut_type_ref::<sched_context_t>(current.tcbSchedContext);
         sc.scTcb = dest.get_ptr();

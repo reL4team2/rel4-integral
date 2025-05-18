@@ -149,7 +149,7 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // tcbDebugAppend(idle_thread);
     // }
 
-    set_current_scheduler_action(scheduler_action as usize);
+    set_ks_scheduler_action(scheduler_action as usize);
     set_current_thread(get_idle_thread());
     // TODO: MCS
     // #ifdef CONFIG_KERNEL_MCS

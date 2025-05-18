@@ -5,7 +5,8 @@ use sel4_common::{
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
 };
 use sel4_task::{
-    check_budget, commit_time, get_currenct_thread, ksCurThread, possible_switch_to,
+    check_budget, commit_time, get_currenct_thread,
+    possible_switch_to, get_currenct_thread_raw,
     reply::reply_t,
     reschedule_required,
     sched_context::{sched_context, MIN_REFILLS},
@@ -96,7 +97,7 @@ pub fn invoke_sched_control_configure_flags(
 
     if let Some(tcb) = convert_to_option_mut_type_ref::<tcb_t>(target.scTcb) {
         #[cfg(feature = "enable_smp")]
-        crate::smp::ipi::remote_tcb_stall(from);
+        crate::smp::ipi::remote_tcb_stall(tcb);
         /* remove from scheduler */
         tcb.release_remove();
         tcb.sched_dequeue();
@@ -141,8 +142,8 @@ pub fn invoke_sched_control_configure_flags(
     #[cfg(feature = "enable_smp")]
     {
         target.scCore = _core;
-        if target.scTcb != 0 {
-            crate::smp::migrate_tcb(target.scTcb, target.scCore);
+        if let Some(tcb) = convert_to_option_mut_type_ref::<tcb_t>(target.scTcb) {
+            crate::smp::migrate_tcb(tcb, target.scCore);
         }
     }
 
@@ -150,11 +151,11 @@ pub fn invoke_sched_control_configure_flags(
     if target.scTcb != 0 {
         target.sched_context_resume();
         if convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
-            && target.scTcb != unsafe { ksCurThread }
+            && target.scTcb != get_currenct_thread_raw()
         {
             possible_switch_to(convert_to_mut_type_ref::<tcb_t>(target.scTcb));
         }
-        if target.scTcb == unsafe { ksCurThread } {
+        if target.scTcb == get_currenct_thread_raw() {
             reschedule_required();
         }
     }

@@ -130,7 +130,7 @@ pub fn decode_tcb_invocation(
         #[cfg(feature = "kernel_mcs")]
         MessageLabel::TCBSetTimeoutEndpoint => decode_set_timeout_endpoint(capability, slot),
         MessageLabel::TCBSetTLSBase => decode_set_tls_base(capability, length, buffer),
-        #[cfg(feature = "enable_smp")]
+        #[cfg(all(feature = "enable_smp", not(feature = "kernel_mcs")))]
         MessageLabel::TCBSetAffinity => decode_set_affinity(capability, length, buffer),
         _ => unsafe {
             debug!("TCB: Illegal operation invLabel :{:?}", invLabel);
