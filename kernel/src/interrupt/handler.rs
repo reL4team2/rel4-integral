@@ -6,7 +6,9 @@ use sel4_common::platform::{IRQ_INVALID, MAX_IRQ};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
-use sel4_task::{activateThread, schedule, timer_tick};
+use sel4_task::{activateThread, schedule};
+#[cfg(not(feature = "kernel_mcs"))]
+use sel4_task::timer_tick;
 
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::set_reprogram;
@@ -89,8 +91,11 @@ pub fn handle_interrput(irq: usize) {
                 timer.ack_deadline_irq();
                 set_reprogram(true);
             }
-            timer_tick();
-            timer.reset_timer();
+            #[cfg(not(feature = "kernel_mcs"))]
+            {
+                timer_tick();
+                timer.reset_timer();    
+            }
         }
         #[cfg(feature = "enable_smp")]
         IRQState::IRQIPI => {

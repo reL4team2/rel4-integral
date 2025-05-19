@@ -150,10 +150,18 @@ pub fn invoke_sched_control_configure_flags(
     assert!(target.scRefillMax > 0);
     if target.scTcb != 0 {
         target.sched_context_resume();
-        if convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
-            && target.scTcb != get_currenct_thread_raw()
-        {
-            possible_switch_to(convert_to_mut_type_ref::<tcb_t>(target.scTcb));
+        if _core == sel4_common::utils::cpu_id() {
+            if convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
+                && target.scTcb != get_currenct_thread_raw()
+            {
+                possible_switch_to(convert_to_mut_type_ref::<tcb_t>(target.scTcb));
+            }
+        } else {
+            if let Some(tcb) = convert_to_option_mut_type_ref::<tcb_t>(target.scTcb) {
+                if tcb.is_runnable() {
+                    tcb.sched_enqueue();
+                }
+            }
         }
         if target.scTcb == get_currenct_thread_raw() {
             reschedule_required();

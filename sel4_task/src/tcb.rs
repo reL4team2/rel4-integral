@@ -1042,16 +1042,16 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn release_remove(&mut self) {
-        use crate::set_reprogram;
+        use crate::set_reprogram_with_node;
 
         if likely(self.tcbState.get_tcbInReleaseQueue() != 0) {
-            let mut queue = get_release_queue();
+            let mut queue = get_release_queue(self.tcbAffinity);
 
             if queue.head == self.get_ptr() {
-                set_reprogram(true);
+                set_reprogram_with_node(true, self.tcbAffinity);
             }
             queue.remove(self);
-            set_release_queue(queue);
+            set_release_queue(queue, self.tcbAffinity);
 
             self.tcbState.set_tcbInReleaseQueue(0);
         }
@@ -1059,23 +1059,23 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn release_enqueue(&mut self) {
-        use crate::set_reprogram;
+        use crate::set_reprogram_with_node;
 
         assert!(self.tcbState.get_tcbInReleaseQueue() == 0);
         assert!(self.tcbState.get_tcbQueued() == 0);
 
         let new_time = self.Ready_Time();
-        let mut queue = get_release_queue();
+        let mut queue = get_release_queue(self.tcbAffinity);
 
         if queue.empty() || new_time < convert_to_mut_type_ref::<tcb_t>(queue.head).Ready_Time()
         {
             queue.prepend(self);
-            set_release_queue(queue);
-            set_reprogram(true);
+            set_release_queue(queue, self.tcbAffinity);
+            set_reprogram_with_node(true, self.tcbAffinity);
         } else {
             if convert_to_mut_type_ref::<tcb_t>(queue.tail).Ready_Time() < new_time {
                 queue.append(self);
-                set_release_queue(queue);
+                set_release_queue(queue, self.tcbAffinity);
             } else {
                 let after =
                     find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);

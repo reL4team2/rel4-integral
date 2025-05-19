@@ -1014,7 +1014,7 @@ pub fn decode_set_timeout_endpoint(capability: &cap_thread_cap, slot: &mut cte_t
     )
 }
 
-#[cfg(feature = "enable_smp")]
+#[cfg(all(feature = "enable_smp", not(feature = "kernel_mcs")))]
 fn decode_set_affinity(
     capability: &cap_thread_cap,
     length: usize,

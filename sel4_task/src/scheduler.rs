@@ -477,11 +477,11 @@ pub fn get_release_queue_ptr() -> &'static mut tcb_queue_t {
 
 #[cfg(feature = "kernel_mcs")]
 #[inline]
-pub fn get_release_queue() -> tcb_queue_t {
+pub fn get_release_queue(_cpu: usize) -> tcb_queue_t {
     unsafe {
         #[cfg(feature = "enable_smp")]
         {
-            ksSMP[cpu_id()].ksReleaseQueue
+            ksSMP[_cpu].ksReleaseQueue
         }
         #[cfg(not(feature = "enable_smp"))]
         {
@@ -492,11 +492,11 @@ pub fn get_release_queue() -> tcb_queue_t {
 
 #[cfg(feature = "kernel_mcs")]
 #[inline]
-pub fn set_release_queue(queue: tcb_queue_t) {
+pub fn set_release_queue(queue: tcb_queue_t, _cpu: usize) {
     unsafe {
         #[cfg(feature = "enable_smp")]
         {
-            ksSMP[cpu_id()].ksReleaseQueue = queue;
+            ksSMP[_cpu].ksReleaseQueue = queue;
         }
         #[cfg(not(feature = "enable_smp"))]
         {
@@ -587,6 +587,21 @@ pub fn set_reprogram(reprogram: bool) {
         #[cfg(feature = "enable_smp")]
         {
             ksSMP[cpu_id()].ksReprogram = reprogram;
+        }
+        #[cfg(not(feature = "enable_smp"))]
+        {
+            ksReprogram = reprogram;
+        }
+    }
+}
+
+#[cfg(feature = "kernel_mcs")]
+#[inline]
+pub fn set_reprogram_with_node(reprogram: bool, node: usize) {
+    unsafe {
+        #[cfg(feature = "enable_smp")]
+        {
+            ksSMP[node].ksReprogram = reprogram;
         }
         #[cfg(not(feature = "enable_smp"))]
         {
@@ -1108,13 +1123,29 @@ pub fn schedule_tcb(tcb_ref: &tcb_t) {
 #[inline]
 /// Schedule the given tcb when current tcb is not in the same domain or not in the same cpu or current action is not to resume the current thread.
 pub fn possible_switch_to(target: &mut tcb_t) {
-    if unsafe { ksCurDomain != target.domain || target.tcbAffinity != cpu_id() } {
-        target.sched_enqueue();
-    } else if get_ks_scheduler_action() != SCHEDULER_ACTION_RESUME_CURRENT_THREAD {
-        reschedule_required();
-        target.sched_enqueue();
-    } else {
-        set_ks_scheduler_action(target.get_ptr());
+    #[cfg(not(feature = "kernel_mcs"))]
+    {
+        if unsafe { ksCurDomain != target.domain || target.tcbAffinity != cpu_id() } {
+            target.sched_enqueue();
+        } else if get_ks_scheduler_action() != SCHEDULER_ACTION_RESUME_CURRENT_THREAD {
+            reschedule_required();
+            target.sched_enqueue();
+        } else {
+            set_ks_scheduler_action(target.get_ptr());
+        }
+    }
+    #[cfg(feature = "kernel_mcs")]
+    {
+        if target.tcbSchedContext != 0 && target.tcbState.get_tcbInReleaseQueue() == 0 {
+            if unsafe { ksCurDomain != target.domain || target.tcbAffinity != cpu_id() } {
+                target.sched_enqueue();
+            } else if get_ks_scheduler_action() != SCHEDULER_ACTION_RESUME_CURRENT_THREAD {
+                reschedule_required();
+                target.sched_enqueue();
+            } else {
+                set_ks_scheduler_action(target.get_ptr());
+            }
+        }
     }
 }
 

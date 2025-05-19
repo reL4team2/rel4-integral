@@ -18,8 +18,8 @@ use sel4_common::{
 };
 
 use crate::{
-    get_currenct_thread, get_current_sc, get_current_sc_raw, get_current_time, set_reprogram, get_ks_scheduler_action,
-    reschedule_required, tcb_t,
+    get_currenct_thread, get_current_sc, get_current_sc_raw, get_current_time, set_reprogram_with_node, get_ks_scheduler_action,
+    reschedule_required, tcb_t, set_reprogram
 };
 
 pub type sched_context_t = sched_context;
@@ -99,7 +99,7 @@ impl sched_context {
     pub fn postpone(&self) {
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).sched_dequeue();
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).release_enqueue();
-        set_reprogram(true);
+        set_reprogram_with_node(true, self.scCore);
     }
     #[inline]
     fn refill_pop_head(&mut self) -> *mut refill_t {
