@@ -379,7 +379,7 @@ pub fn invoke_tcb_set_tls_base(thread: &mut tcb_t, base: usize) -> exception_t {
     exception_t::EXCEPTION_NONE
 }
 
-#[cfg(feature = "enable_smp")]
+#[cfg(all(feature = "enable_smp", not(feature = "kernel_mcs")))]
 #[inline]
 pub fn invoke_tcb_set_affinity(thread: &mut tcb_t, affinitiy: usize) -> exception_t {
     thread.sched_dequeue();

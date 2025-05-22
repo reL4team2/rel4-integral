@@ -1,9 +1,9 @@
 #[cfg(feature = "kernel_mcs")]
-use crate::ksCurSC;
+use crate::get_current_sc_raw;
 use crate::tcb_queue::tcb_queue_t;
-use crate::{ksReadyQueues, prio_t};
+use crate::prio_t;
 #[cfg(feature = "kernel_mcs")]
-use crate::{ksReleaseQueue, sched_context::sched_context_t};
+use crate::{get_release_queue, set_release_queue, get_release_queue_ptr, sched_context::sched_context_t};
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
@@ -72,7 +72,6 @@ pub struct tcb_t {
     /// The IPC buffer of the TCB
     pub tcbIPCBuffer: usize,
     /// the affinity of the TCB in SMP
-    #[cfg(feature = "enable_smp")]
     pub tcbAffinity: usize,
     /// The next TCB in the scheduling queue
     pub tcbSchedNext: usize,
@@ -303,7 +302,16 @@ impl tcb_t {
             // queue.head = self_ptr as usize;
 
             unsafe {
-                ksReadyQueues[idx] = *queue;
+                #[cfg(feature = "enable_smp")]
+                {
+                    use super::scheduler::ksSMP;
+                    ksSMP[self.tcbAffinity].ksReadyQueues[idx] = *queue
+                }
+                #[cfg(not(feature = "enable_smp"))]
+                {
+                    use super::scheduler::ksReadyQueues;
+                    ksReadyQueues[idx] = *queue;
+                }
             }
             self.tcbState.set_tcbQueued(1);
         }
@@ -323,6 +331,7 @@ impl tcb_t {
             }
             #[cfg(not(feature = "enable_smp"))]
             {
+                use super::scheduler::ksReadyQueues;
                 &mut ksReadyQueues[index]
             }
         }
@@ -354,7 +363,16 @@ impl tcb_t {
             queue.remove(self);
 
             unsafe {
-                ksReadyQueues[idx] = *queue;
+                #[cfg(feature = "enable_smp")]
+                {
+                    use super::scheduler::ksSMP;
+                    ksSMP[self.tcbAffinity].ksReadyQueues[idx] = *queue
+                }
+                #[cfg(not(feature = "enable_smp"))]
+                {
+                    use super::scheduler::ksReadyQueues;
+                    ksReadyQueues[idx] = *queue;
+                }
             }
 
             self.tcbState.set_tcbQueued(0);
@@ -401,9 +419,17 @@ impl tcb_t {
             self.tcbSchedNext = 0;
             queue.tail = self_ptr as usize;
             unsafe {
-                ksReadyQueues[idx] = *queue;
+                #[cfg(feature = "enable_smp")]
+                {
+                    use super::scheduler::ksSMP;
+                    ksSMP[self.tcbAffinity].ksReadyQueues[idx] = *queue
+                }
+                #[cfg(not(feature = "enable_smp"))]
+                {
+                    use super::scheduler::ksReadyQueues;
+                    ksReadyQueues[idx] = *queue;
+                }
             }
-
             self.tcbState.set_tcbQueued(1);
         }
         #[cfg(feature = "enable_smp")]
@@ -415,6 +441,30 @@ impl tcb_t {
     fn update_queue(&self) {
         use super::scheduler::{ksCurDomain, ksSMP};
         use sel4_common::utils::{convert_to_type_ref, cpu_id};
+        unsafe {
+            if self.tcbAffinity != cpu_id() && self.domain == ksCurDomain {
+                let target_current =
+                    convert_to_type_ref::<tcb_t>(ksSMP[self.tcbAffinity].ksCurThread);
+                #[cfg(not(feature = "kernel_mcs"))]
+                {
+                    if ksSMP[self.tcbAffinity].ksIdleThread == ksSMP[self.tcbAffinity].ksCurThread
+                        || self.tcbPriority > target_current.tcbPriority
+                    {
+                        ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
+                    }
+                }
+                #[cfg(feature = "kernel_mcs")]
+                {
+                    if ksSMP[self.tcbAffinity].ksIdleThread == ksSMP[self.tcbAffinity].ksCurThread
+                        || self.tcbPriority > target_current.tcbPriority
+                        || ksSMP[self.tcbAffinity].ksReprogram
+                    {
+                        ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
+                    }
+                }
+            }
+        }
+        #[cfg(feature = "kernel_mcs")]
         unsafe {
             if self.tcbAffinity != cpu_id() && self.domain == ksCurDomain {
                 let target_current =
@@ -551,7 +601,7 @@ impl tcb_t {
                 if let Some(sc) =
                     convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
                 {
-                    if sc.sc_sporadic() && self.tcbSchedContext != unsafe { ksCurSC } {
+                    if sc.sc_sporadic() && self.tcbSchedContext != get_current_sc_raw() {
                         sc.refill_unblock_check();
                     }
                     sc.sched_context_resume();
@@ -991,48 +1041,44 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn release_remove(&mut self) {
-        use crate::ksReprogram;
+        use crate::set_reprogram_with_node;
 
-        unsafe {
-            if likely(self.tcbState.get_tcbInReleaseQueue() != 0) {
-                let mut queue = ksReleaseQueue;
+        if likely(self.tcbState.get_tcbInReleaseQueue() != 0) {
+            let mut queue = get_release_queue(self.tcbAffinity);
 
-                if queue.head == self.get_ptr() {
-                    ksReprogram = true;
-                }
-                queue.remove(self);
-                ksReleaseQueue = queue;
-
-                self.tcbState.set_tcbInReleaseQueue(0);
+            if queue.head == self.get_ptr() {
+                set_reprogram_with_node(true, self.tcbAffinity);
             }
+            queue.remove(self);
+            set_release_queue(queue, self.tcbAffinity);
+
+            self.tcbState.set_tcbInReleaseQueue(0);
         }
     }
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn release_enqueue(&mut self) {
-        use crate::ksReprogram;
+        use crate::set_reprogram_with_node;
 
         assert!(self.tcbState.get_tcbInReleaseQueue() == 0);
         assert!(self.tcbState.get_tcbQueued() == 0);
 
-        unsafe {
-            let new_time = self.Ready_Time();
-            let mut queue = ksReleaseQueue;
+        let new_time = self.Ready_Time();
+        let mut queue = get_release_queue(self.tcbAffinity);
 
-            if queue.empty() || new_time < convert_to_mut_type_ref::<tcb_t>(queue.head).Ready_Time()
-            {
-                queue.prepend(self);
-                ksReleaseQueue = queue;
-                ksReprogram = true;
+        if queue.empty() || new_time < convert_to_mut_type_ref::<tcb_t>(queue.head).Ready_Time()
+        {
+            queue.prepend(self);
+            set_release_queue(queue, self.tcbAffinity);
+            set_reprogram_with_node(true, self.tcbAffinity);
+        } else {
+            if convert_to_mut_type_ref::<tcb_t>(queue.tail).Ready_Time() < new_time {
+                queue.append(self);
+                set_release_queue(queue, self.tcbAffinity);
             } else {
-                if convert_to_mut_type_ref::<tcb_t>(queue.tail).Ready_Time() < new_time {
-                    queue.append(self);
-                    ksReleaseQueue = queue;
-                } else {
-                    let after =
-                        find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
-                    self.queue_insert(convert_to_mut_type_ref(after as usize));
-                }
+                let after =
+                    find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
+                self.queue_insert(convert_to_mut_type_ref(after as usize));
             }
         }
 
@@ -1088,20 +1134,18 @@ pub fn find_time_after(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
 
 #[cfg(feature = "kernel_mcs")]
 pub fn tcb_release_dequeue() -> *mut tcb_t {
-    use crate::ksReprogram;
+    use crate::set_reprogram;
 
-    unsafe {
-        assert!(ksReleaseQueue.head != 0);
-        assert!(convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head).tcbSchedPrev == 0);
+    assert!(get_release_queue_ptr().head != 0);
+    assert!(convert_to_mut_type_ref::<tcb_t>(get_release_queue_ptr().head).tcbSchedPrev == 0);
 
-        let awakened = convert_to_mut_type_ref::<tcb_t>(ksReleaseQueue.head);
-        assert!(awakened.get_ptr() != crate::get_currenct_thread().get_ptr());
+    let awakened = convert_to_mut_type_ref::<tcb_t>(get_release_queue_ptr().head);
+    assert!(awakened.get_ptr() != crate::get_currenct_thread().get_ptr());
 
-        awakened.release_remove();
-        ksReprogram = true;
+    awakened.release_remove();
+    set_reprogram(true);
 
-        return awakened;
-    }
+    return awakened;
 }
 #[cfg(feature = "kernel_mcs")]
 pub fn reply_remove_tcb(tcb: &mut tcb_t) {

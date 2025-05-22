@@ -6,10 +6,12 @@ use sel4_common::platform::{IRQ_INVALID, MAX_IRQ};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
-use sel4_task::{activateThread, schedule, timer_tick};
+use sel4_task::{activateThread, schedule};
+#[cfg(not(feature = "kernel_mcs"))]
+use sel4_task::timer_tick;
 
 #[cfg(feature = "kernel_mcs")]
-use sel4_task::ksReprogram;
+use sel4_task::set_reprogram;
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget, update_timestamp};
 
@@ -17,8 +19,17 @@ use sel4_task::{check_budget, update_timestamp};
 pub fn handle_interrupt_entry() -> exception_t {
     #[cfg(feature = "kernel_mcs")]
     {
-        update_timestamp();
-        check_budget();
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "enable_smp")] {
+                if crate::smp::clh_is_self_in_queue() {
+                    update_timestamp();
+                    check_budget();
+                }
+            } else {
+                update_timestamp();
+                check_budget();
+            }
+        }
     }
     let irq = get_active_irq();
 
@@ -26,8 +37,17 @@ pub fn handle_interrupt_entry() -> exception_t {
         handle_interrput(irq);
     }
 
-    schedule();
-    activateThread();
+    cfg_if::cfg_if! {
+        if #[cfg(all(feature = "enable_smp", feature = "kernel_mcs"))] {
+            if crate::smp::clh_is_self_in_queue() {
+                schedule();
+                activateThread();
+            }
+        } else {
+            schedule();
+            activateThread();
+        }
+    }
     exception_t::EXCEPTION_NONE
 }
 
@@ -69,10 +89,13 @@ pub fn handle_interrput(irq: usize) {
             #[cfg(feature = "kernel_mcs")]
             {
                 timer.ack_deadline_irq();
-                unsafe { ksReprogram = true };
+                set_reprogram(true);
             }
-            timer_tick();
-            timer.reset_timer();
+            #[cfg(not(feature = "kernel_mcs"))]
+            {
+                timer_tick();
+                timer.reset_timer();    
+            }
         }
         #[cfg(feature = "enable_smp")]
         IRQState::IRQIPI => {

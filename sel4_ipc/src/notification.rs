@@ -3,7 +3,7 @@ use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::notification;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
 #[cfg(feature = "kernel_mcs")]
-use sel4_task::{ksCurSC, sched_context::sched_context_t};
+use sel4_task::{get_current_sc_raw, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, reschedule_required, set_thread_state, tcb_queue_t, tcb_t, ThreadState,
 };
@@ -97,10 +97,8 @@ impl notification_func for notification {
                         convert_to_option_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
                     {
                         if sc.sc_sporadic() {
-                            unsafe {
-                                assert!(thread.tcbSchedContext != ksCurSC);
-                                sc.refill_unblock_check();
-                            }
+                            assert!(thread.tcbSchedContext != get_current_sc_raw());
+                            sc.refill_unblock_check();
                         }
                     }
                     possible_switch_to(thread);
@@ -268,7 +266,7 @@ impl notification_func for notification {
                 #[cfg(feature = "kernel_mcs")]
                 {
                     self.maybe_return_sched_context(recv_thread);
-                    if recv_thread.tcbSchedContext != unsafe { ksCurSC }
+                    if recv_thread.tcbSchedContext != get_current_sc_raw()
                         && recv_thread.tcbSchedContext != 0
                         && convert_to_mut_type_ref::<sched_context_t>(recv_thread.tcbSchedContext)
                             .sc_sporadic()

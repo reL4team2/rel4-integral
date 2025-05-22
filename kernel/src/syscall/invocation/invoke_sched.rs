@@ -5,7 +5,8 @@ use sel4_common::{
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
 };
 use sel4_task::{
-    check_budget, commit_time, get_currenct_thread, ksCurThread, possible_switch_to,
+    check_budget, commit_time, get_currenct_thread,
+    possible_switch_to, get_currenct_thread_raw,
     reply::reply_t,
     reschedule_required,
     sched_context::{sched_context, MIN_REFILLS},
@@ -95,6 +96,8 @@ pub fn invoke_sched_control_configure_flags(
     target.scSporadic = (flags & SCHED_CONTEXT_SPORADIC) != 0;
 
     if let Some(tcb) = convert_to_option_mut_type_ref::<tcb_t>(target.scTcb) {
+        #[cfg(feature = "enable_smp")]
+        crate::smp::ipi::remote_tcb_stall(tcb);
         /* remove from scheduler */
         tcb.release_remove();
         tcb.sched_dequeue();
@@ -105,28 +108,62 @@ pub fn invoke_sched_control_configure_flags(
         }
     }
 
-    if budget == period {
-        target.refill_new(MIN_REFILLS, budget, 0);
-    } else if target.scRefillMax > 0
-        && target.scTcb != 0
-        && convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "enable_smp")] {
+            if budget == period {
+                target.refill_new(MIN_REFILLS, budget, 0);
+            } else if target.scRefillMax > 0
+                && target.scTcb != 0
+                && convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
+                && _core == target.scCore
+            {
+                target.refill_update(period, budget, max_refills);
+            } else {
+                /* the scheduling context isn't active - it's budget is not being used, so
+                 * we can just populate the parameters from now */
+                target.refill_new(max_refills, budget, period);
+            }
+        } else {
+            if budget == period {
+                target.refill_new(MIN_REFILLS, budget, 0);
+            } else if target.scRefillMax > 0
+                && target.scTcb != 0
+                && convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
+            {
+                target.refill_update(period, budget, max_refills);
+            } else {
+                /* the scheduling context isn't active - it's budget is not being used, so
+                 * we can just populate the parameters from now */
+                target.refill_new(max_refills, budget, period);
+            }
+        }
+    }
+
+    #[cfg(feature = "enable_smp")]
     {
-        target.refill_update(period, budget, max_refills);
-    } else {
-        /* the scheduling context isn't active - it's budget is not being used, so
-         * we can just populate the parameters from now */
-        target.refill_new(max_refills, budget, period);
+        target.scCore = _core;
+        if let Some(tcb) = convert_to_option_mut_type_ref::<tcb_t>(target.scTcb) {
+            crate::smp::migrate_tcb(tcb, target.scCore);
+        }
     }
 
     assert!(target.scRefillMax > 0);
     if target.scTcb != 0 {
         target.sched_context_resume();
-        if convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
-            && target.scTcb != unsafe { ksCurThread }
-        {
-            possible_switch_to(convert_to_mut_type_ref::<tcb_t>(target.scTcb));
+        if _core == sel4_common::utils::cpu_id() {
+            if convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
+                && target.scTcb != get_currenct_thread_raw()
+            {
+                possible_switch_to(convert_to_mut_type_ref::<tcb_t>(target.scTcb));
+            }
+        } else {
+            if let Some(tcb) = convert_to_option_mut_type_ref::<tcb_t>(target.scTcb) {
+                if tcb.is_runnable() {
+                    tcb.sched_enqueue();
+                }
+            }
         }
-        if target.scTcb == unsafe { ksCurThread } {
+        if target.scTcb == get_currenct_thread_raw() {
             reschedule_required();
         }
     }

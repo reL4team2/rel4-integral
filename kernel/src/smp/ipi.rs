@@ -61,7 +61,11 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
         }
         thread.sched_enqueue();
         switch_to_idle_thread();
-        // TODO: mcs support
+        #[cfg(feature = "kernel_mcs")]
+        {
+            sel4_task::commit_time();
+            sel4_task::set_current_sc(sel4_task::get_idle_thread().tcbSchedContext);
+        }
         sel4_task::set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
         super::clh_set_ipi(cpu_id(), 0);
 
@@ -176,9 +180,19 @@ pub fn do_remote_stall(cpu: usize) {
     do_remote_op(ipi_remote_call::IpiRemoteCall_Stall, 0, 0, 0, cpu);
 }
 
+#[cfg(not(feature = "kernel_mcs"))]
+#[no_mangle]
 pub fn remote_tcb_stall(tcb: &tcb_t) {
-    // TODO: mcs support
     if tcb.tcbAffinity != cpu_id() && tcb.is_current() {
+        do_remote_stall(tcb.tcbAffinity);
+        tcb.update_ipi_reschedule_pending();
+    }
+}
+
+#[cfg(feature = "kernel_mcs")]
+#[no_mangle]
+pub fn remote_tcb_stall(tcb: &tcb_t) {
+    if tcb.tcbAffinity != cpu_id() && tcb.is_current() && tcb.tcbSchedContext != 0 {
         do_remote_stall(tcb.tcbAffinity);
         tcb.update_ipi_reschedule_pending();
     }

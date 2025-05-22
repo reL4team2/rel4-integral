@@ -79,7 +79,7 @@ use sel4_task::{
     activateThread, get_currenct_thread, schedule, set_thread_state, tcb_t, ThreadState,
 };
 #[cfg(feature = "kernel_mcs")]
-use sel4_task::{charge_budget, get_current_sc, ksConsumed, mcs_preemption_point};
+use sel4_task::{charge_budget, get_current_sc, get_consumed, mcs_preemption_point};
 pub use utils::*;
 
 use crate::arch::restore_user_context;
@@ -558,7 +558,7 @@ fn handle_yield() {
     #[cfg(feature = "kernel_mcs")]
     {
         unsafe {
-            let consumed = get_current_sc().scConsumed + ksConsumed;
+            let consumed = get_current_sc().scConsumed + get_consumed();
             charge_budget((*get_current_sc().refill_head()).rAmount, false);
             get_current_sc().scConsumed = consumed;
         }

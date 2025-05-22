@@ -119,9 +119,7 @@ pub fn root_server_init(
         return None;
     }
     #[cfg(feature = "kernel_mcs")]
-    unsafe {
-        ksCurTime = timer.get_current_time()
-    };
+    set_current_time(timer.get_current_time());
 
     let initial = unsafe {
         create_initial_thread(
@@ -213,7 +211,7 @@ unsafe fn create_initial_thread(
     }
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
-    #[cfg(feature = "enable_smp")]
+    #[cfg(all(eature = "enable_smp", not(feature = "kernel_mcs")))]
     {
         tcb.tcbAffinity = 0;
     }
@@ -313,7 +311,7 @@ unsafe fn create_initial_thread(
     ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
-    #[cfg(feature = "enable_smp")]
+    #[cfg(all(eature = "enable_smp", not(feature = "kernel_mcs")))]
     {
         tcb.tcbAffinity = 0;
     }
