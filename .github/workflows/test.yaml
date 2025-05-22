@@ -270,8 +270,6 @@ jobs:
           components: rust-src rustfmt
           rustflags:
           target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
-      - name: Install qemu
-        run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
       - name: Clone Menifest && Sync repositories
         run: | 
           repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
