@@ -19,7 +19,7 @@ pub enum MessageLabel {
     TCBResume,
     TCBBindNotification,
     TCBUnbindNotification,
-    #[cfg(all(eature = "enable_smp", not(feature = "kernel_mcs")))]
+    #[cfg(all(feature = "enable_smp", not(feature = "kernel_mcs")))]
     TCBSetAffinity,
     TCBSetTLSBase,
     CNodeRevoke,
