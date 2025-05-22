@@ -72,7 +72,6 @@ pub struct tcb_t {
     /// The IPC buffer of the TCB
     pub tcbIPCBuffer: usize,
     /// the affinity of the TCB in SMP
-    #[cfg(feature = "enable_smp")]
     pub tcbAffinity: usize,
     /// The next TCB in the scheduling queue
     pub tcbSchedNext: usize,

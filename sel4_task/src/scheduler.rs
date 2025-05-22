@@ -597,11 +597,11 @@ pub fn set_reprogram(reprogram: bool) {
 
 #[cfg(feature = "kernel_mcs")]
 #[inline]
-pub fn set_reprogram_with_node(reprogram: bool, node: usize) {
+pub fn set_reprogram_with_node(reprogram: bool, _node: usize) {
     unsafe {
         #[cfg(feature = "enable_smp")]
         {
-            ksSMP[node].ksReprogram = reprogram;
+            ksSMP[_node].ksReprogram = reprogram;
         }
         #[cfg(not(feature = "enable_smp"))]
         {
