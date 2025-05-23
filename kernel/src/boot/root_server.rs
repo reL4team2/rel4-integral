@@ -119,7 +119,7 @@ pub fn root_server_init(
         return None;
     }
     #[cfg(feature = "kernel_mcs")]
-    set_current_time(timer.get_current_time());
+    SET_NODE_STATE!(ksCurTime = timer.get_current_time());
 
     let initial = unsafe {
         create_initial_thread(

@@ -1,9 +1,7 @@
-#[cfg(feature = "kernel_mcs")]
-use crate::get_current_sc_raw;
 use crate::tcb_queue::tcb_queue_t;
 use crate::prio_t;
 #[cfg(feature = "kernel_mcs")]
-use crate::{get_release_queue, set_release_queue, get_release_queue_ptr, sched_context::sched_context_t};
+use crate::{NODE_STATE, NODE_STATE_ON_CORE, SET_NODE_STATE_ON_CORE, NODE_STATE_PTR, sched_context::sched_context_t};
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
@@ -160,14 +158,6 @@ impl tcb_t {
             && self.tcbState.get_tcbInReleaseQueue() == 0
     }
 
-    #[cfg(not(feature = "enable_smp"))]
-    #[inline]
-    /// Check if the TCB is current by comparing the tcb pointer
-    pub fn is_current(&self) -> bool {
-        self.get_ptr() == get_current_thread_on_node().get_ptr()
-    }
-
-    #[cfg(feature = "enable_smp")]
     #[inline]
     /// Check if the TCB is current by comparing the tcb pointer
     pub fn is_current(&self) -> bool {
@@ -601,7 +591,7 @@ impl tcb_t {
                 if let Some(sc) =
                     convert_to_option_mut_type_ref::<sched_context_t>(self.tcbSchedContext)
                 {
-                    if sc.sc_sporadic() && self.tcbSchedContext != get_current_sc_raw() {
+                    if sc.sc_sporadic() && self.tcbSchedContext != NODE_STATE!(ksCurSC) {
                         sc.refill_unblock_check();
                     }
                     sc.sched_context_resume();
@@ -1041,16 +1031,14 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn release_remove(&mut self) {
-        use crate::set_reprogram_with_node;
-
         if likely(self.tcbState.get_tcbInReleaseQueue() != 0) {
-            let mut queue = get_release_queue(self.tcbAffinity);
+            let mut queue = NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue);
 
             if queue.head == self.get_ptr() {
-                set_reprogram_with_node(true, self.tcbAffinity);
+                SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReprogram = true);
             }
             queue.remove(self);
-            set_release_queue(queue, self.tcbAffinity);
+            SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue = queue);
 
             self.tcbState.set_tcbInReleaseQueue(0);
         }
@@ -1058,23 +1046,21 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn release_enqueue(&mut self) {
-        use crate::set_reprogram_with_node;
-
         assert!(self.tcbState.get_tcbInReleaseQueue() == 0);
         assert!(self.tcbState.get_tcbQueued() == 0);
 
         let new_time = self.Ready_Time();
-        let mut queue = get_release_queue(self.tcbAffinity);
+        let mut queue = NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue);
 
         if queue.empty() || new_time < convert_to_mut_type_ref::<tcb_t>(queue.head).Ready_Time()
         {
             queue.prepend(self);
-            set_release_queue(queue, self.tcbAffinity);
-            set_reprogram_with_node(true, self.tcbAffinity);
+            SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue = queue);
+            SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReprogram = true);
         } else {
             if convert_to_mut_type_ref::<tcb_t>(queue.tail).Ready_Time() < new_time {
                 queue.append(self);
-                set_release_queue(queue, self.tcbAffinity);
+                SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue = queue);
             } else {
                 let after =
                     find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
@@ -1134,16 +1120,16 @@ pub fn find_time_after(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
 
 #[cfg(feature = "kernel_mcs")]
 pub fn tcb_release_dequeue() -> *mut tcb_t {
-    use crate::set_reprogram;
+    use crate::SET_NODE_STATE;
 
-    assert!(get_release_queue_ptr().head != 0);
-    assert!(convert_to_mut_type_ref::<tcb_t>(get_release_queue_ptr().head).tcbSchedPrev == 0);
+    assert!(NODE_STATE_PTR!(ksReleaseQueue).head != 0);
+    assert!(convert_to_mut_type_ref::<tcb_t>(NODE_STATE_PTR!(ksReleaseQueue).head).tcbSchedPrev == 0);
 
-    let awakened = convert_to_mut_type_ref::<tcb_t>(get_release_queue_ptr().head);
+    let awakened = convert_to_mut_type_ref::<tcb_t>(NODE_STATE_PTR!(ksReleaseQueue).head);
     assert!(awakened.get_ptr() != crate::get_currenct_thread().get_ptr());
 
     awakened.release_remove();
-    set_reprogram(true);
+    SET_NODE_STATE!(ksReprogram = true);
 
     return awakened;
 }

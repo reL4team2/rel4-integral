@@ -149,7 +149,7 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // tcbDebugAppend(idle_thread);
     // }
 
-    set_ks_scheduler_action(scheduler_action as usize);
+    SET_NODE_STATE!(ksSchedulerAction = scheduler_action as usize);
     set_current_thread(get_idle_thread());
     // TODO: MCS
     // #ifdef CONFIG_KERNEL_MCS
@@ -161,11 +161,11 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
     // #endif
     #[cfg(feature = "kernel_mcs")] 
     {
-        set_current_sc(get_currenct_thread().tcbSchedContext);
-        set_consumed(0);
-        set_reprogram(true);
-        get_release_queue_ptr().head = 0;
-        get_release_queue_ptr().tail = 0;
-        set_current_time(timer.get_current_time());
+        SET_NODE_STATE!(ksCurSC = get_currenct_thread().tcbSchedContext);
+        SET_NODE_STATE!(ksConsumed = 0);
+        SET_NODE_STATE!(ksReprogram = true);
+        NODE_STATE_PTR!(ksReleaseQueue).head = 0;
+        NODE_STATE_PTR!(ksReleaseQueue).tail = 0;
+        SET_NODE_STATE!(ksCurTime = timer.get_current_time());
     }
 }

@@ -22,8 +22,8 @@ use sel4_ipc::{endpoint_func, notification_func, Transfer};
 use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{
-    is_cur_domain_expired, get_consumed, get_current_sc, reply::reply_t, sched_context::sched_context_t,
-    update_timestamp, ThreadState,
+    is_cur_domain_expired, NODE_STATE, reply::reply_t, sched_context::sched_context_t,
+    update_timestamp, ThreadState, get_current_sc
 };
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;
@@ -375,7 +375,7 @@ pub fn preemption_point() -> exception_t {
             {
                 update_timestamp();
                 let sc = get_current_sc();
-                if !(sc.sc_active() && sc.refill_sufficient(get_consumed()))
+                if !(sc.sc_active() && sc.refill_sufficient(NODE_STATE!(ksConsumed)))
                     || is_cur_domain_expired()
                     || is_irq_pending()
                 {
