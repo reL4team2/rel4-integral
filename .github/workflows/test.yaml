@@ -9,7 +9,7 @@ jobs:
   #   # if: ${{ contains(github.event.head_commit.message, 'git subrepo')}}
   #   runs-on: ubuntu-latest
   #   container:
-  #     image: croakexciting/rel4_dev:0.0.6
+  #     image: croakexciting/rel4_dev:0.0.8
   #     volumes:
   #       - .:/code
   #   strategy:
@@ -54,7 +54,7 @@ jobs:
           - platform: spike
             arch: riscv64
     container:
-      image: croakexciting/rel4_dev:0.0.6
+      image: croakexciting/rel4_dev:0.0.8
       options: --user=root
     defaults:
       run:
@@ -68,8 +68,6 @@ jobs:
           components: rust-src rustfmt
           rustflags:
           target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
-      - name: Install qemu
-        run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
       - name: Clone Menifest && Sync repositories
         run: | 
           repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
@@ -111,7 +109,7 @@ jobs:
           - platform: spike
             arch: riscv64
     container:
-      image: croakexciting/rel4_dev:0.0.6
+      image: croakexciting/rel4_dev:0.0.8
       options: --user=root
     defaults:
       run:
@@ -125,8 +123,6 @@ jobs:
           components: rust-src rustfmt
           rustflags:
           target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
-      - name: Install qemu
-        run: apt update && apt -y install qemu-system-misc qemu-system-aarch64
       - name: Clone Menifest && Sync repositories
         run: | 
           repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
@@ -167,7 +163,7 @@ jobs:
           - platform: qemu-arm-virt
             arch: aarch64
     container:
-      image: croakexciting/rel4_dev:0.0.6
+      image: croakexciting/rel4_dev:0.0.8
       options: --user=root
     defaults:
       run:
@@ -181,8 +177,6 @@ jobs:
           components: rust-src rustfmt
           rustflags:
           target: aarch64-unknown-none-softfloat
-      - name: Install qemu
-        run: apt update && apt -y install wget make python3 xz-utils python3-venv ninja-build bzip2 meson pkg-config libglib2.0-dev git libslirp-dev && pip3 install tomli && wget https://download.qemu.org/qemu-9.2.2.tar.xz && tar xf qemu-9.2.2.tar.xz && cd qemu-9.2.2 && ./configure --target-list=aarch64-softmmu --enable-slirp && make -j$(nproc) && make install
       - name: Clone Menifest && Sync repositories
         run: | 
           repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
@@ -216,7 +210,7 @@ jobs:
   rel4-test-linux:
     runs-on: ubuntu-latest
     container:
-      image: croakexciting/rel4_dev:0.0.6
+      image: croakexciting/rel4_dev:0.0.8
       options: --user=root
     defaults:
       run:
@@ -230,8 +224,6 @@ jobs:
           components: rust-src rustfmt
           rustflags:
           target: aarch64-unknown-none-softfloat
-      - name: Install qemu
-        run: apt update && apt -y install wget make python3 xz-utils python3-venv ninja-build bzip2 meson pkg-config libglib2.0-dev git libslirp-dev libclang-dev && pip3 install tomli && wget https://download.qemu.org/qemu-9.2.2.tar.xz && tar xf qemu-9.2.2.tar.xz && cd qemu-9.2.2 && ./configure --target-list=aarch64-softmmu --enable-slirp && make -j$(nproc) && make install
       - name: Clone auto-build
         run: | 
           git clone https://github.com/reL4team2/rel4-kernel-autobuild.git -b rel4-integrate
@@ -256,7 +248,7 @@ jobs:
           - platform: qemu-arm-virt
             arch: aarch64
     container:
-      image: croakexciting/rel4_dev:0.0.6
+      image: croakexciting/rel4_dev:0.0.8
       options: --user=root
     defaults:
       run:
@@ -294,7 +286,7 @@ jobs:
           ARCH: ${{ matrix.arch  }}
           PLATFORM: ${{ matrix.platform }}
         run: cd rel4_kernel/build && ./simulate --cpu-num 4 > 1.log
-        timeout-minutes: 25
+        timeout-minutes: 20
         continue-on-error: true
       - run: cat rel4_kernel/build/1.log
       - name: Check Result
