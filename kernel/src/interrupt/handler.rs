@@ -11,9 +11,7 @@ use sel4_task::{activateThread, schedule};
 use sel4_task::timer_tick;
 
 #[cfg(feature = "kernel_mcs")]
-use sel4_task::set_reprogram;
-#[cfg(feature = "kernel_mcs")]
-use sel4_task::{check_budget, update_timestamp};
+use sel4_task::{check_budget, update_timestamp, SET_NODE_STATE};
 
 #[no_mangle]
 pub fn handle_interrupt_entry() -> exception_t {
@@ -89,7 +87,7 @@ pub fn handle_interrput(irq: usize) {
             #[cfg(feature = "kernel_mcs")]
             {
                 timer.ack_deadline_irq();
-                set_reprogram(true);
+                SET_NODE_STATE!(ksReprogram = true);
             }
             #[cfg(not(feature = "kernel_mcs"))]
             {

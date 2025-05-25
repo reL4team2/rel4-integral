@@ -6,7 +6,7 @@ use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
 use sel4_common::arch::cpu_index_to_id;
 use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, WORD_BITS};
 use sel4_common::utils::cpu_id;
-use sel4_task::{tcb_t, ThreadState, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
+use sel4_task::{tcb_t, ThreadState, SCHEDULER_ACTION_RESUME_CURRENT_THREAD, SET_NODE_STATE};
 
 pub const MAX_IPI_ARGS: usize = 3;
 
@@ -64,9 +64,9 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
         #[cfg(feature = "kernel_mcs")]
         {
             sel4_task::commit_time();
-            sel4_task::set_current_sc(sel4_task::get_idle_thread().tcbSchedContext);
+            SET_NODE_STATE!(ksCurSC = sel4_task::get_idle_thread().tcbSchedContext);
         }
-        sel4_task::set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
+        SET_NODE_STATE!(ksSchedulerAction = SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
         super::clh_set_ipi(cpu_id(), 0);
 
         #[cfg(target_arch = "riscv64")]
@@ -89,7 +89,7 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
         thread.sched_enqueue();
         // TODO: mcs support
         switch_to_idle_thread();
-        sel4_task::set_ks_scheduler_action(SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
+        SET_NODE_STATE!(ksSchedulerAction = SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
     }
 }
 

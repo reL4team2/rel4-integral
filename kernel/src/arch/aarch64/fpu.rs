@@ -7,8 +7,7 @@ use core::{
 
 use sel4_common::arch::arch_tcb::FPUState;
 use sel4_task::{
-    get_currenct_thread, get_current_active_fpu_state, get_current_fpu_restore_since_switch,
-    set_current_active_fpu_state, set_current_fpu_restore_since_switch, tcb_t,
+    get_currenct_thread, NODE_STATE, tcb_t, SET_NODE_STATE
 };
 
 use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
@@ -65,13 +64,13 @@ pub unsafe fn is_fpu_enable() -> bool {
 pub unsafe fn switch_local_fpu_owner(new_owner: usize) {
     unsafe {
         enable_fpu();
-        let ksActiveFPUState = get_current_active_fpu_state();
+        let ksActiveFPUState = NODE_STATE!(ksActiveFPUState);
         if ksActiveFPUState != 0 {
             save_fpu_state(ksActiveFPUState, ksActiveFPUState + 16 * 32);
         }
 
         if new_owner != 0 {
-            set_current_fpu_restore_since_switch(0);
+            SET_NODE_STATE!(ks_fpu_restore_since_switch = 0);
             load_fpu_state(
                 new_owner as *const FPUState as usize,
                 new_owner as *const FPUState as usize + 16 * 32,
@@ -79,7 +78,7 @@ pub unsafe fn switch_local_fpu_owner(new_owner: usize) {
         } else {
             disable_fpu();
         }
-        set_current_active_fpu_state(new_owner);
+        SET_NODE_STATE!(ksActiveFPUState = new_owner);
     }
 }
 
@@ -101,7 +100,7 @@ pub(crate) unsafe fn handle_fpu_fault() {
 
 #[inline(always)]
 unsafe fn native_thread_using_fpu(thread: &mut tcb_t) -> bool {
-    return thread.tcbArch.fpu_state_ptr() as usize == get_current_active_fpu_state();
+    return thread.tcbArch.fpu_state_ptr() as usize == NODE_STATE!(ksActiveFPUState);
 }
 
 #[cfg(feature = "enable_smp")]
@@ -127,18 +126,18 @@ pub fn fpu_thread_delete(thread: &mut tcb_t) {
 #[inline(always)]
 #[allow(unused)]
 pub unsafe fn lazy_fpu_restore(thread: &mut tcb_t) {
-    if get_current_active_fpu_state() != 0 {
-        let current_fpu_restore = get_current_fpu_restore_since_switch();
+    if NODE_STATE!(ksActiveFPUState) != 0 {
+        let current_fpu_restore = NODE_STATE!(ks_fpu_restore_since_switch);
         if unlikely(current_fpu_restore > CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH) {
             switch_local_fpu_owner(0);
-            set_current_fpu_restore_since_switch(0);
+            SET_NODE_STATE!(ks_fpu_restore_since_switch = 0);
         } else {
             if likely(native_thread_using_fpu(thread)) {
                 enable_fpu();
             } else {
                 disable_fpu();
             }
-            set_current_fpu_restore_since_switch(current_fpu_restore + 1);
+            SET_NODE_STATE!(ks_fpu_restore_since_switch = current_fpu_restore + 1);
         }
     }
 }

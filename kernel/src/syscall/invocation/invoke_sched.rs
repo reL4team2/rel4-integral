@@ -6,7 +6,7 @@ use sel4_common::{
 };
 use sel4_task::{
     check_budget, commit_time, get_currenct_thread,
-    possible_switch_to, get_currenct_thread_raw,
+    possible_switch_to, NODE_STATE,
     reply::reply_t,
     reschedule_required,
     sched_context::{sched_context, MIN_REFILLS},
@@ -152,7 +152,7 @@ pub fn invoke_sched_control_configure_flags(
         target.sched_context_resume();
         if _core == sel4_common::utils::cpu_id() {
             if convert_to_mut_type_ref::<tcb_t>(target.scTcb).is_runnable()
-                && target.scTcb != get_currenct_thread_raw()
+                && target.scTcb != NODE_STATE!(ksCurThread)
             {
                 possible_switch_to(convert_to_mut_type_ref::<tcb_t>(target.scTcb));
             }
@@ -163,7 +163,7 @@ pub fn invoke_sched_control_configure_flags(
                 }
             }
         }
-        if target.scTcb == get_currenct_thread_raw() {
+        if target.scTcb == NODE_STATE!(ksCurThread) {
             reschedule_required();
         }
     }

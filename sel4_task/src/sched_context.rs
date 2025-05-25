@@ -18,8 +18,8 @@ use sel4_common::{
 };
 
 use crate::{
-    get_currenct_thread, get_current_sc, get_current_sc_raw, get_current_time, set_reprogram_with_node, get_ks_scheduler_action,
-    reschedule_required, tcb_t, set_reprogram
+    get_currenct_thread, get_current_sc, SET_NODE_STATE_ON_CORE,
+    reschedule_required, tcb_t, NODE_STATE, SET_NODE_STATE
 };
 
 pub type sched_context_t = sched_context;
@@ -76,7 +76,7 @@ impl sched_context {
     }
     #[inline]
     pub fn is_current(&self) -> bool {
-        self.get_ptr() == get_current_sc_raw()
+        self.get_ptr() == NODE_STATE!(ksCurSC)
     }
     #[inline]
     pub fn sc_released(&mut self) -> bool {
@@ -99,7 +99,7 @@ impl sched_context {
     pub fn postpone(&self) {
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).sched_dequeue();
         convert_to_mut_type_ref::<tcb_t>(self.scTcb).release_enqueue();
-        set_reprogram_with_node(true, self.scCore);
+        SET_NODE_STATE_ON_CORE!(self.scCore, ksReprogram = true);
     }
     #[inline]
     fn refill_pop_head(&mut self) -> *mut refill_t {
@@ -160,9 +160,10 @@ impl sched_context {
         self.scRefillTail = 0;
         self.scRefillMax = max_refills;
         assert!(budget >= min_budget());
+        #[allow(unused_unsafe)]
         unsafe {
             (*self.refill_head()).rAmount = budget;
-            (*self.refill_head()).rTime = get_current_time();
+            (*self.refill_head()).rTime = NODE_STATE!(ksCurTime);
         }
         self.maybe_add_empty_tail();
     }
@@ -183,8 +184,9 @@ impl sched_context {
             return;
         }
         if self.refill_ready() {
-            unsafe { (*self.refill_head()).rTime = get_current_time() };
-            set_reprogram(true);
+            #[allow(unused_unsafe)]
+            unsafe { (*self.refill_head()).rTime = NODE_STATE!(ksCurTime) };
+            SET_NODE_STATE!(ksReprogram = true);
             while self.refill_head_overlapping() {
                 let old_head = self.refill_pop_head();
                 unsafe {
@@ -197,7 +199,8 @@ impl sched_context {
     }
     #[inline]
     pub fn refill_ready(&mut self) -> bool {
-        unsafe { (*self.refill_head()).rTime <= get_current_time() + get_kernel_wcet_ticks() }
+        #[allow(unused_unsafe)]
+        unsafe { (*self.refill_head()).rTime <= NODE_STATE!(ksCurTime) + get_kernel_wcet_ticks() }
     }
     #[inline]
     pub fn refill_index(&self, index: usize) -> *mut refill_t {
@@ -247,6 +250,7 @@ impl sched_context {
         /* refill must be initialised in order to be updated - otherwise refill_new should be used */
         assert!(self.scRefillMax > 0);
 
+        #[allow(unused_unsafe)]
         unsafe {
             (*self.refill_index(0)).rAmount = (*self.refill_head()).rAmount;
             (*self.refill_index(0)).rTime = (*self.refill_head()).rTime;
@@ -259,7 +263,7 @@ impl sched_context {
             self.scPeriod = new_period;
 
             if self.refill_ready() {
-                (*self.refill_head()).rTime = get_current_time();
+                (*self.refill_head()).rTime = NODE_STATE!(ksCurTime);
             }
 
             if (*self.refill_head()).rAmount >= new_budget {
@@ -355,7 +359,7 @@ impl sched_context {
             from.sched_dequeue();
             from.release_remove();
             from.tcbSchedContext = 0;
-            if from.is_current() || from.get_ptr() == get_ks_scheduler_action() {
+            if from.is_current() || from.get_ptr() == NODE_STATE!(ksSchedulerAction) {
                 reschedule_required();
             }
         }
