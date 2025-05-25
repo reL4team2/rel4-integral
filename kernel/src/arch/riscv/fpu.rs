@@ -11,7 +11,7 @@ use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
 use sel4_common::utils::cpu_id;
 use sel4_task::{
     get_currenct_thread, NODE_STATE,
-    NODE_STATE, tcb_t,
+    SET_NODE_STATE, tcb_t,
 };
 
 #[cfg(feature = "enable_smp")]

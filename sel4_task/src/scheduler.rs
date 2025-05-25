@@ -5,6 +5,7 @@
 //! new threads to run, managing ready queues, and handling domain scheduling.
 //!
 #![allow(unused_unsafe)]
+#![allow(static_mut_ref)]
 
 #[cfg(feature = "enable_smp")]
 use crate::deps::do_mask_reschedule;
@@ -20,7 +21,7 @@ use sel4_common::sel4_config::{
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 use sel4_common::utils::{
-    convert_to_mut_type_ref, convert_to_mut_type_ref_unsafe, ptr_to_usize_add,
+    convert_to_mut_type_ref, ptr_to_usize_add,
 };
 use sel4_common::{BIT, MASK};
 
@@ -37,6 +38,7 @@ use sel4_common::{
     arch::us_to_ticks,
     platform::time_def::{ticks_t, time_t, US_IN_MS},
     sel4_config::CONFIG_BOOT_THREAD_TIME_SLICE,
+    utils::convert_to_mut_type_ref_unsafe,
 };
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{
@@ -215,23 +217,6 @@ macro_rules! NODE_STATE {
     };
 }
 
-/// NODE_STATE_PTR, get the current node state pointer
-#[cfg(feature = "enable_smp")]
-#[macro_export]
-macro_rules! NODE_STATE_PTR {
-    ($field:ident) => {
-        unsafe { &mut $crate::ksSMP[sel4_common::utils::cpu_id()].$field }
-    };
-}
-
-#[cfg(not(feature = "enable_smp"))]
-#[macro_export]
-macro_rules! NODE_STATE_PTR {
-    ($field:ident) => {
-        unsafe { &mut $crate::$field }
-    };
-}
-
 /// seL4 NODE_STATE_ON_CORE, get the core node state field
 #[cfg(feature = "enable_smp")]
 #[macro_export]
@@ -305,8 +290,8 @@ pub fn get_currenct_thread() -> &'static mut tcb_t {
 }
 
 #[inline]
-pub fn get_current_thread_on_node(node: usize) -> &'static mut tcb_t {
-    convert_to_mut_type_ref::<tcb_t>(NODE_STATE_ON_CORE!(node, ksCurThread))
+pub fn get_current_thread_on_node(_node: usize) -> &'static mut tcb_t {
+    convert_to_mut_type_ref::<tcb_t>(NODE_STATE_ON_CORE!(_node, ksCurThread))
 }
 
 #[inline]
@@ -564,9 +549,9 @@ pub fn reschedule_required() {
 #[cfg(feature = "kernel_mcs")]
 pub fn awaken() {
     while unlikely(
-        NODE_STATE_PTR!(ksReleaseQueue).head != 0
+        NODE_STATE!(ksReleaseQueue).head != 0
         && convert_to_mut_type_ref::<sched_context_t>(
-            convert_to_mut_type_ref::<tcb_t>(NODE_STATE_PTR!(ksReleaseQueue).head).tcbSchedContext,
+            convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head).tcbSchedContext,
         )
         .refill_ready(),
     ) {
@@ -677,10 +662,10 @@ pub fn set_next_interrupt() {
         if NUM_DOMAINS > 1 {
             next_interrupt = core::cmp::min(next_interrupt, NODE_STATE!(ksCurTime) + ksDomainTime);
         }
-        if NODE_STATE_PTR!(ksReleaseQueue).head != 0 {
+        if NODE_STATE!(ksReleaseQueue).head != 0 {
             next_interrupt = core::cmp::min(
                 (*convert_to_mut_type_ref::<sched_context_t>(
-                    convert_to_mut_type_ref::<tcb_t>(NODE_STATE_PTR!(ksReleaseQueue).head).tcbSchedContext,
+                    convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head).tcbSchedContext,
                 )
                 .refill_head())
                 .rTime,
@@ -998,7 +983,7 @@ pub fn create_idle_thread() {
                 ),
                 us_to_ticks(CONFIG_BOOT_THREAD_TIME_SLICE * US_IN_MS),
             );
-            SET_NODE_STATE!(ksIdleSC = (&mut ksIdleThreadSC.data[0] as *mut u8 as usize))
+            SET_NODE_STATE!(ksIdleSC = &mut ksIdleThreadSC.data[0] as *mut u8 as usize)
         }
     }
 }

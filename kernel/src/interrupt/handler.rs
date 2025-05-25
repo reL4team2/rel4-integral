@@ -6,12 +6,12 @@ use sel4_common::platform::{IRQ_INVALID, MAX_IRQ};
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, notification};
 use sel4_ipc::notification_func;
-use sel4_task::{activateThread, schedule, SET_NODE_STATE};
+use sel4_task::{activateThread, schedule};
 #[cfg(not(feature = "kernel_mcs"))]
 use sel4_task::timer_tick;
 
 #[cfg(feature = "kernel_mcs")]
-use sel4_task::{check_budget, update_timestamp};
+use sel4_task::{check_budget, update_timestamp, SET_NODE_STATE};
 
 #[no_mangle]
 pub fn handle_interrupt_entry() -> exception_t {

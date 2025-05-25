@@ -164,8 +164,7 @@ pub fn init_core_state(scheduler_action: *mut tcb_t) {
         SET_NODE_STATE!(ksCurSC = get_currenct_thread().tcbSchedContext);
         SET_NODE_STATE!(ksConsumed = 0);
         SET_NODE_STATE!(ksReprogram = true);
-        NODE_STATE_PTR!(ksReleaseQueue).head = 0;
-        NODE_STATE_PTR!(ksReleaseQueue).tail = 0;
+        SET_NODE_STATE!(ksReleaseQueue = tcb_queue_t {head: 0, tail: 0});
         SET_NODE_STATE!(ksCurTime = timer.get_current_time());
     }
 }

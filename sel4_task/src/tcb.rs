@@ -1,7 +1,7 @@
 use crate::tcb_queue::tcb_queue_t;
 use crate::prio_t;
 #[cfg(feature = "kernel_mcs")]
-use crate::{NODE_STATE, NODE_STATE_ON_CORE, SET_NODE_STATE_ON_CORE, NODE_STATE_PTR, sched_context::sched_context_t};
+use crate::{NODE_STATE, NODE_STATE_ON_CORE, SET_NODE_STATE_ON_CORE, sched_context::sched_context_t};
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
@@ -1122,10 +1122,10 @@ pub fn find_time_after(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
 pub fn tcb_release_dequeue() -> *mut tcb_t {
     use crate::SET_NODE_STATE;
 
-    assert!(NODE_STATE_PTR!(ksReleaseQueue).head != 0);
-    assert!(convert_to_mut_type_ref::<tcb_t>(NODE_STATE_PTR!(ksReleaseQueue).head).tcbSchedPrev == 0);
+    assert!(NODE_STATE!(ksReleaseQueue).head != 0);
+    assert!(convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head).tcbSchedPrev == 0);
 
-    let awakened = convert_to_mut_type_ref::<tcb_t>(NODE_STATE_PTR!(ksReleaseQueue).head);
+    let awakened = convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head);
     assert!(awakened.get_ptr() != crate::get_currenct_thread().get_ptr());
 
     awakened.release_remove();
