@@ -253,6 +253,7 @@ macro_rules! NODE_STATE_ON_CORE {
     };
 }
 
+/// SET_NODE_STATE, set the core node state field
 #[cfg(feature = "enable_smp")]
 #[macro_export]
 macro_rules! SET_NODE_STATE {
@@ -269,6 +270,7 @@ macro_rules! SET_NODE_STATE {
     };
 }
 
+/// SET_NODE_STATE_ON_CORE, set the specific core node state field
 #[cfg(feature = "enable_smp")]
 #[macro_export]
 macro_rules! SET_NODE_STATE_ON_CORE {
