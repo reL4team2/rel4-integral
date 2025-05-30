@@ -1,6 +1,5 @@
-use log::debug;
+use log::{debug, info};
 use sel4_common::arch::config::KERNEL_ELF_BASE;
-use sel4_common::println;
 use sel4_common::{sel4_config::PAGE_BITS, BIT};
 use sel4_task::create_idle_thread;
 #[cfg(feature = "enable_smp")]
@@ -138,8 +137,7 @@ pub fn try_init_kernel(
             clh_lock_acquire(cpu_id(), false);
         }
 
-        println!("Booting all finished, dropped to user space");
-        println!("\n");
+        info!("Booting all finished, dropped to user space");
     } else {
         return false;
     }
@@ -167,6 +165,8 @@ pub fn try_init_kernel_secondary_core(_hartid: usize, _core_id: usize) -> bool {
     clh_lock_acquire(cpu_id(), false);
     ksNumCPUs.lock().add_assign(1);
     init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
+
+    log::info!("init secondary core success: hart_id: {}, core_id: {}", _hartid, _core_id);
 
     true
 }

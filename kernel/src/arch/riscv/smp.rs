@@ -54,7 +54,7 @@ pub fn handle_remote_call(
                 crate::arch::fpu::switch_local_fpu_owner(arg0);
             },
             _ => {
-                sel4_common::println!(
+                log::warn!(
                     "handle_remote_call: call: {:?}, arg0: {}, arg1: {}, arg2: {}",
                     call,
                     arg0,
