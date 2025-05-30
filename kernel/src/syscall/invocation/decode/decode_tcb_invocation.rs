@@ -819,7 +819,7 @@ fn decode_set_space(
         || get_extra_cap_by_index(1).is_none()
         || get_extra_cap_by_index(2).is_none()
     {
-        sel4_common::println!("TCB SetSpace: Truncated message. {}", length);
+        log::debug!("TCB SetSpace: Truncated message. {}", length);
         unsafe {
             current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
         }
@@ -846,7 +846,7 @@ fn decode_set_space(
             .get_cspace(TCB_VTABLE)
             .is_long_running_delete()
     {
-        sel4_common::println!("TCB Configure: CSpace or VSpace currently being deleted.");
+        log::debug!("TCB Configure: CSpace or VSpace currently being deleted.");
         unsafe {
             current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
@@ -860,7 +860,7 @@ fn decode_set_space(
         Err(status) => return status,
     }
     if croot_cap.get_tag() != cap_tag::cap_cnode_cap {
-        sel4_common::println!("TCB Configure: CSpace cap is invalid.");
+        log::debug!("TCB Configure: CSpace cap is invalid.");
         unsafe {
             current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
         }
@@ -888,7 +888,7 @@ fn decode_set_space(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     if !valid_fault_handler(fh_cap) {
-        sel4_common::println!("TCB SetSpace: fault endpoint cap invalid.");
+        log::debug!("TCB SetSpace: fault endpoint cap invalid.");
         unsafe {
             current_syscall_error.invalidCapNumber = 1;
         }

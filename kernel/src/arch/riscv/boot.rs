@@ -7,8 +7,7 @@ use crate::{
     },
     structures::{p_region_t, v_region_t, SlotRegion},
 };
-use log::debug;
-use sel4_common::println;
+use log::{debug, info};
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
 use sel4_common::{arch::config::KERNEL_ELF_BASE, sel4_config::PAGE_BITS, BIT};
 use sel4_task::create_idle_thread;
@@ -120,8 +119,7 @@ pub fn try_init_kernel(
             clh_lock_acquire(cpu_id(), false);
         }
 
-        println!("Booting all finished, dropped to user space");
-        println!("\n");
+        info!("Booting all finished, dropped to user space");
     } else {
         return false;
     }
@@ -146,11 +144,10 @@ pub fn try_init_kernel_secondary_core(_hartid: usize, _core_id: usize) -> bool {
     while node_boot_lock.lock().eq(&0) {}
     // debug!("start try_init_kernel_secondary_core");
     crate::arch::init_cpu();
-    debug!("init cpu compl");
     clh_lock_acquire(cpu_id(), false);
     ksNumCPUs.lock().add_assign(1);
     init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
-    debug!("init_core_state compl");
+    log::info!("init secondary core success: hart_id: {}, core_id: {}", _hartid, _core_id);
 
     unsafe {
         asm!("fence.i");

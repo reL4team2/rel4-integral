@@ -68,8 +68,6 @@ pub fn init_kernel(
     dtb_size: usize,
 ) {
     use sel4_common::platform::avail_p_regs;
-    // sel4_common::println!("Now we use rel4 kernel binary");
-    log::set_max_level(log::LevelFilter::Info);
     boot::interface::pRegsToR(
         &avail_p_regs as *const p_region_t as *const usize,
         core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
@@ -108,8 +106,6 @@ pub fn init_kernel(
 ) {
     use sel4_common::platform::avail_p_regs;
     use sel4_common::utils::cpu_id;
-    // sel4_common::println!("Now we use rel4 kernel binary");
-    log::set_max_level(log::LevelFilter::Info);
     boot::interface::pRegsToR(
         &avail_p_regs as *const p_region_t as *const usize,
         core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
@@ -154,8 +150,6 @@ pub fn init_kernel(
     core_id: usize,
 ) {
     use sel4_common::platform::avail_p_regs;
-    // sel4_common::println!("Now we use rel4 kernel binary");
-    log::set_max_level(log::LevelFilter::Info);
     boot::interface::pRegsToR(
         &avail_p_regs as *const p_region_t as *const usize,
         core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),

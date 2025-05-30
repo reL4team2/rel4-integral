@@ -57,6 +57,12 @@ pub struct BuildOptions {
         default_value = "1"
     )]
     pub num_nodes: usize,
+    #[clap(
+        default_value = "INFO",
+        help = "set log level",
+        long
+    )]
+    pub log: String,
 }
 
 fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
@@ -135,6 +141,7 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         .env("PLATFORM", opts.platform.as_str())
         .env("MARCOS", marcos.join(" "))
         .env("RUSTFLAGS", rustflags.join(" "))
+        .env("LOG", opts.log.as_str())
         .args(&args)
         .status()
         .expect("failed to build userspace");
