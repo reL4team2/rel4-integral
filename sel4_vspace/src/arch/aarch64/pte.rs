@@ -162,10 +162,11 @@ impl PTE {
         }
         let nG: usize = 1;
         let vm_right: usize = Self::ap_from_vm_rights_t(rights).bits() >> 6;
+        let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
         if VMPageSize::ARMSmallPage as usize == page_size {
-            PTE::pte_new_4k_page(nonexecutable as usize, paddr, nG, 1, 0, vm_right, attrindx)
+            PTE::pte_new_4k_page(nonexecutable as usize, paddr, nG, 1, shareable, vm_right, attrindx)
         } else {
-            PTE::pte_new_page(nonexecutable as usize, paddr, nG, 1, 0, vm_right, attrindx)
+            PTE::pte_new_page(nonexecutable as usize, paddr, nG, 1, shareable, vm_right, attrindx)
         }
     }
 
