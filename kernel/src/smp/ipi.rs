@@ -111,7 +111,7 @@ pub fn handle_ipi(irq: usize, irq_path: bool) {
                 core::arch::asm!("fence.i", options(nostack, preserves_flags));
             }
         }
-        _ => sel4_common::println!("handle_ipi: unknown ipi: {}", irq),
+        _ => log::warn!("handle_ipi: unknown ipi: {}", irq),
     }
 }
 

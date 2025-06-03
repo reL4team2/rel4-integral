@@ -32,11 +32,16 @@ impl Log for SimpleLogger {
             Level::Debug => 32, // Green
             Level::Trace => 90, // BrightBlack
         };
+
+        let module_path = record.module_path().unwrap_or("");
+        let module_name = module_path.split("::").last().unwrap_or("unknown");
+        
         println!(
-            "\u{1B}[{}m[{:>5} {}] {}\u{1B}[0m",
+            "\u{1B}[{}m[{:>5} {} {}] {}\u{1B}[0m",
             color,
             record.level(),
             cpu_id(),
+            module_name,
             record.args(),
         );
     }
