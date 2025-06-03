@@ -92,11 +92,13 @@ pub fn rust_map_kernel_window() {
 
     let mut vaddr = PPTR_BASE;
     let mut paddr = PADDR_BASE;
+    let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
+
     while paddr < PADDR_TOP {
         set_kernel_page_directory_by_index(
             VAddr(vaddr).get_kpt_index(1),
             VAddr(vaddr).get_kpt_index(2),
-            PTE::pte_new_page(1, paddr, 0, 1, 0, 0, mair_types::NORMAL as usize),
+            PTE::pte_new_page(1, paddr, 0, 1, shareable, 0, mair_types::NORMAL as usize),
         );
 
         vaddr += BIT!(SEL4_LARGE_PAGE_BITS);
@@ -140,7 +142,7 @@ pub fn map_kernel_frame(
     let shareable: usize;
     if attributes.get_page_cacheable() != 0 {
         attr_index = mair_types::NORMAL as usize;
-        shareable = 0;
+        shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
     } else {
         attr_index = mair_types::DEVICE_nGnRnE as usize;
         shareable = 0;
@@ -208,7 +210,9 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     ));
     // TODO: Make set_attr usage more efficient.
     // TIPS: exec true will be cast to 1 and false to 0.
-    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, 0, 1, 1, 0, 1, 0).0);
+    let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
+
+    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, 0, 1, 1, shareable, 1, 0).0);
     pte.set_next_level_paddr(pptr_to_paddr(frame_cap.get_capFBasePtr() as usize));
 }
 
