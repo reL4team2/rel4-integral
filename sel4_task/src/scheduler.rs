@@ -20,9 +20,7 @@ use sel4_common::sel4_config::{
 };
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
-use sel4_common::utils::{
-    convert_to_mut_type_ref, ptr_to_usize_add,
-};
+use sel4_common::utils::{convert_to_mut_type_ref, ptr_to_usize_add};
 use sel4_common::{BIT, MASK};
 
 use crate::deps::ksIdleThreadTCB;
@@ -243,7 +241,9 @@ macro_rules! NODE_STATE_ON_CORE {
 #[macro_export]
 macro_rules! SET_NODE_STATE {
     ($field:ident = $val:expr) => {
-        unsafe { $crate::ksSMP[sel4_common::utils::cpu_id()].$field = $val; }
+        unsafe {
+            $crate::ksSMP[sel4_common::utils::cpu_id()].$field = $val;
+        }
     };
 }
 
@@ -251,7 +251,9 @@ macro_rules! SET_NODE_STATE {
 #[macro_export]
 macro_rules! SET_NODE_STATE {
     ($field:ident = $val:expr) => {
-        unsafe { $crate::$field = $val; }
+        unsafe {
+            $crate::$field = $val;
+        }
     };
 }
 
@@ -260,7 +262,9 @@ macro_rules! SET_NODE_STATE {
 #[macro_export]
 macro_rules! SET_NODE_STATE_ON_CORE {
     ($cpu:expr, $field:ident = $val:expr) => {
-        unsafe { $crate::ksSMP[$cpu].$field = $val; }
+        unsafe {
+            $crate::ksSMP[$cpu].$field = $val;
+        }
     };
 }
 
@@ -268,11 +272,15 @@ macro_rules! SET_NODE_STATE_ON_CORE {
 #[macro_export]
 macro_rules! SET_NODE_STATE_ON_CORE {
     ($cpu:expr, $field:ident = $val:expr) => {
-        unsafe { $crate::$field = $val; }
+        unsafe {
+            $crate::$field = $val;
+        }
     };
 
     ($field:ident = $val:expr) => {
-        unsafe { $crate::$field = $val; }
+        unsafe {
+            $crate::$field = $val;
+        }
     };
 }
 
@@ -550,10 +558,10 @@ pub fn reschedule_required() {
 pub fn awaken() {
     while unlikely(
         NODE_STATE!(ksReleaseQueue).head != 0
-        && convert_to_mut_type_ref::<sched_context_t>(
-            convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head).tcbSchedContext,
-        )
-        .refill_ready(),
+            && convert_to_mut_type_ref::<sched_context_t>(
+                convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head).tcbSchedContext,
+            )
+            .refill_ready(),
     ) {
         let awakened = tcb_release_dequeue();
         /* the currently running thread cannot have just woken up */
@@ -665,7 +673,8 @@ pub fn set_next_interrupt() {
         if NODE_STATE!(ksReleaseQueue).head != 0 {
             next_interrupt = core::cmp::min(
                 (*convert_to_mut_type_ref::<sched_context_t>(
-                    convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head).tcbSchedContext,
+                    convert_to_mut_type_ref::<tcb_t>(NODE_STATE!(ksReleaseQueue).head)
+                        .tcbSchedContext,
                 )
                 .refill_head())
                 .rTime,
@@ -708,7 +717,9 @@ pub fn charge_budget(consumed: ticks_t, canTimeoutFault: bool) {
 pub fn commit_time() {
     unsafe {
         let current_sched_context = get_current_sc();
-        if likely(current_sched_context.scRefillMax != 0 && NODE_STATE!(ksCurSC) != NODE_STATE!(ksIdleSC)) {
+        if likely(
+            current_sched_context.scRefillMax != 0 && NODE_STATE!(ksCurSC) != NODE_STATE!(ksIdleSC),
+        ) {
             if likely(NODE_STATE!(ksConsumed) > 0) {
                 assert!(current_sched_context.refill_sufficient(NODE_STATE!(ksConsumed)));
                 assert!(current_sched_context.refill_ready());
@@ -735,8 +746,7 @@ pub fn switch_sched_context() {
     let thread = get_currenct_thread();
     if unlikely(NODE_STATE!(ksCurSC) != thread.tcbSchedContext) {
         SET_NODE_STATE!(ksReprogram = true);
-        if let Some(sc) =
-            convert_to_option_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
+        if let Some(sc) = convert_to_option_mut_type_ref::<sched_context_t>(thread.tcbSchedContext)
         {
             if sc.sc_constant_bandwidth() {
                 sc.refill_unblock_check();

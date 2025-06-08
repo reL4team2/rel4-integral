@@ -95,7 +95,9 @@ fn create_object(
             //     tcbDebugAppend(tcb as *mut tcb_t);
             // }
             #[cfg(all(feature = "enable_smp", feature = "kernel_mcs"))]
-            { tcb.tcbAffinity = sel4_common::utils::cpu_id(); }
+            {
+                tcb.tcbAffinity = sel4_common::utils::cpu_id();
+            }
             return cap_thread_cap::new(tcb.get_ptr() as u64).unsplay();
         }
         ObjectType::CapTableObject => {

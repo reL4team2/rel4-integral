@@ -166,7 +166,11 @@ pub fn try_init_kernel_secondary_core(_hartid: usize, _core_id: usize) -> bool {
     ksNumCPUs.lock().add_assign(1);
     init_core_state(SCHEDULER_ACTION_RESUME_CURRENT_THREAD as *mut tcb_t);
 
-    log::info!("init secondary core success: hart_id: {}, core_id: {}", _hartid, _core_id);
+    log::info!(
+        "init secondary core success: hart_id: {}, core_id: {}",
+        _hartid,
+        _core_id
+    );
 
     true
 }

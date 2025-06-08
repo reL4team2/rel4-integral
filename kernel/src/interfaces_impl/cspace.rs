@@ -22,8 +22,8 @@ use sel4_ipc::{endpoint_func, notification_func, Transfer};
 use sel4_task::{get_currenct_thread, ksWorkUnitsCompleted, tcb_t};
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{
-    is_cur_domain_expired, NODE_STATE, reply::reply_t, sched_context::sched_context_t,
-    update_timestamp, ThreadState, get_current_sc
+    get_current_sc, is_cur_domain_expired, reply::reply_t, sched_context::sched_context_t,
+    update_timestamp, ThreadState, NODE_STATE,
 };
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::find_vspace_for_asid;

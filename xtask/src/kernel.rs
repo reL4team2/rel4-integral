@@ -57,11 +57,7 @@ pub struct BuildOptions {
         default_value = "1"
     )]
     pub num_nodes: usize,
-    #[clap(
-        default_value = "INFO",
-        help = "set log level",
-        long
-    )]
+    #[clap(default_value = "INFO", help = "set log level", long)]
     pub log: String,
 }
 

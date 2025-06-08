@@ -2,11 +2,11 @@ use crate::transfer::Transfer;
 use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::notification;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
-#[cfg(feature = "kernel_mcs")]
-use sel4_task::{NODE_STATE, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, reschedule_required, set_thread_state, tcb_queue_t, tcb_t, ThreadState,
 };
+#[cfg(feature = "kernel_mcs")]
+use sel4_task::{sched_context::sched_context_t, NODE_STATE};
 
 #[derive(PartialEq, Eq, Debug)]
 /// The state of a notification

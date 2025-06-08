@@ -79,7 +79,7 @@ use sel4_task::{
     activateThread, get_currenct_thread, schedule, set_thread_state, tcb_t, ThreadState,
 };
 #[cfg(feature = "kernel_mcs")]
-use sel4_task::{charge_budget, get_current_sc, NODE_STATE, mcs_preemption_point};
+use sel4_task::{charge_budget, get_current_sc, mcs_preemption_point, NODE_STATE};
 pub use utils::*;
 
 use crate::arch::restore_user_context;

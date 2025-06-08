@@ -16,12 +16,12 @@ use sel4_common::{
 };
 use sel4_cspace::interface::cte_t;
 use sel4_task::{
-    get_currenct_thread, NODE_STATE,
+    get_currenct_thread,
     sched_context::{
         max_period_us, min_budget, min_budget_us, refill_absolute_max, sched_context,
         sched_context_t, MIN_REFILLS,
     },
-    set_thread_state, tcb_t, ThreadState,
+    set_thread_state, tcb_t, ThreadState, NODE_STATE,
 };
 
 use crate::{
@@ -42,14 +42,14 @@ pub fn decode_sched_context_invocation(
 ) -> exception_t {
     // sel4_common::println!("go into decode sched context invocation");
     let sc = convert_to_mut_type_ref::<sched_context_t>(capability.get_capSCPtr() as usize);
-    
+
     #[cfg(feature = "enable_smp")]
     {
         if sc.scTcb != 0 {
             crate::smp::ipi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(sc.scTcb));
         }
     }
-    
+
     match inv_label {
         MessageLabel::SchedContextConsumed => {
             set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);

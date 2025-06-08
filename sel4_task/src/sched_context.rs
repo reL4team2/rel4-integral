@@ -18,8 +18,8 @@ use sel4_common::{
 };
 
 use crate::{
-    get_currenct_thread, get_current_sc, SET_NODE_STATE_ON_CORE,
-    reschedule_required, tcb_t, NODE_STATE, SET_NODE_STATE
+    get_currenct_thread, get_current_sc, reschedule_required, tcb_t, NODE_STATE, SET_NODE_STATE,
+    SET_NODE_STATE_ON_CORE,
 };
 
 pub type sched_context_t = sched_context;
@@ -185,7 +185,9 @@ impl sched_context {
         }
         if self.refill_ready() {
             #[allow(unused_unsafe)]
-            unsafe { (*self.refill_head()).rTime = NODE_STATE!(ksCurTime) };
+            unsafe {
+                (*self.refill_head()).rTime = NODE_STATE!(ksCurTime)
+            };
             SET_NODE_STATE!(ksReprogram = true);
             while self.refill_head_overlapping() {
                 let old_head = self.refill_pop_head();
@@ -200,7 +202,9 @@ impl sched_context {
     #[inline]
     pub fn refill_ready(&mut self) -> bool {
         #[allow(unused_unsafe)]
-        unsafe { (*self.refill_head()).rTime <= NODE_STATE!(ksCurTime) + get_kernel_wcet_ticks() }
+        unsafe {
+            (*self.refill_head()).rTime <= NODE_STATE!(ksCurTime) + get_kernel_wcet_ticks()
+        }
     }
     #[inline]
     pub fn refill_index(&self, index: usize) -> *mut refill_t {

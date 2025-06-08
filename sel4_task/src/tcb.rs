@@ -1,7 +1,9 @@
-use crate::tcb_queue::tcb_queue_t;
 use crate::prio_t;
+use crate::tcb_queue::tcb_queue_t;
 #[cfg(feature = "kernel_mcs")]
-use crate::{NODE_STATE, NODE_STATE_ON_CORE, SET_NODE_STATE_ON_CORE, sched_context::sched_context_t};
+use crate::{
+    sched_context::sched_context_t, NODE_STATE, NODE_STATE_ON_CORE, SET_NODE_STATE_ON_CORE,
+};
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
@@ -1052,8 +1054,7 @@ impl tcb_t {
         let new_time = self.Ready_Time();
         let mut queue = NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue);
 
-        if queue.empty() || new_time < convert_to_mut_type_ref::<tcb_t>(queue.head).Ready_Time()
-        {
+        if queue.empty() || new_time < convert_to_mut_type_ref::<tcb_t>(queue.head).Ready_Time() {
             queue.prepend(self);
             SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue = queue);
             SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReprogram = true);
@@ -1062,8 +1063,7 @@ impl tcb_t {
                 queue.append(self);
                 SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue = queue);
             } else {
-                let after =
-                    find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
+                let after = find_time_after(convert_to_mut_type_ref::<tcb_t>(queue.head), new_time);
                 self.queue_insert(convert_to_mut_type_ref(after as usize));
             }
         }
@@ -1108,8 +1108,8 @@ pub fn set_thread_state(tcb: &mut tcb_t, state: ThreadState) {
 pub fn find_time_after(tcb: &mut tcb_t, new_time: ticks_t) -> *mut tcb_t {
     let mut after = tcb;
     while after.time_after(new_time) {
-        if after.tcbSchedContext != 0 {
-            after = convert_to_mut_type_ref::<tcb_t>(after.tcbSchedContext)
+        if after.tcbSchedNext != 0 {
+            after = convert_to_mut_type_ref::<tcb_t>(after.tcbSchedNext)
         } else {
             // we do not check the ptr is 0 in time after, but do it here
             break;

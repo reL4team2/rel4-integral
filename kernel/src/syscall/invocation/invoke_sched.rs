@@ -5,12 +5,11 @@ use sel4_common::{
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
 };
 use sel4_task::{
-    check_budget, commit_time, get_currenct_thread,
-    possible_switch_to, NODE_STATE,
+    check_budget, commit_time, get_currenct_thread, possible_switch_to,
     reply::reply_t,
     reschedule_required,
     sched_context::{sched_context, MIN_REFILLS},
-    tcb_t, SCHED_CONTEXT_SPORADIC,
+    tcb_t, NODE_STATE, SCHED_CONTEXT_SPORADIC,
 };
 
 pub fn invokeSchedContext_UnbindObject(sc: &mut sched_context, capability: cap) -> exception_t {

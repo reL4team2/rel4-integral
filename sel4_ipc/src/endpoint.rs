@@ -4,12 +4,12 @@ use sel4_common::structures_gen::endpoint;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::seL4_Fault_tag::seL4_Fault_NullFault;
 use sel4_common::utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref};
-#[cfg(feature = "kernel_mcs")]
-use sel4_task::{NODE_STATE, reply::reply_t, sched_context::sched_context_t};
 use sel4_task::{
     possible_switch_to, reschedule_required, schedule_tcb, set_thread_state, tcb_queue_t, tcb_t,
     ThreadState,
 };
+#[cfg(feature = "kernel_mcs")]
+use sel4_task::{reply::reply_t, sched_context::sched_context_t, NODE_STATE};
 use sel4_vspace::pptr_t;
 
 pub const EPState_Idle: usize = EPState::Idle as usize;

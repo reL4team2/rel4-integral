@@ -35,7 +35,7 @@ impl Log for SimpleLogger {
 
         let module_path = record.module_path().unwrap_or("");
         let module_name = module_path.split("::").last().unwrap_or("unknown");
-        
+
         println!(
             "\u{1B}[{}m[{:>5} {} {}] {}\u{1B}[0m",
             color,
