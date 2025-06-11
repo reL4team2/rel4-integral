@@ -46,8 +46,16 @@ use crate::{
     interrupt::is_irq_active,
     syscall::{invocation::invoke_irq::invoke_irq_control, lookupSlotForCNodeOp},
 };
+#[cfg(feature = "enable_smp")]
+use sel4_common::platform::NUM_PPI;
+#[cfg(feature = "enable_smp")]
+use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 #[cfg(feature = "enable_smc")]
 use sel4_common::sel4_config::NUM_SMC_REGS;
+#[cfg(feature = "enable_smp")]
+use sel4_common::structures::{irq_to_idx, irqt_to_irq, to_irqt};
+#[cfg(feature = "enable_smp")]
+use crate::arch::arm_gic::gic_v2::gic_v2::set_irq_target;
 #[cfg(feature = "enable_smc")]
 use sel4_common::{
     arch::ArchReg, arch::MessageLabel::ARMSMCCall, arch::MSG_REGISTER_NUM,
@@ -1077,7 +1085,7 @@ pub(crate) fn check_irq(irq: usize) -> exception_t {
     }
     exception_t::EXCEPTION_NONE
 }
-
+#[cfg(not(feature = "enable_smp"))]
 pub fn arch_decode_irq_control_invocation(
     label: MessageLabel,
     length: usize,
@@ -1115,6 +1123,119 @@ pub fn arch_decode_irq_control_invocation(
         set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
         invoke_irq_control(
             irq,
+            convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize),
+            src_slot,
+        )
+    } else {
+        unsafe {
+            current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
+        }
+        return exception_t::EXCEPTION_SYSCALL_ERROR;
+    }
+}
+#[cfg(feature = "enable_smp")]
+pub fn arch_decode_irq_control_invocation(
+    label: MessageLabel,
+    length: usize,
+    src_slot: &mut cte_t,
+    buffer: &seL4_IPCBuffer,
+) -> exception_t {
+    if label == MessageLabel::ARMIRQIssueIRQHandlerTrigger {
+        if length < 4 || get_extra_cap_by_index(0).is_none() {
+            unsafe {
+                current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
+            }
+            return exception_t::EXCEPTION_SYSCALL_ERROR;
+        }
+        let irq = get_syscall_arg(0, buffer);
+        let _trigger = get_syscall_arg(1, buffer) != 0;
+        let index = get_syscall_arg(2, buffer);
+        let depth = get_syscall_arg(3, buffer);
+        let cnode_cap = &get_extra_cap_by_index(0).unwrap().capability;
+        let status = check_irq(irq);
+        if status != exception_t::EXCEPTION_NONE {
+            return status;
+        }
+        if irq < NUM_PPI {
+            unsafe {
+                current_syscall_error._type = SEL4_ILLEGAL_OPERATION;
+            }
+            debug!("Trying to get a handler on a PPI: use GetTriggerCore.");
+            return exception_t::EXCEPTION_SYSCALL_ERROR;
+        }
+        if is_irq_active(irq) {
+            unsafe {
+                current_syscall_error._type = SEL4_REVOKE_FIRST;
+            }
+            debug!("Rejecting request for IRQ {}. Already active.", irq);
+            return exception_t::EXCEPTION_SYSCALL_ERROR;
+        }
+        let lu_ret = lookupSlotForCNodeOp(false, cnode_cap, index, depth);
+        if lu_ret.status != exception_t::EXCEPTION_NONE {
+            debug!("Target slot for new IRQ Handler cap invalid: IRQ {}.", irq);
+            return lu_ret.status;
+        }
+        set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+        invoke_irq_control(
+            irq,
+            convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize),
+            src_slot,
+        )
+    } else if label == MessageLabel::ARMIRQIssueIRQHandlerTriggerCore {
+        let irq_w = get_syscall_arg(0, buffer);
+        let _trigger = get_syscall_arg(1, buffer) != 0;
+        let index = get_syscall_arg(2, buffer);
+        let depth = get_syscall_arg(3, buffer) & 0xff;
+        let target = get_syscall_arg(4, buffer);
+        let cnode_cap = &get_extra_cap_by_index(0).unwrap().capability;
+        let status = check_irq(irq_w);
+        // let irq = to_irqt(irq_w, target);
+        let irq_index = irq_to_idx(to_irqt(irq_w, target));
+        let irq_irq = irqt_to_irq(to_irqt(irq_w, target));
+
+        if status != exception_t::EXCEPTION_NONE {
+            return status;
+        }
+        if target >= CONFIG_MAX_NUM_NODES {
+            unsafe {
+                current_syscall_error._type = SEL4_INVALID_ARGUMENT;
+            }
+            debug!("Target core {} is invalid.", target);
+            return exception_t::EXCEPTION_SYSCALL_ERROR;
+        }
+        if is_irq_active(irq_index) {
+            unsafe {
+                current_syscall_error._type = SEL4_REVOKE_FIRST;
+            }
+            debug!("Rejecting request for IRQ {}. Already active.", irq_irq);
+            return exception_t::EXCEPTION_SYSCALL_ERROR;
+        }
+
+        let lu_ret = lookupSlotForCNodeOp(false, cnode_cap, index, depth);
+        if lu_ret.status != exception_t::EXCEPTION_NONE {
+            debug!(
+                "Target slot for new IRQ Handler cap invalid: IRQ {}.",
+                irq_irq
+            );
+            return lu_ret.status;
+        }
+
+		let status = ensure_empty_slot(convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize));
+		if status != exception_t::EXCEPTION_NONE {
+			debug!(
+                "Target slot for new IRQ Handler cap not empty: IRQ {}.",
+				irq_irq
+            );
+			return status;
+		}
+        set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
+
+		if irq_w >= NUM_PPI {
+			set_irq_target(irq_irq,target);
+		}
+
+        invoke_irq_control(
+            irq_index,
             convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize),
             src_slot,
         )

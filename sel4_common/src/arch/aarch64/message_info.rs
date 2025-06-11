@@ -66,6 +66,8 @@ pub enum MessageLabel {
     ARMASIDControlMakePool,
     ARMASIDPoolAssign,
     ARMIRQIssueIRQHandlerTrigger,
+	#[cfg(feature = "enable_smp")]
+	ARMIRQIssueIRQHandlerTriggerCore,
     nArchInvocationLabels,
 }
 #[cfg(not(feature = "kernel_mcs"))]

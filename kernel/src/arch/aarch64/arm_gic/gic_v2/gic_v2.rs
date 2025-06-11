@@ -109,6 +109,12 @@ pub fn ipi_send_target(irq: usize, target: usize) {
     GIC_DIST.regs().sgi_control.set(val as u32);
 }
 
+#[allow(unused)]
+#[cfg(feature = "enable_smp")]
+pub fn set_irq_target(irq_irq: usize, target: usize) {
+    GIC_DIST.regs().targets[irq_irq].set((1 as u32) << target);
+}
+
 // BOOT_CODE static void dist_init(void)
 // {
 //     word_t i;
