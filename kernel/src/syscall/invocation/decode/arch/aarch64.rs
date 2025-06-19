@@ -39,6 +39,8 @@ use sel4_vspace::{
     pptr_to_paddr, pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
 };
 
+#[cfg(feature = "enable_smp")]
+use crate::arch::arm_gic::gic_v2::gic_v2::set_irq_target;
 use crate::syscall::invocation::invoke_mmu_op::{
     invoke_page_get_address, invoke_page_map, invoke_page_table_unmap, invoke_page_unmap,
 };
@@ -54,8 +56,6 @@ use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 use sel4_common::sel4_config::NUM_SMC_REGS;
 #[cfg(feature = "enable_smp")]
 use sel4_common::structures::{irq_to_idx, irqt_to_irq, to_irqt};
-#[cfg(feature = "enable_smp")]
-use crate::arch::arm_gic::gic_v2::gic_v2::set_irq_target;
 #[cfg(feature = "enable_smc")]
 use sel4_common::{
     arch::ArchReg, arch::MessageLabel::ARMSMCCall, arch::MSG_REGISTER_NUM,
@@ -1220,19 +1220,19 @@ pub fn arch_decode_irq_control_invocation(
             return lu_ret.status;
         }
 
-		let status = ensure_empty_slot(convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize));
-		if status != exception_t::EXCEPTION_NONE {
-			debug!(
+        let status = ensure_empty_slot(convert_to_mut_type_ref::<cte_t>(lu_ret.slot as usize));
+        if status != exception_t::EXCEPTION_NONE {
+            debug!(
                 "Target slot for new IRQ Handler cap not empty: IRQ {}.",
-				irq_irq
+                irq_irq
             );
-			return status;
-		}
+            return status;
+        }
         set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
 
-		if irq_w >= NUM_PPI {
-			set_irq_target(irq_irq,target);
-		}
+        if irq_w >= NUM_PPI {
+            set_irq_target(irq_irq, target);
+        }
 
         invoke_irq_control(
             irq_index,

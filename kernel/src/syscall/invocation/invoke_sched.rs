@@ -1,4 +1,5 @@
 use sel4_common::{
+    arch::get_current_cpu_index,
     platform::time_def::ticks_t,
     structures::exception_t,
     structures_gen::{call_stack, cap, cap_Splayed, cap_tag, notification_t},
@@ -63,6 +64,25 @@ pub fn invoke_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
     sc.sched_context_resume();
     let mut return_now = true;
     let tcb = convert_to_mut_type_ref::<tcb_t>(sc.scTcb);
+    #[cfg(feature = "enable_smp")]
+    if tcb.is_schedulable() {
+        if sc.scCore != get_current_cpu_index()
+            || tcb.tcbPriority < get_currenct_thread().tcbPriority
+        {
+            tcb.sched_dequeue();
+            tcb.sched_enqueue();
+        } else {
+            get_currenct_thread().tcbYieldTo = sc.get_ptr();
+            sc.scYieldFrom = get_currenct_thread().get_ptr();
+            tcb.sched_dequeue();
+            get_currenct_thread().sched_enqueue();
+            tcb.sched_enqueue();
+            reschedule_required();
+            return_now = false;
+        }
+    }
+
+    #[cfg(not(feature = "enable_smp"))]
     if tcb.is_schedulable() {
         if tcb.tcbPriority < get_currenct_thread().tcbPriority {
             tcb.sched_dequeue();

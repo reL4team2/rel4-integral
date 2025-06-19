@@ -87,7 +87,11 @@ pub fn ipi_stall_core_cb(irq_path: bool) {
         crate::arch::restore_user_context();
     } else {
         thread.sched_enqueue();
-        // TODO: mcs support
+        #[cfg(feature = "kernel_mcs")]
+        {
+            sel4_task::commit_time();
+            SET_NODE_STATE!(ksCurSC = sel4_task::get_idle_thread().tcbSchedContext);
+        }
         switch_to_idle_thread();
         SET_NODE_STATE!(ksSchedulerAction = SCHEDULER_ACTION_RESUME_CURRENT_THREAD);
     }
