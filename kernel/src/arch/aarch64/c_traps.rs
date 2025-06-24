@@ -144,8 +144,6 @@ pub fn c_handle_interrupt() {
     // if hart_id() != 0 {
     //     debug!("c_handle_interrupt");
     // }
-    entry_hook();
-
     #[cfg(feature = "enable_smp")]
     {
         use sel4_common::arch::config::IRQ_REMOTE_CALL_IPI;
@@ -153,6 +151,8 @@ pub fn c_handle_interrupt() {
             clh_lock_acquire(cpu_id(), true);
         }
     }
+    entry_hook();
+
     handle_interrupt_entry();
     restore_user_context();
 }

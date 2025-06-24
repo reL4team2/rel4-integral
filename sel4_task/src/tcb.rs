@@ -456,26 +456,28 @@ impl tcb_t {
                 }
             }
         }
-        #[cfg(feature = "kernel_mcs")]
-        unsafe {
-            if self.tcbAffinity != cpu_id() && self.domain == ksCurDomain {
-                let target_current =
-                    convert_to_type_ref::<tcb_t>(ksSMP[self.tcbAffinity].ksCurThread);
-                if ksSMP[self.tcbAffinity].ksIdleThread == ksSMP[self.tcbAffinity].ksCurThread
-                    || self.tcbPriority > target_current.tcbPriority
-                {
-                    ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
-                }
-            }
-        }
+        // #[cfg(feature = "kernel_mcs")]
+        // unsafe {
+        //     if self.tcbAffinity != cpu_id() && self.domain == ksCurDomain {
+        //         let target_current =
+        //             convert_to_type_ref::<tcb_t>(ksSMP[self.tcbAffinity].ksCurThread);
+        //         if ksSMP[self.tcbAffinity].ksIdleThread == ksSMP[self.tcbAffinity].ksCurThread
+        //             || self.tcbPriority > target_current.tcbPriority
+        //         {
+        //             ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
+        //         }
+        //     }
+        // }
     }
 
     #[cfg(feature = "enable_smp")]
     #[inline]
     pub fn update_ipi_reschedule_pending(&self) {
         unsafe {
+            use sel4_common::utils::cpu_id;
+
             use super::scheduler::ksSMP;
-            ksSMP[self.tcbAffinity].ipiReschedulePending |= BIT!(self.tcbAffinity);
+            ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
         }
     }
 
