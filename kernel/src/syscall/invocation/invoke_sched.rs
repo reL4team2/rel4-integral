@@ -1,5 +1,6 @@
+#[cfg(feature = "enable_smp")]
+use sel4_common::arch::get_current_cpu_index;
 use sel4_common::{
-    arch::get_current_cpu_index,
     platform::time_def::ticks_t,
     structures::exception_t,
     structures_gen::{call_stack, cap, cap_Splayed, cap_tag, notification_t},
