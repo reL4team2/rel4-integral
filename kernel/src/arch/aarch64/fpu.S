@@ -17,11 +17,11 @@ save_fpu_state:
 	stp     q28, q29, [x0, #16 * 28]
 	stp     q30, q31, [x0, #16 * 30]
 
-	mov		x1, x0
-	mrs     x1, fpsr
-	str     x1, [x0, #0]
-	mrs     x1, fpcr
-	str     x1, [x0, #4]
+	
+	mrs     x0, fpsr
+	str     w0, [x1]
+	mrs     x0, fpcr
+	str     w0, [x1, #4]
 	ret
 
 .global load_fpu_state
@@ -43,9 +43,8 @@ load_fpu_state:
 	ldp     q28, q29, [x0, #16 * 28]
 	ldp     q30, q31, [x0, #16 * 30]
 
-	mov 	x1, x0
-	ldr     x1, [x0, #0]
-	msr     fpsr, x1
-	ldr     x1, [x0, #4]
-	msr     fpcr, x1
+	ldr     w0, [x1]
+	msr     fpsr, x0
+	ldr     w0, [x1, #4]
+	msr     fpcr, x0
 	ret
