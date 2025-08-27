@@ -322,7 +322,14 @@ impl cte_t {
             let raw_value = ptr::read_volatile((self.get_ptr() + 24) as *const usize);
             let mut value = ((raw_value >> 2) & MASK!(46)) << 2;
             if (value & (1usize << 46)) != 0 {
-                value |= 0xffffff8000000000;
+                #[cfg(not(feature = "hypervisor"))]
+                {
+                    value |= 0xffffff8000000000;
+                }
+                #[cfg(feature = "hypervisor")]
+                {
+                    value |= 0x8000000000;
+                }
             }
             value
         }

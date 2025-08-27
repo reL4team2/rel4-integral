@@ -10,6 +10,8 @@ fn main() {
         "riscv64gc-unknown-none-elf" => "riscv64",
         _ => panic!("Unsupported target"),
     };
+    // let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    // let arch = arch.as_str();
     let platform = std::env::var("PLATFORM").unwrap();
     println!("cargo:rerun-if-changed=pbf/{}/structure_gen.rs", arch);
     let out_dir = path::Path::new(env::var("OUT_DIR").unwrap().as_str()).join("pbf");

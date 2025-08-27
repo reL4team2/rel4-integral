@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 log = "0.4.21"
 aarch64-cpu = "9.4.0"
 cfg-if = "1.0"
@@ -15,11 +14,15 @@ driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", bran
 rust_sel4_pbf_parser= { git = "https://github.com/reL4team2/rust_sel4_pbf_parser/", branch = "master" }
 rel4_config = { path = "../rel4_config" }
 
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+
 [features]
 enable_smp = []
 kernel_mcs = []
 enable_smc = []
 build_binary = []
 have_fpu = []
+hypervisor = []
 riscv_ext_d = []
 riscv_ext_f = []

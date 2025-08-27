@@ -45,6 +45,22 @@ pub fn restore_user_context() {
 
         #[cfg(feature = "have_fpu")]
         lazy_fpu_restore(get_currenct_thread());
+        #[cfg(feature = "hypervisor")]
+
+        #[cfg(feature = "hypervisor")]
+        macro_rules! restore {
+            () => {
+                r#"msr elr_el2, x22
+                msr spsr_el2, x23"#
+            };
+        }
+        #[cfg(not(feature = "hypervisor"))]
+        macro_rules! restore {
+            () => {
+                r#"msr elr_el1, x22
+                msr spsr_el1, x23"#
+            };
+        }
         asm!(
                 "mov     sp, {}                     \n",
 
@@ -52,13 +68,12 @@ pub fn restore_user_context() {
                 "ldp     x21, x22, [sp, #31 * 8] \n",
                 "ldr     x23, [sp, #33 * 8]    \n",
                 "msr     sp_el0, x21                \n",
-        // #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
-        //         "msr     elr_el2, x22               \n"
-        //         "msr     spsr_el2, x23              \n"
-        // #else
-                "msr     elr_el1, x22               \n",
-                "msr     spsr_el1, x23              \n",
-        // #endif
+                // "msr     elr_el2, x22               \n",
+                // "msr     spsr_el2, x23              \n",
+                // "msr     elr_el1, x22               \n",
+                // "msr     spsr_el1, x23              \n",
+                restore!(),
+
                 /* Restore remaining registers */
                 "ldp     x0,  x1,  [sp, #16 * 0]    \n",
                 "ldp     x2,  x3,  [sp, #16 * 1]    \n",

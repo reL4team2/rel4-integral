@@ -95,6 +95,13 @@ pub fn rust_map_kernel_window() {
     let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
 
     while paddr < PADDR_TOP {
+        #[cfg(feature = "hypervisor")]
+        set_kernel_page_directory_by_index(
+            VAddr(vaddr).get_kpt_index(1),
+            VAddr(vaddr).get_kpt_index(2),
+            PTE::pte_new_page(0, paddr, 0, 1, shareable, 0, mair_types::NORMAL as usize),
+        );
+        #[cfg(not(feature = "hypervisor"))]
         set_kernel_page_directory_by_index(
             VAddr(vaddr).get_kpt_index(1),
             VAddr(vaddr).get_kpt_index(2),

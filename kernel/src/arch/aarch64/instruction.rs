@@ -15,17 +15,13 @@ macro_rules! mrs {
 /// Set the value of the system register
 macro_rules! msr {
     ($reg: literal, $v: literal) => {
-        {
-            unsafe {
-                core::arch::asm!(concat!("msr ", $reg, ", {0}"), const $v);
-            }
+        unsafe {
+            core::arch::asm!(concat!("msr ", $reg, ", {0}"), const $v);
         }
     };
     ($reg: literal, $v: ident) => {
-        {
-            unsafe {
-                core::arch::asm!(concat!("msr ", $reg, ", {0}"), in(reg) $v);
-            }
+        unsafe {
+            core::arch::asm!(concat!("msr ", $reg, ", {0}"), in(reg) $v);
         }
     };
 }

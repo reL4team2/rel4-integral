@@ -122,7 +122,7 @@ pub fn try_init_kernel(
             debug!("ERROR: could not create untypteds for kernel image boot memory");
         }
         unsafe {
-            (*ndks_boot.bi_frame).sharedFrames = SlotRegion { start: 0, end: 0 };
+            (*ndks_boot.bi_frame).sharedFrames = SlotRegion::default();
 
             bi_finalise(dtb_size, dtb_phys_addr, extra_bi_size);
         }

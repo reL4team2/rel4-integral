@@ -16,7 +16,6 @@ path = "src/main.rs"
 
 [dependencies]
 buddy_system_allocator = "0.6"
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 aarch64-cpu = "9.4.0"
 log = "0.4"
 tock-registers = "0.8"
@@ -34,7 +33,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 rel4_config = { path = "../rel4_config" }
 
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+
 [features]
+hypervisor = ["sel4_common/hypervisor", "sel4_cspace/hypervisor", "sel4_vspace/hypervisor"]
 enable_smp = ["sel4_common/enable_smp", "sel4_task/enable_smp", "sel4_vspace/enable_smp"]
 kernel_mcs = ["sel4_common/kernel_mcs", "sel4_task/kernel_mcs", "sel4_cspace/kernel_mcs", "sel4_ipc/kernel_mcs"]
 enable_smc = ["sel4_common/enable_smc", "sel4_cspace/enable_smc"]

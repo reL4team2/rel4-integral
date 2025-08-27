@@ -66,6 +66,11 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
 #[cfg(target_arch = "aarch64")]
 pub fn set_vtable(addr: usize) {
     dsb();
+    #[cfg(feature = "hypervisor")]
+    unsafe {
+        core::arch::asm!("MSR vbar_el2, {0}", in(reg) addr);
+    }
+    #[cfg(not(feature = "hypervisor"))]
     unsafe {
         core::arch::asm!("MSR vbar_el1, {0}", in(reg) addr);
     }

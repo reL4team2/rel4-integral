@@ -31,6 +31,7 @@ pub fn setupReplyMaster(_thread: *mut tcb_t) {
 }
 
 #[no_mangle]
+#[export_name = "lookupIPCBuffer"]
 pub fn lookup_ipc_buffer(isReceiver: bool, thread: *mut tcb_t) -> usize {
     unsafe {
         match (*thread).lookup_ipc_buffer(isReceiver) {

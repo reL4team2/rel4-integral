@@ -7,12 +7,15 @@ edition = "2021"
 bitflags = "2.0.2"
 sel4_cspace = { git = "https://github.com/reL4team2/sel4_cspace.git", branch = "master" }
 sel4_common = { git = "https://github.com/reL4team2/sel4_common.git", branch = "master"}
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 
 log = "0.4"
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-cpu = "9.3"
 
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+
 [features]
 enable_smp = []
+hypervisor = []

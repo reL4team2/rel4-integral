@@ -1,3 +1,5 @@
+use core::ptr::NonNull;
+
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap};
@@ -31,7 +33,7 @@ pub struct v_region_t {
 pub type seL4_SlotPos = usize;
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct SlotRegion {
     pub start: seL4_SlotPos,
     pub end: seL4_SlotPos,

@@ -44,7 +44,10 @@ pub fn init_cpu() -> bool {
     unsafe {
         set_vtable(ffi_addr!(arm_vector_table));
     }
+    #[cfg(not(feature = "hypervisor"))]
     TPIDR_EL1.set(stack_top as u64);
+    #[cfg(feature = "hypervisor")]
+    aarch64_cpu::registers::TPIDR_EL2.set(stack_top as _);
 
     let haveHWFPU = fpsime_hw_cap_test();
 

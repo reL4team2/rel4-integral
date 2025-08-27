@@ -17,6 +17,9 @@ members = [
 [profile.release]
 lto = true
 
+[workspace.dependencies]
+
+
 [patch.'https://github.com/reL4team2/driver-collect.git']
 driver-collect = { path = "driver-collect" }
 [patch.'https://github.com/reL4team2/serial-frame.git']

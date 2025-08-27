@@ -52,7 +52,14 @@ impl ArchTCB {
     /// Config the registers fot the idle thread.
     pub fn config_idle_thread(&mut self, idle_thread: usize, _core: usize) {
         self.registers[ELR_EL1] = idle_thread;
-        self.registers[SPSR_EL1] = (1 << 6) | 5 | (1 << 8);
+        #[cfg(feature = "hypervisor")]
+        {
+            self.registers[SPSR_EL1] = (1 << 6) | 9 | (1 << 8);
+        }
+        #[cfg(not(feature = "hypervisor"))]
+        {
+            self.registers[SPSR_EL1] = (1 << 6) | 5 | (1 << 8);
+        }
     }
 
     /// Save TLS(Thread local Storage) registers

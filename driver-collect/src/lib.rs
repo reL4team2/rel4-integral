@@ -16,9 +16,12 @@ cfg_if! {
         /// Initialize Default Serial Driver
         // pub static DEFAULT_SERIAL: &dyn SerialDriver = Pl011Uart::new(unsafe { NonNull::new_unchecked(0x900_0000 as _) });
 
+        /// TODO: 动态修改地址
+        /// FIXME: 如果是 el1 需要手动更改地址
         pub fn default_serial() -> impl SerialDriver {
             // Pl011Uart::new(unsafe { NonNull::new_unchecked(0x900_0000 as _) })
-            Pl011Uart::new(unsafe { NonNull::new_unchecked(0xffffffffffe00000usize as _) })
+            // Pl011Uart::new(unsafe { NonNull::new_unchecked(0xffffffffffe00000usize as _) })
+            Pl011Uart::new(unsafe { NonNull::new_unchecked(0xffffe00000usize as _) })
         }
     } else if #[cfg(target_arch = "riscv64")] {
         use serial_impl_sbi::SerialSBI;
