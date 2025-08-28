@@ -11,14 +11,16 @@ members = [
     "serial-frame",
     "serial-impl/pl011",
     "serial-impl/sbi",
-    "xtask", 
-    "rel4_config",
+    "rel4-arch",
 ]
+
+exclude = ["rel4_config", "xtask"]
+
 [profile.release]
 lto = true
 
 [workspace.dependencies]
-
+aarch64-cpu = "9.4.0"
 
 [patch.'https://github.com/reL4team2/driver-collect.git']
 driver-collect = { path = "driver-collect" }

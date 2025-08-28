@@ -1,5 +1,6 @@
 use log::{debug, info};
 use sel4_common::arch::config::KERNEL_ELF_BASE;
+use sel4_common::arch::shutdown;
 use sel4_common::{sel4_config::PAGE_BITS, BIT};
 use sel4_task::create_idle_thread;
 #[cfg(feature = "enable_smp")]
@@ -138,6 +139,7 @@ pub fn try_init_kernel(
         }
 
         info!("Booting all finished, dropped to user space");
+        shutdown();
     } else {
         return false;
     }

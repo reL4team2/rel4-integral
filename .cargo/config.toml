@@ -19,7 +19,7 @@ rustflags = ["-Ztls-model=local-exec"]
 RUST_TARGET_PATH = { value = "support/targets", relative = true }
 
 [alias]
-xtask = "run --target=x86_64-unknown-linux-gnu --package xtask --release --"
+xtask = "run --manifest-path ./xtask/Cargo.toml --target=x86_64-unknown-linux-gnu --release --"
 xrun = "xtask run"
 xbuild = "xtask build"
 xrelease = "xtask release"

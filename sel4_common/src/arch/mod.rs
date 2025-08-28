@@ -56,8 +56,8 @@ pub enum ArchReg {
     Cap,
     Badge,
     MsgInfo,
-    FAULT_IP,
-    NEXT_IP,
+    FaultIP,
+    NextIP,
     /// Message Registers Msg(offset)
     Msg(usize),
     /// Frame Registers Frame(Offset)

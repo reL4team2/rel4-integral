@@ -80,7 +80,6 @@ pub fn lookup_extra_caps_with_buf(thread: &mut tcb_t, buf: Option<&seL4_IPCBuffe
 }
 
 // TODO: Remove this option because it not need to check whether is None or Some
-#[inline]
 #[export_name = "getSyscallArg"]
 pub fn get_syscall_arg(i: usize, ipc_buffer: &seL4_IPCBuffer) -> usize {
     match i < MSG_REGISTER_NUM {

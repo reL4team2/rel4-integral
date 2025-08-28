@@ -17,7 +17,7 @@ use crate::syscall::{
 use aarch64_cpu::registers::Readable;
 use aarch64_cpu::registers::TTBR0_EL1;
 use log::debug;
-use sel4_common::arch::ArchReg::*;
+use sel4_common::arch::ArchReg::{self, *};
 use sel4_common::ffi::current_fault;
 use sel4_common::platform::timer;
 use sel4_common::platform::Timer_func;
@@ -223,7 +223,7 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
             exception_t::EXCEPTION_FAULT
         }
         ARM_PREFETCH_ABORT => {
-            let pc = get_currenct_thread().tcbArch.get_register(FAULT_IP);
+            let pc = get_currenct_thread().tcbArch.get_register(ArchReg::FaultIP);
             let fault = get_esr();
             unsafe {
                 current_fault = seL4_Fault_VMFault::new(pc as u64, fault as u64, 1).unsplay();

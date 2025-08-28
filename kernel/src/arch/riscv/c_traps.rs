@@ -225,12 +225,10 @@ pub fn c_handle_exception() {
             unsafe {
                 if !is_fpu_enable() {
                     handle_fpu_fault();
-                    let pc = get_currenct_thread()
-                        .tcbArch
-                        .get_register(ArchReg::FAULT_IP);
+                    let pc = get_currenct_thread().tcbArch.get_register(ArchReg::FaultIP);
                     get_currenct_thread()
                         .tcbArch
-                        .set_register(ArchReg::NEXT_IP, pc);
+                        .set_register(ArchReg::NextIP, pc);
                 } else {
                     handleUserLevelFault(cause, 0);
                 }

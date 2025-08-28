@@ -202,7 +202,7 @@ impl Transfer for tcb_t {
     fn do_fault_transfer(&self, receiver: &mut tcb_t, badge: usize) {
         let sent = match self.tcbFault.get_tag() {
             seL4_Fault_tag::seL4_Fault_CapFault => {
-                receiver.set_mr(CAP_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
+                receiver.set_mr(CAP_FAULT_IP, self.tcbArch.get_register(ArchReg::FaultIP));
                 receiver.set_mr(
                     CAP_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_address() as usize,
@@ -233,7 +233,7 @@ impl Transfer for tcb_t {
                 )
             }
             seL4_Fault_tag::seL4_Fault_VMFault => {
-                receiver.set_mr(VM_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
+                receiver.set_mr(VM_FAULT_IP, self.tcbArch.get_register(ArchReg::FaultIP));
                 receiver.set_mr(
                     VM_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_address() as usize,

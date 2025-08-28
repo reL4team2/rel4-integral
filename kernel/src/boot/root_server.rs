@@ -186,7 +186,7 @@ unsafe fn create_initial_thread(
 
     tcb.tcbIPCBuffer = ipcbuf_vptr;
     tcb.tcbArch.set_register(ArchReg::Cap, bi_frame_vptr);
-    tcb.tcbArch.set_register(ArchReg::NEXT_IP, ui_v_entry);
+    tcb.tcbArch.set_register(ArchReg::NextIP, ui_v_entry);
     #[cfg(feature = "kernel_mcs")]
     {
         configure_sched_context(
@@ -285,7 +285,7 @@ unsafe fn create_initial_thread(
 
     tcb.tcbIPCBuffer = ipcbuf_vptr;
     tcb.tcbArch.set_register(ArchReg::Cap, bi_frame_vptr);
-    tcb.tcbArch.set_register(ArchReg::NEXT_IP, ui_v_entry);
+    tcb.tcbArch.set_register(ArchReg::NextIP, ui_v_entry);
     #[cfg(feature = "kernel_mcs")]
     {
         configure_sched_context(

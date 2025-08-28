@@ -37,9 +37,23 @@ rel4_config = { path = "../rel4_config" }
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 
 [features]
-hypervisor = ["sel4_common/hypervisor", "sel4_cspace/hypervisor", "sel4_vspace/hypervisor"]
-enable_smp = ["sel4_common/enable_smp", "sel4_task/enable_smp", "sel4_vspace/enable_smp"]
-kernel_mcs = ["sel4_common/kernel_mcs", "sel4_task/kernel_mcs", "sel4_cspace/kernel_mcs", "sel4_ipc/kernel_mcs"]
+hypervisor = [
+    "sel4_common/hypervisor",
+    "sel4_cspace/hypervisor",
+    "sel4_vspace/hypervisor",
+    "driver-collect/hypervisor",
+]
+enable_smp = [
+    "sel4_common/enable_smp",
+    "sel4_task/enable_smp",
+    "sel4_vspace/enable_smp",
+]
+kernel_mcs = [
+    "sel4_common/kernel_mcs",
+    "sel4_task/kernel_mcs",
+    "sel4_cspace/kernel_mcs",
+    "sel4_ipc/kernel_mcs",
+]
 enable_smc = ["sel4_common/enable_smc", "sel4_cspace/enable_smc"]
 build_binary = ["sel4_common/build_binary"]
 enable_arm_pcnt = []

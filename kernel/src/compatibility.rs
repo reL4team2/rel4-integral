@@ -30,7 +30,6 @@ pub fn setupReplyMaster(_thread: *mut tcb_t) {
     panic!("should not be invoked")
 }
 
-#[no_mangle]
 #[export_name = "lookupIPCBuffer"]
 pub fn lookup_ipc_buffer(isReceiver: bool, thread: *mut tcb_t) -> usize {
     unsafe {

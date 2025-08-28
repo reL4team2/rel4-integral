@@ -95,10 +95,8 @@ pub fn invoke_tcb_write_registers(
         i += 1;
     }
 
-    dest.tcbArch.set_register(
-        ArchReg::NEXT_IP,
-        dest.tcbArch.get_register(ArchReg::FAULT_IP),
-    );
+    dest.tcbArch
+        .set_register(ArchReg::NextIP, dest.tcbArch.get_register(ArchReg::FaultIP));
 
     if resumeTarget != 0 {
         // cancel_ipc(dest);

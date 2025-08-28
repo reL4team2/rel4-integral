@@ -10,3 +10,6 @@ serial-frame = { git = "https://github.com/reL4team2/serial-frame.git", branch =
 serial-impl-pl011 = { git = "https://github.com/reL4team2/serial-impl-pl011.git", branch = "master" }
 serial-impl-sbi = { git = "https://github.com/reL4team2/serial-impl-sbi.git", branch = "master" }
 cfg-if = "1.0.0"
+
+[features]
+hypervisor = []
