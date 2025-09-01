@@ -42,7 +42,7 @@ impl ArchTCB {
         self.registers[NEXT_IP] = idle_thread;
         self.registers[SSTATUS] = SSTATUS_SPP | SSTATUS_SPIE;
         self.registers[sp] = unsafe {
-            &kernel_stack_alloc.data[core][BIT!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8
+            &kernel_stack_alloc.data[core][bit!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8
         } as usize;
     }
 

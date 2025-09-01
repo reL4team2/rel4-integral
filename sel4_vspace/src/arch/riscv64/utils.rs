@@ -34,7 +34,7 @@ pub fn riscv_get_lvl_pgsize_bits(n: usize) -> usize {
 /// Get n levels page size
 #[inline]
 pub fn riscv_get_lvl_pgsize(n: usize) -> usize {
-    BIT!(riscv_get_lvl_pgsize_bits(n))
+    bit!(riscv_get_lvl_pgsize_bits(n))
 }
 
 ///在`reL4`内核页表中，内核代码，在内核地址空间中被映射了两次，

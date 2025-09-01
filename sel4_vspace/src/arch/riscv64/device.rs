@@ -16,7 +16,7 @@ pub fn map_kernel_devices() {
             if kernel_frame.userAvailable == 0 {
                 reserve_region(p_region_t {
                     start: kernel_frame.paddr.0,
-                    end: kernel_frame.paddr.0 + BIT!(PAGE_BITS),
+                    end: kernel_frame.paddr.0 + bit!(PAGE_BITS),
                 });
             }
         }

@@ -25,7 +25,6 @@ use sel4_task::reply::reply_t;
 use sel4_task::*;
 use sel4_vspace::*;
 
-#[inline]
 #[no_mangle]
 pub fn lookup_fp(_cap: &cap, cptr: usize) -> cap {
     let mut capability = _cap.clone();
@@ -64,7 +63,6 @@ pub fn lookup_fp(_cap: &cap, cptr: usize) -> cap {
     return capability;
 }
 
-#[inline]
 #[no_mangle]
 pub fn thread_state_ptr_mset_blockingObject_tsType(
     ptr: &mut thread_state,
@@ -74,7 +72,6 @@ pub fn thread_state_ptr_mset_blockingObject_tsType(
     (*ptr).0.arr[0] = (ep | tsType) as u64;
 }
 
-#[inline]
 #[no_mangle]
 pub fn endpoint_ptr_mset_epQueue_tail_state(ptr: *mut endpoint, tail: usize, state: usize) {
     unsafe {
@@ -82,7 +79,6 @@ pub fn endpoint_ptr_mset_epQueue_tail_state(ptr: *mut endpoint, tail: usize, sta
     }
 }
 
-#[inline]
 #[no_mangle]
 pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: PTE) {
     let asid = stored_hw_asid.0;
@@ -97,7 +93,6 @@ pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: 
     }
 }
 
-#[inline]
 #[no_mangle]
 pub fn mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(
     ptr: &mut mdb_node,
@@ -108,7 +103,6 @@ pub fn mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(
     ptr.0.arr[1] = (mdbNext | (mdbRevocable << 1) | mdbFirstBadged) as u64;
 }
 
-#[inline]
 #[no_mangle]
 pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
     // cap_capType_equals(cap, cap_page_table_cap) && cap.get_pt_is_mapped() != 0
@@ -116,20 +110,17 @@ pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
         && cap::cap_page_table_cap(capability).get_capPTIsMapped() != 0
 }
 
-#[inline]
 #[no_mangle]
 pub fn fastpath_mi_check(msgInfo: usize) -> bool {
     (msgInfo & MASK!(SEL4_MSG_LENGTH_BITS + SEL4_MSG_EXTRA_CAP_BITS)) > 4
 }
 
-#[inline]
 #[no_mangle]
 pub fn fastpath_copy_mrs(length: usize, src: &mut tcb_t, dest: &mut tcb_t) {
     dest.tcbArch
         .copy_range(&src.tcbArch, MSG_REGISTER[0]..MSG_REGISTER[0] + length);
 }
 
-#[inline]
 #[no_mangle]
 pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     // sel4_common::println!("fastpath call");
@@ -257,7 +248,6 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     fastpath_restore(badge, msgInfo1, get_currenct_thread());
 }
 
-#[inline]
 #[no_mangle]
 #[cfg(not(feature = "kernel_mcs"))]
 pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {

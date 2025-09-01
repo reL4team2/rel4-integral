@@ -1,7 +1,6 @@
 use log::{debug, info};
 use sel4_common::arch::config::KERNEL_ELF_BASE;
-use sel4_common::arch::shutdown;
-use sel4_common::{sel4_config::PAGE_BITS, BIT};
+use sel4_common::{bit, sel4_config::PAGE_BITS};
 use sel4_task::create_idle_thread;
 #[cfg(feature = "enable_smp")]
 use sel4_task::{tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
@@ -34,6 +33,14 @@ use sel4_common::utils::cpu_id;
 #[cfg(feature = "enable_smp")]
 use crate::boot::node_boot_lock;
 
+/// Trying to init kernel
+///
+/// * `ui_p_reg_start`: physical start addr of user image
+/// * `ui_p_reg_end`: physical end addr of user image
+/// * `pv_offset`: phys_to_virt_offset
+/// * `ventry`: virtual address of user image entry
+/// * `dtb_phys_addr`: physical addr of device tree binary
+/// * `dtb_size`: size of device tree binary
 pub fn try_init_kernel(
     ui_p_reg_start: usize,
     ui_p_reg_end: usize,
@@ -63,8 +70,8 @@ pub fn try_init_kernel(
         end: (ui_p_reg_end as isize - pv_offset) as usize,
     };
     let ipcbuf_vptr = ui_v_reg.end;
-    let bi_frame_vptr = ipcbuf_vptr + BIT!(PAGE_BITS);
-    let extra_bi_frame_vptr = bi_frame_vptr + BIT!(BI_FRAME_SIZE_BITS);
+    let bi_frame_vptr = ipcbuf_vptr + bit!(PAGE_BITS);
+    let extra_bi_frame_vptr = bi_frame_vptr + bit!(BI_FRAME_SIZE_BITS);
 
     // Map kernel window area
     rust_map_kernel_window();
@@ -72,7 +79,8 @@ pub fn try_init_kernel(
     // Initialize cpu
     let inited = init_cpu();
     // Initialize the drivers used by the kernel.
-    driver_collect::init();
+    sel4_common::platform::drivers_init();
+
     log::debug!("init_cpu: {}", inited);
 
     // Initialize platform
@@ -88,8 +96,13 @@ pub fn try_init_kernel(
 
     let it_v_reg = v_region_t {
         start: ui_v_reg.start,
-        end: extra_bi_frame_vptr + BIT!(extra_bi_size_bits),
+        end: extra_bi_frame_vptr + bit!(extra_bi_size_bits),
     };
+    log::debug!(
+        "user Image virtual region: {:#x} - {:#x}",
+        it_v_reg.start,
+        it_v_reg.end
+    );
 
     if it_v_reg.end >= USER_TOP {
         debug!(
@@ -129,8 +142,10 @@ pub fn try_init_kernel(
         }
         clean_invalidate_l1_caches();
         invalidate_local_tlb();
-        // debug!("release_secondary_cores start");
+
         *ksNumCPUs.lock() = 1;
+
+        // Set Kernel Lock for SMP
         #[cfg(feature = "enable_smp")]
         {
             clh_lock_init();
@@ -139,7 +154,6 @@ pub fn try_init_kernel(
         }
 
         info!("Booting all finished, dropped to user space");
-        shutdown();
     } else {
         return false;
     }

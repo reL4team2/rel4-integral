@@ -25,11 +25,11 @@ pub fn init_cpu() {
     }
     #[cfg(feature = "enable_smp")]
     {
-        set_sie_mask(BIT!(SIE_SEIE) | BIT!(SIE_STIE) | BIT!(SIE_SSIE));
+        set_sie_mask(bit!(SIE_SEIE) | bit!(SIE_STIE) | bit!(SIE_SSIE));
     }
     #[cfg(not(feature = "enable_smp"))]
     {
-        set_sie_mask(BIT!(SIE_SEIE) | BIT!(SIE_STIE));
+        set_sie_mask(bit!(SIE_SEIE) | bit!(SIE_STIE));
     }
     set_timer(get_time() + RESET_CYCLES);
 

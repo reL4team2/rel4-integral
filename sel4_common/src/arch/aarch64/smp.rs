@@ -1,12 +1,12 @@
 use aarch64_cpu::registers;
 use aarch64_cpu::registers::Readable;
 
-use crate::BIT;
+use crate::bit;
 use core::arch::asm;
 
 #[inline]
 pub fn cpu_index_to_id(index: usize) -> usize {
-    return BIT!(index);
+    return bit!(index);
 }
 
 /// Read the current CPU index from TPIDR_EL1

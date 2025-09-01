@@ -10,12 +10,12 @@ use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, cap_vspace_cap};
 use sel4_common::utils::{pageBitsForSize, ptr_to_mut};
 use sel4_common::{
+    bit,
     sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS},
     structures_gen::lookup_fault,
-    BIT,
 };
 use sel4_cspace::capability::cap_arch_func;
-pub const PAGE_ALIGNED_LEN: usize = BIT!(PT_INDEX_BITS);
+pub const PAGE_ALIGNED_LEN: usize = bit!(PT_INDEX_BITS);
 #[repr(align(4096))]
 #[derive(Clone, Copy)]
 pub struct PageAligned<T>([T; PAGE_ALIGNED_LEN]);
@@ -73,8 +73,8 @@ pub fn set_kernel_page_upper_directory_by_index(idx: usize, pude: PTE) {
 }
 // #[no_mangle]
 // #[link_section = ".page_table"]
-// pub(crate) static mut armKSGlobalKernelPDs: [[PTE; BIT!(PT_INDEX_BITS)]; BIT!(PT_INDEX_BITS)] =
-//     [[PTE(0); BIT!(PT_INDEX_BITS)]; BIT!(PT_INDEX_BITS)];
+// pub(crate) static mut armKSGlobalKernelPDs: [[PTE; bit!(PT_INDEX_BITS)]; bit!(PT_INDEX_BITS)] =
+//     [[PTE(0); bit!(PT_INDEX_BITS)]; bit!(PT_INDEX_BITS)];
 #[no_mangle]
 #[link_section = ".page_table"]
 pub(crate) static mut armKSGlobalKernelPDs: PageAligned<PageAligned<PTE>> =
@@ -399,7 +399,7 @@ pub fn unmap_page(
         *(lu_ret.ptSlot) = PTE(0);
         pte.update(*(lu_ret.ptSlot));
     }
-    assert!(asid < BIT!(16));
+    assert!(asid < bit!(16));
     invalidate_tlb_by_asid(asid);
     Ok(())
 

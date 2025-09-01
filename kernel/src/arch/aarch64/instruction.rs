@@ -1,3 +1,4 @@
+use aarch64_cpu::registers::Readable;
 /// Get value from the system register
 macro_rules! mrs {
     ($reg: literal) => {
@@ -29,10 +30,24 @@ macro_rules! msr {
 /// Get the value of the FAR register.
 #[inline]
 pub fn get_far() -> usize {
-    mrs!("far_el1")
+    #[cfg(feature = "hypervisor")]
+    {
+        aarch64_cpu::registers::FAR_EL2.get() as _
+    }
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        aarch64_cpu::registers::FAR_EL1.get() as _
+    }
 }
 
 #[inline]
 pub fn get_esr() -> usize {
-    mrs!("esr_el1")
+    #[cfg(feature = "hypervisor")]
+    {
+        aarch64_cpu::registers::ESR_EL2.get() as _
+    }
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        aarch64_cpu::registers::ESR_EL1.get() as _
+    }
 }

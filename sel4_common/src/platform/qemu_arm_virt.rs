@@ -17,6 +17,8 @@ pub(crate) const TIMER_OVERHEAD_TICKS: usize = 0;
 use core::arch::asm;
 
 use aarch64_cpu::registers::{Writeable, CNTV_CTL_EL0, CNTV_CVAL_EL0, CNTV_TVAL_EL0};
+use serial_frame::SerialDriver;
+use serial_impl_pl011::Pl011Uart;
 
 use crate::sel4_config::UINT64_MAX;
 #[cfg(feature = "kernel_mcs")]
@@ -46,7 +48,7 @@ impl Timer_func for timer {
         #[cfg(feature = "kernel_mcs")]
         {
             self.ack_deadline_irq();
-            CNTV_CTL_EL0.set(BIT!(0) as u64);
+            CNTV_CTL_EL0.set(bit!(0) as u64);
         }
         #[cfg(not(feature = "kernel_mcs"))]
         {
@@ -80,5 +82,25 @@ impl Timer_func for timer {
     fn ack_deadline_irq(self) {
         let deadline: ticks_t = UINT64_MAX;
         self.set_deadline(deadline);
+    }
+}
+
+/// Initialize Default Serial Driver
+// pub static DEFAULT_SERIAL: &dyn SerialDriver = Pl011Uart::new(unsafe { NonNull::new_unchecked(0x900_0000 as _) });
+
+/// TODO: 动态修改地址
+/// FIXME: 如果是 el1 需要手动更改地址
+pub fn default_serial() -> impl SerialDriver {
+    // Pl011Uart::new(unsafe { NonNull::new_unchecked(0x900_0000 as _) })
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        Pl011Uart::new(unsafe { NonNull::new_unchecked(0xffffffffffe00000usize as _) })
+    }
+    #[cfg(feature = "hypervisor")]
+    {
+        Pl011Uart::new(unsafe {
+            use core::ptr::NonNull;
+            NonNull::new_unchecked(0xffffe00000usize as _)
+        })
     }
 }

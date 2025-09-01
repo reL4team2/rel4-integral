@@ -1,6 +1,6 @@
 use super::ndks_boot;
 use crate::structures::{p_region_t, region_t, v_region_t};
-use crate::{BIT, ROUND_DOWN, ROUND_UP};
+use crate::{bit, ROUND_DOWN, ROUND_UP};
 use log::debug;
 use sel4_common::arch::config::{PADDR_TOP, PPTR_BASE, PPTR_TOP};
 use sel4_common::sel4_bitfield_types::Bitfield;
@@ -47,7 +47,7 @@ pub fn pptr_in_kernel_window(pptr: usize) -> bool {
 pub fn get_n_paging(v_reg: v_region_t, bits: usize) -> usize {
     let start = ROUND_DOWN!(v_reg.start, bits);
     let end = ROUND_UP!(v_reg.end, bits);
-    (end - start) / BIT!(bits)
+    (end - start) / bit!(bits)
 }
 
 #[cfg(target_arch = "riscv64")]
@@ -81,10 +81,10 @@ pub fn write_slot(ptr: *mut cte_t, capability: cap) {
 
 pub fn provide_cap(root_cnode_cap: &cap_cnode_cap, capability: cap) -> bool {
     unsafe {
-        if ndks_boot.slot_pos_cur >= BIT!(CONFIG_ROOT_CNODE_SIZE_BITS) {
+        if ndks_boot.slot_pos_cur >= bit!(CONFIG_ROOT_CNODE_SIZE_BITS) {
             debug!(
                 "ERROR: can't add another cap, all {} (=2^CONFIG_ROOT_CNODE_SIZE_BITS) slots used",
-                BIT!(CONFIG_ROOT_CNODE_SIZE_BITS)
+                bit!(CONFIG_ROOT_CNODE_SIZE_BITS)
             );
             return false;
         }

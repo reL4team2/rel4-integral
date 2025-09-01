@@ -1,4 +1,5 @@
 use crate::arch::aarch64::fpu::disable_fpu;
+use aarch64_cpu::asm::barrier::{self, dsb, isb};
 use aarch64_cpu::registers::TPIDR_EL1;
 use aarch64_cpu::registers::{Writeable, CNTKCTL_EL1};
 use core::arch::asm;
@@ -24,6 +25,11 @@ use super::arm_gic::gic_v2::gic_v2::{cpu_init_local_irq_controller, dist_init};
 pub fn init_cpu() -> bool {
     activate_kernel_vspace();
 
+    #[cfg(feature = "hypervisor")]
+    {
+        super::vcpu::vcpu_boot_init();
+    }
+
     // CPU's exception vector table
     unsafe {
         set_vtable(ffi_addr!(arm_vector_table));
@@ -32,7 +38,7 @@ pub fn init_cpu() -> bool {
     // Setup kernel stack pointer.
     let mut stack_top = unsafe {
         &mut kernel_stack_alloc.data[cpu_id()] as *mut u8 as usize
-            + sel4_common::BIT!(CONFIG_KERNEL_STACK_BITS)
+            + sel4_common::bit!(CONFIG_KERNEL_STACK_BITS)
     };
 
     #[cfg(feature = "enable_smp")]
@@ -114,21 +120,17 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
 }
 
 pub fn clean_invalidate_l1_caches() {
-    unsafe {
-        asm!("dsb sy;"); // DSB SY
-        clean_invalidate_d_pos();
-        asm!("dsb sy;"); // DSB SY
-        invalidate_i_pou();
-        asm!("dsb sy;"); // DSB SY
-    }
+    dsb(barrier::SY);
+    clean_invalidate_d_pos();
+    dsb(barrier::SY);
+    invalidate_i_pou();
+    dsb(barrier::SY);
 }
 pub fn invalidate_local_tlb() {
-    unsafe {
-        asm!("dsb sy;"); // DSB SY
-        asm!("tlbi vmalle1;");
-        asm!("dsb sy;"); // DSB SY
-        asm!("isb;"); // ISB SY
-    }
+    dsb(barrier::SY);
+    unsafe { asm!("tlbi vmalle1") };
+    dsb(barrier::SY);
+    isb(barrier::SY);
 }
 
 fn clean_invalidate_d_pos() {
@@ -163,10 +165,8 @@ fn clean_invalidate_d_by_level(level: usize) {
 }
 
 fn invalidate_i_pou() {
-    unsafe {
-        asm!("ic iallu;");
-        asm!("isb;");
-    }
+    unsafe { asm!("ic iallu") };
+    isb(barrier::SY);
 }
 fn read_clid() -> usize {
     let mut clid: usize;
@@ -207,11 +207,11 @@ fn armv_init_user_access() {
     let mut val: usize = 0;
     #[cfg(feature = "enable_arm_pcnt")]
     {
-        val |= sel4_common::BIT!(0);
+        val |= sel4_common::bit!(0);
     }
     #[cfg(feature = "enable_arm_ptmr")]
     {
-        val |= sel4_common::BIT!(9);
+        val |= sel4_common::bit!(9);
     }
     CNTKCTL_EL1.set(val as u64);
 }

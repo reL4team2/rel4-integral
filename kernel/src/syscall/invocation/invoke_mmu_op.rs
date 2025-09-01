@@ -1,7 +1,7 @@
 #[cfg(target_arch = "aarch64")]
 use core::intrinsics::unlikely;
 #[cfg(target_arch = "aarch64")]
-use sel4_common::BIT;
+use sel4_common::bit;
 use sel4_common::{
     arch::ArchReg,
     message_info::seL4_MessageInfo_func,
@@ -172,7 +172,7 @@ pub fn invoke_page_map(
         pptr_to_paddr(convert_ref_type_to_usize(pt_slot)),
     );
     if unlikely(tlbflush_required) {
-        assert!(asid < BIT!(16));
+        assert!(asid < bit!(16));
         invalidate_tlb_by_asid_va(asid, capability.get_capFMappedAddress() as usize);
     }
     exception_t::EXCEPTION_NONE
@@ -197,7 +197,7 @@ pub fn invoke_page_map(
 //     }
 //     let tlbflush_required = pudSlot.get_pude_type() == 1;
 //     if tlbflush_required {
-//         assert!(asid < BIT!(16));
+//         assert!(asid < bit!(16));
 //         invalidate_tlb_by_asid_va(asid, vaddr);
 //     }
 //     exception_t::EXCEPTION_NONE
@@ -223,7 +223,7 @@ pub fn invoke_page_map(
 //     }
 //     let tlbflush_required = pdSlot.get_pde_type() == 1;
 //     if tlbflush_required {
-//         assert!(asid < BIT!(16));
+//         assert!(asid < bit!(16));
 //         invalidate_tlb_by_asid_va(asid, vaddr);
 //     }
 //     exception_t::EXCEPTION_NONE
@@ -249,7 +249,7 @@ pub fn invoke_page_map(
 //     }
 //     let tlbflush_required = ptSlot.is_present();
 //     if tlbflush_required {
-//         assert!(asid < BIT!(16));
+//         assert!(asid < bit!(16));
 //         invalidate_tlb_by_asid_va(asid, vaddr);
 //     }
 //     exception_t::EXCEPTION_NONE

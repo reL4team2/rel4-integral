@@ -27,7 +27,7 @@ pub fn reply_success_from_kernel(thread: &mut tcb_t) {
 }
 
 // TODO: Remove this attribute to improve security.
-#[allow(static_mut_ref)]
+#[allow(static_mut_refs)]
 pub unsafe fn set_mrs_for_syscall_error(thread: &mut tcb_t) -> usize {
     match current_syscall_error._type {
         SEL4_INVALID_ARGUMENT => thread.set_mr(0, current_syscall_error.invalidArgumentNumber),

@@ -61,7 +61,7 @@ pub fn max_release_time() -> time_t {
     UINT64_MAX - 5 * us_to_ticks(max_period_us())
 }
 pub fn refill_absolute_max(sc_cap: &cap_sched_context_cap) -> usize {
-    return (BIT!(sc_cap.get_capSCSizeBits() as usize) - size_of::<sched_context_t>())
+    return (bit!(sc_cap.get_capSCSizeBits() as usize) - size_of::<sched_context_t>())
         / size_of::<refill_t>();
 }
 

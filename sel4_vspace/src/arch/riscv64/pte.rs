@@ -19,14 +19,14 @@ use super::paddr_to_pptr;
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct PTEFlags: usize {
-        const V = BIT!(0);
-        const R = BIT!(1);
-        const W = BIT!(2);
-        const X = BIT!(3);
-        const U = BIT!(4);
-        const G = BIT!(5);
-        const A = BIT!(6);
-        const D = BIT!(7);
+        const V = bit!(0);
+        const R = bit!(1);
+        const W = bit!(2);
+        const X = bit!(3);
+        const U = bit!(4);
+        const G = bit!(5);
+        const A = bit!(6);
+        const D = bit!(7);
 
         const VRWX  = Self::V.bits() | Self::R.bits() | Self::W.bits() | Self::X.bits();
         const ADUVRX = Self::A.bits() | Self::D.bits() | Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();

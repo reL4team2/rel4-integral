@@ -1,34 +1,44 @@
 use core::arch::asm;
 
-use aarch64_cpu::registers::{Writeable, TTBR0_EL1, TTBR0_EL2, TTBR1_EL1, VTTBR_EL2};
+use aarch64_cpu::registers::Writeable;
+use aarch64_cpu::{asm::barrier, registers};
 use sel4_common::{sel4_config::CONFIG_L1_CACHE_LINE_SIZE_BITS, MASK, ROUND_DOWN};
 #[inline]
 pub fn set_current_kernel_vspace_root(val: usize) {
     #[cfg(not(feature = "hypervisor"))]
     {
-        TTBR1_EL1.set(val as _);
+        registers::TTBR1_EL1.set(val as _);
     }
     #[cfg(feature = "hypervisor")]
     {
-        TTBR0_EL2.set(val as _);
-        unsafe {
-            core::arch::asm!("TLBI ALLE2; dsb sy; isb");
-        }
+        registers::TTBR0_EL2.set(val as _);
+        unsafe { core::arch::asm!("TLBI ALLE2") };
     }
+    barrier::dsb(barrier::SY);
+    barrier::isb(barrier::SY);
 }
 
 #[inline]
 pub fn set_current_user_vspace_root(val: usize) {
     #[cfg(not(feature = "hypervisor"))]
     {
-        TTBR0_EL1.set(val as _);
+        registers::TTBR0_EL1.set(val as _);
+        unsafe { core::arch::asm!("tlbi vmalle1") };
     }
     #[cfg(feature = "hypervisor")]
     {
-        VTTBR_EL2.set(val as _);
+        registers::VTTBR_EL2.set(val as _);
+        invalidate_local_tlb();
+        unsafe {
+            asm!("tlbi alle2");
+            dsb();
+            asm!("tlbi alle1");
+        }
     }
+    dsb();
+    isb();
+    log::warn!("virtual ttbr el2: {:#x}", val);
     // FIXME: use aisd instead of flush tlb
-    unsafe { core::arch::asm!("tlbi vmalle1; dsb sy; isb") };
 }
 
 #[inline]

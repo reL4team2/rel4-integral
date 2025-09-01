@@ -226,11 +226,11 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
         }
 
         let mut i = 0;
-        while i < BIT!(ASID_LOW_BITS) && (asid + i == 0 || pool.get_vspace_by_index(i).is_some()) {
+        while i < bit!(ASID_LOW_BITS) && (asid + i == 0 || pool.get_vspace_by_index(i).is_some()) {
             i += 1;
         }
 
-        if i == BIT!(ASID_LOW_BITS) {
+        if i == bit!(ASID_LOW_BITS) {
             unsafe {
                 current_syscall_error._type = SEL4_DELETE_FIRST;
             }
@@ -265,7 +265,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     let lvl1pt_cap = &get_extra_cap_by_index(0).unwrap().capability;
     if let Some((lvl1pt, asid)) = get_vspace(lvl1pt_cap) {
         let frame_size = cap::cap_frame_cap(&frame_slot.capability).get_capFSize() as usize;
-        let vtop = vaddr + BIT!(pageBitsForSize(frame_size)) - 1;
+        let vtop = vaddr + bit!(pageBitsForSize(frame_size)) - 1;
         if unlikely(vtop >= USER_TOP) {
             unsafe {
                 current_syscall_error._type = SEL4_INVALID_ARGUMENT;

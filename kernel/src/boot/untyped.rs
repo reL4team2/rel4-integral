@@ -1,7 +1,7 @@
 use super::{ndks_boot, utils::*};
 use crate::structures::{p_region_t, region_t, seL4_SlotPos, SlotRegion, UntypedDesc};
 
-use crate::{BIT, IS_ALIGNED, MASK};
+use crate::{bit, IS_ALIGNED, MASK};
 use log::debug;
 use sel4_common::{arch::config::MAX_UNTYPED_BITS, utils::max_free_index};
 use sel4_common::{
@@ -107,7 +107,7 @@ fn create_untypeds_for_region(
                 return false;
             }
         }
-        reg.start += BIT!(size_bits);
+        reg.start += bit!(size_bits);
     }
     return true;
 }

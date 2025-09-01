@@ -23,7 +23,7 @@ pub fn arch_pause() {
 }
 
 pub fn ipi_send_target(irq: usize, target: usize) {
-    let mask = BIT!(target);
+    let mask = bit!(target);
     let core_id = hart_id_to_core_id(target);
     assert!(core_id < CONFIG_MAX_NUM_NODES);
     unsafe {

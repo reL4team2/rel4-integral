@@ -5,7 +5,7 @@ use crate::interrupt::{set_irq_state_by_irq, IRQState};
 use crate::structures::{
     create_frames_of_region_ret_t, region_t, rootserver_mem_t, v_region_t, BootInfo, SlotRegion,
 };
-use crate::{BIT, ROUND_DOWN};
+use crate::{bit, ROUND_DOWN};
 use log::debug;
 use sel4_common::arch::{ArchReg, ArchTCB};
 #[cfg(feature = "kernel_mcs")]
@@ -139,9 +139,8 @@ pub fn root_server_init(
 }
 
 // #[no_mangle]
-#[cfg(target_arch = "aarch64")]
 unsafe fn create_initial_thread(
-    root_cnode_cap: &cap_cnode_cap,
+    #[cfg(target_arch = "aarch64")] root_cnode_cap: &cap_cnode_cap,
     it_pd_cap: &cap_vspace_cap,
     ui_v_entry: usize,
     bi_frame_vptr: usize,
@@ -211,7 +210,7 @@ unsafe fn create_initial_thread(
     }
     tcb.domain = ksCurDomain;
     // log::error!("tcb.domain:{:#x}", &tcb.domain as *const usize as usize);
-    #[cfg(all(eature = "enable_smp", not(feature = "kernel_mcs")))]
+    #[cfg(all(feature = "enable_smp", not(feature = "kernel_mcs")))]
     {
         tcb.tcbAffinity = 0;
     }
@@ -534,22 +533,22 @@ unsafe fn create_root_cnode() -> cap_cnode_cap {
 }
 
 fn calculate_rootserver_size(it_v_reg: v_region_t, extra_bi_size_bits: usize) -> usize {
-    let mut size = BIT!(CONFIG_ROOT_CNODE_SIZE_BITS + SEL4_SLOT_BITS);
-    size += BIT!(SEL4_TCB_BITS);
-    size += BIT!(SEL4_PAGE_BITS);
-    size += BIT!(BI_FRAME_SIZE_BITS);
-    size += BIT!(SEL4_ASID_POOL_BITS);
+    let mut size = bit!(CONFIG_ROOT_CNODE_SIZE_BITS + SEL4_SLOT_BITS);
+    size += bit!(SEL4_TCB_BITS);
+    size += bit!(SEL4_PAGE_BITS);
+    size += bit!(BI_FRAME_SIZE_BITS);
+    size += bit!(SEL4_ASID_POOL_BITS);
     size += if extra_bi_size_bits > 0 {
-        BIT!(extra_bi_size_bits)
+        bit!(extra_bi_size_bits)
     } else {
         0
     };
-    size += BIT!(SEL4_VSPACE_BITS);
+    size += bit!(SEL4_VSPACE_BITS);
     #[cfg(feature = "kernel_mcs")]
     {
-        size += BIT!(SEL4_MIN_SCHED_CONTEXT_BITS);
+        size += bit!(SEL4_MIN_SCHED_CONTEXT_BITS);
     }
-    return size + arch_get_n_paging(it_v_reg) * BIT!(SEL4_PAGE_TABLE_BITS);
+    return size + arch_get_n_paging(it_v_reg) * bit!(SEL4_PAGE_TABLE_BITS);
 }
 
 fn rootserver_max_size_bits(extra_bi_size_bits: usize) -> usize {
@@ -569,8 +568,8 @@ fn rootserver_max_size_bits(extra_bi_size_bits: usize) -> usize {
 fn alloc_rootserver_obj(size_bits: usize, n: usize) -> usize {
     unsafe {
         let allocated = rootserver_mem.start;
-        assert!(allocated % BIT!(size_bits) == 0);
-        rootserver_mem.start += n * BIT!(size_bits);
+        assert!(allocated % bit!(size_bits) == 0);
+        rootserver_mem.start += n * bit!(size_bits);
         assert!(rootserver_mem.start <= rootserver_mem.end);
         allocated
     }
@@ -579,7 +578,7 @@ fn alloc_rootserver_obj(size_bits: usize, n: usize) -> usize {
 #[inline]
 unsafe fn it_alloc_paging() -> usize {
     let allocated = rootserver.paging.start;
-    rootserver.paging.start += BIT!(SEL4_PAGE_TABLE_BITS);
+    rootserver.paging.start += bit!(SEL4_PAGE_TABLE_BITS);
     assert!(rootserver.paging.start <= rootserver.paging.end);
     allocated
 }
@@ -610,7 +609,7 @@ unsafe fn create_rootserver_objects(start: usize, it_v_reg: v_region_t, extra_bi
 
     let n = arch_get_n_paging(it_v_reg);
     rootserver.paging.start = alloc_rootserver_obj(SEL4_PAGE_TABLE_BITS, n);
-    rootserver.paging.end = rootserver.paging.start + n * BIT!(SEL4_PAGE_TABLE_BITS);
+    rootserver.paging.end = rootserver.paging.start + n * bit!(SEL4_PAGE_TABLE_BITS);
     rootserver.tcb = alloc_rootserver_obj(SEL4_TCB_BITS, 1);
 
     #[cfg(feature = "kernel_mcs")]
@@ -726,6 +725,7 @@ unsafe fn rust_create_it_address_space(
     // let PUD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 2;
     // let PD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS;
     let mut vptr = ROUND_DOWN!(it_v_reg.start, PGD_INDEX_OFFSET);
+    // #[cfg(not(feature = "hypervisor"))]
     while vptr < it_v_reg.end {
         if !provide_cap(
             root_cnode_cap,
@@ -733,7 +733,7 @@ unsafe fn rust_create_it_address_space(
         ) {
             return cap_vspace_cap::new(0, 0, 0);
         }
-        vptr += BIT!(PGD_INDEX_OFFSET);
+        vptr += bit!(PGD_INDEX_OFFSET);
     }
 
     // Create any PDs needed for the user land image
@@ -745,7 +745,7 @@ unsafe fn rust_create_it_address_space(
         ) {
             return cap_vspace_cap::new(0, 0, 0);
         }
-        vptr += BIT!(PUD_INDEX_OFFSET);
+        vptr += bit!(PUD_INDEX_OFFSET);
     }
 
     // Create any PTs needed for the user land image
@@ -757,7 +757,7 @@ unsafe fn rust_create_it_address_space(
         ) {
             return cap_vspace_cap::new(0, 0, 0);
         }
-        vptr += BIT!(PD_INDEX_OFFSET);
+        vptr += bit!(PD_INDEX_OFFSET);
     }
 
     let slot_pos_after = ndks_boot.slot_pos_cur;
@@ -768,6 +768,13 @@ unsafe fn rust_create_it_address_space(
     vspace_cap
 }
 
+/// Initialize Boot Information
+///
+/// * `root_cnode_cap`: root cnode capability
+/// * `it_pd_cap`: initial thread vspace capability
+/// * `bi_frame_vptr`: virtual pointer of boot information frame
+/// * `extra_bi_size`: extra boot information size
+/// * `extra_bi_frame_vptr`: virtual pointer of extra boot information frame
 #[cfg(target_arch = "aarch64")]
 fn init_bi_frame_cap(
     root_cnode_cap: &cap_cnode_cap,
@@ -872,7 +879,7 @@ fn rust_create_frames_of_region(
                 success: false,
             };
         }
-        f += BIT!(PAGE_BITS);
+        f += bit!(PAGE_BITS);
     }
     unsafe {
         let slot_pos_after = ndks_boot.slot_pos_cur;
@@ -916,7 +923,7 @@ fn rust_create_frames_of_region(
                 success: false,
             };
         }
-        f += BIT!(PAGE_BITS);
+        f += bit!(PAGE_BITS);
     }
     unsafe {
         let slot_pos_after = ndks_boot.slot_pos_cur;
@@ -930,6 +937,11 @@ fn rust_create_frames_of_region(
     }
 }
 
+/// Create boot information frame cap
+///
+/// - Create Frame Cap
+/// - Map frame cap to pd_cap
+/// - Add frame cap to cnode slot
 #[cfg(target_arch = "aarch64")]
 unsafe fn create_bi_frame_cap(
     root_cnode_cap: &cap_cnode_cap,

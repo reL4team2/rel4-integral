@@ -1,5 +1,5 @@
 use crate::arch::VAddr;
-use sel4_common::BIT;
+use sel4_common::bit;
 use sel4_common::{
     arch::{
         config::{KERNEL_ELF_BASE_OFFSET, PPTR_BASE_OFFSET},
@@ -57,7 +57,7 @@ pub fn get_ulvl_pgsize_bits(n: usize) -> usize {
 }
 #[inline]
 pub fn get_ulvl_pgsize(n: usize) -> usize {
-    BIT!(upt_level_shift(n))
+    bit!(upt_level_shift(n))
 }
 
 #[inline]

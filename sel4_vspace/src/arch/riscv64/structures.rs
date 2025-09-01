@@ -15,7 +15,7 @@ pub struct lookupPTSlot_ret_t {
 /// 用于存放`asid`对应的根页表基址，是一个`usize`的数组，其中`asid`按低`ASID_LOW_BITS`位进行索引
 #[derive(Copy, Clone)]
 pub struct asid_pool_t {
-    pub array: [*mut PTE; BIT!(ASID_LOW_BITS)],
+    pub array: [*mut PTE; bit!(ASID_LOW_BITS)],
 }
 
 /// `asid pool`相关操作
@@ -32,7 +32,7 @@ impl asid_pool_t {
 
     #[inline]
     pub fn set_vspace_by_index(&mut self, index: usize, vspace_ptr: pptr_t) {
-        // assert!(index < BIT!(ASID_LOW_BITS));
+        // assert!(index < bit!(ASID_LOW_BITS));
         self.array[index] = vspace_ptr as *mut PTE;
     }
 }

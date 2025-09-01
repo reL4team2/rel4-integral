@@ -224,16 +224,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "driver-collect"
-version = "0.1.0"
-dependencies = [
- "cfg-if",
- "serial-frame",
- "serial-impl-pl011",
- "serial-impl-sbi",
-]
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -668,7 +658,6 @@ dependencies = [
  "aarch64-cpu",
  "buddy_system_allocator",
  "cfg-if",
- "driver-collect",
  "log",
  "rel4_config",
  "riscv",
@@ -797,12 +786,14 @@ version = "0.1.0"
 dependencies = [
  "aarch64-cpu",
  "cfg-if",
- "driver-collect",
  "log",
  "rel4-arch",
  "rel4_config",
  "riscv",
  "rust_sel4_pbf_parser",
+ "serial-frame",
+ "serial-impl-pl011",
+ "serial-impl-sbi",
  "spin 0.9.8",
 ]
 

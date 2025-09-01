@@ -1,5 +1,3 @@
-use core::ptr::NonNull;
-
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap};

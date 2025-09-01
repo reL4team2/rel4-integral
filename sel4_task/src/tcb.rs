@@ -8,6 +8,8 @@ use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
 };
+#[cfg(feature = "enable_smp")]
+use sel4_common::bit;
 use sel4_common::fault::*;
 use sel4_common::ffi::current_fault;
 use sel4_common::message_info::seL4_MessageInfo_func;
@@ -21,8 +23,6 @@ use sel4_common::structures_gen::{
 #[cfg(not(feature = "kernel_mcs"))]
 use sel4_common::structures_gen::{cap_reply_cap, mdb_node};
 use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
-#[cfg(feature = "enable_smp")]
-use sel4_common::BIT;
 use sel4_common::MASK;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::{platform::time_def::ticks_t, utils::convert_to_option_mut_type_ref};
@@ -442,7 +442,7 @@ impl tcb_t {
                     if ksSMP[self.tcbAffinity].ksIdleThread == ksSMP[self.tcbAffinity].ksCurThread
                         || self.tcbPriority > target_current.tcbPriority
                     {
-                        ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
+                        ksSMP[cpu_id()].ipiReschedulePending |= bit!(self.tcbAffinity);
                     }
                 }
                 #[cfg(feature = "kernel_mcs")]
@@ -451,7 +451,7 @@ impl tcb_t {
                         || self.tcbPriority > target_current.tcbPriority
                         || ksSMP[self.tcbAffinity].ksReprogram
                     {
-                        ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
+                        ksSMP[cpu_id()].ipiReschedulePending |= bit!(self.tcbAffinity);
                     }
                 }
             }
@@ -464,7 +464,7 @@ impl tcb_t {
         //         if ksSMP[self.tcbAffinity].ksIdleThread == ksSMP[self.tcbAffinity].ksCurThread
         //             || self.tcbPriority > target_current.tcbPriority
         //         {
-        //             ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
+        //             ksSMP[cpu_id()].ipiReschedulePending |= bit!(self.tcbAffinity);
         //         }
         //     }
         // }
@@ -477,7 +477,7 @@ impl tcb_t {
             use sel4_common::utils::cpu_id;
 
             use super::scheduler::ksSMP;
-            ksSMP[cpu_id()].ipiReschedulePending |= BIT!(self.tcbAffinity);
+            ksSMP[cpu_id()].ipiReschedulePending |= bit!(self.tcbAffinity);
         }
     }
 

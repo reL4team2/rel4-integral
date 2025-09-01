@@ -3,10 +3,10 @@ use sel4_common::{
         config::{PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_TOP},
         vm_rights_t,
     },
+    bit,
     sel4_config::{ARM_LARGE_PAGE, ARM_SMALL_PAGE, PUD_INDEX_BITS, SEL4_LARGE_PAGE_BITS},
     structures_gen::{cap, cap_frame_cap, cap_page_table_cap, cap_vspace_cap},
     utils::convert_to_mut_type_ref,
-    BIT,
 };
 
 use crate::{
@@ -108,8 +108,8 @@ pub fn rust_map_kernel_window() {
             PTE::pte_new_page(1, paddr, 0, 1, shareable, 0, mair_types::NORMAL as usize),
         );
 
-        vaddr += BIT!(SEL4_LARGE_PAGE_BITS);
-        paddr += BIT!(SEL4_LARGE_PAGE_BITS)
+        vaddr += bit!(SEL4_LARGE_PAGE_BITS);
+        paddr += bit!(SEL4_LARGE_PAGE_BITS)
     }
 
     //     /* put the PD into the PUD for device window */
@@ -125,12 +125,12 @@ pub fn rust_map_kernel_window() {
     set_kernel_page_upper_directory_by_index(
         VAddr(PPTR_TOP).get_kpt_index(1),
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(
-            BIT!(PUD_INDEX_BITS) - 1,
+            bit!(PUD_INDEX_BITS) - 1,
         ))),
     );
     set_kernel_page_directory_by_index(
-        BIT!(PUD_INDEX_BITS) - 1,
-        BIT!(PUD_INDEX_BITS) - 1,
+        bit!(PUD_INDEX_BITS) - 1,
+        bit!(PUD_INDEX_BITS) - 1,
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_table_base())),
     );
     map_kernel_devices();
@@ -218,8 +218,11 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     // TODO: Make set_attr usage more efficient.
     // TIPS: exec true will be cast to 1 and false to 0.
     let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
-
-    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, 0, 1, 1, shareable, 1, 0).0);
+    #[cfg(not(feature = "hypervisor"))]
+    let (ng, attr) = (1, 0);
+    #[cfg(feature = "hypervisor")]
+    let (ng, attr) = (1, 0);
+    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, 0, ng, 1, shareable, 1, attr).0);
     pte.set_next_level_paddr(pptr_to_paddr(frame_cap.get_capFBasePtr() as usize));
 }
 

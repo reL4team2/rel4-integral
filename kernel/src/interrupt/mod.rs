@@ -170,9 +170,9 @@ pub fn mask_interrupt(disable: bool, irq: usize) {
     #[cfg(target_arch = "riscv64")]
     if irq == KERNEL_TIMER_IRQ {
         if disable {
-            clear_sie_mask(BIT!(SIE_STIE));
+            clear_sie_mask(bit!(SIE_STIE));
         } else {
-            set_sie_mask(BIT!(SIE_STIE));
+            set_sie_mask(bit!(SIE_STIE));
         }
     }
     #[cfg(target_arch = "aarch64")]
@@ -189,7 +189,7 @@ pub fn mask_interrupt(disable: bool, irq: usize) {
 #[inline]
 pub fn is_irq_pending() -> bool {
     let sip = read_sip();
-    if (sip & (BIT!(SIP_STIP) | BIT!(SIP_SEIP))) != 0 {
+    if (sip & (bit!(SIP_STIP) | bit!(SIP_SEIP))) != 0 {
         true
     } else {
         false
@@ -255,22 +255,22 @@ pub fn get_active_irq() -> usize {
     #[cfg(feature = "enable_smp")]
     {
         use sel4_common::arch::riscv64::clear_ipi;
-        if (sip & BIT!(SIP_SEIP)) != 0 {
+        if (sip & bit!(SIP_SEIP)) != 0 {
             irq = 0;
-        } else if (sip & BIT!(SIP_SSIP)) != 0 {
+        } else if (sip & bit!(SIP_SSIP)) != 0 {
             clear_ipi();
             irq = ipi_get_irq();
             // debug!("irq: {}", irq);
-        } else if (sip & BIT!(SIP_STIP)) != 0 {
+        } else if (sip & bit!(SIP_STIP)) != 0 {
             irq = KERNEL_TIMER_IRQ;
         } else {
             irq = IRQ_INVALID;
         }
     }
     #[cfg(not(feature = "enable_smp"))]
-    if (sip & BIT!(SIP_SEIP)) != 0 {
+    if (sip & bit!(SIP_SEIP)) != 0 {
         irq = 0;
-    } else if (sip & BIT!(SIP_STIP)) != 0 {
+    } else if (sip & bit!(SIP_STIP)) != 0 {
         irq = KERNEL_TIMER_IRQ;
     } else {
         irq = IRQ_INVALID;
@@ -282,7 +282,6 @@ pub fn get_active_irq() -> usize {
 }
 
 #[cfg(target_arch = "aarch64")]
-#[inline]
 #[no_mangle]
 pub fn get_active_irq() -> usize {
     /*

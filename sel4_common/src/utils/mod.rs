@@ -1,6 +1,11 @@
 //! Utility functions and macros.
 use core::slice;
 
+pub mod no_lock;
+
+#[cfg(not(feature = "SMP"))]
+use rel4_arch::aarch64::macros;
+
 use crate::sel4_config::*;
 
 #[macro_export]
@@ -39,12 +44,17 @@ macro_rules! IS_ALIGNED {
 
 #[macro_export]
 /// Calculate 1 << n for given n.
-macro_rules! BIT {
+macro_rules! bit {
     ($e:expr) => {
-        {
-            1usize<<$e
-        }
-    }
+        (1 << ($e))
+    };
+}
+
+#[macro_export]
+macro_rules! bits {
+    ($($e:expr),*) => {
+        $( (1 << ($e)) )|*
+    };
 }
 
 /// Get the global variable.
@@ -66,7 +76,7 @@ pub macro unsafe_ops($expr: expr) {
 
 #[inline]
 pub fn max_free_index(bits: usize) -> usize {
-    BIT!(bits - SEL4_MIN_UNTYPED_BITS)
+    bit!(bits - SEL4_MIN_UNTYPED_BITS)
 }
 
 #[inline]
@@ -154,7 +164,6 @@ pub fn cpu_id() -> usize {
 }
 
 #[no_mangle]
-#[inline]
 pub fn pageBitsForSize(page_size: usize) -> usize {
     match page_size {
         RISCV_4K_PAGE => RISCV_PAGE_BITS,

@@ -41,7 +41,7 @@ pub struct BuildOptions {
     pub arm_pcnt: bool,
     #[clap(long)]
     pub arm_ptmr: bool,
-    #[clap(long)]
+    #[clap(long, default_value = "false")]
     arm_hypervisor: bool,
     #[clap(long, help = "Only build the reL4 rust kernel")]
     pub rust_only: bool,
@@ -118,6 +118,7 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
     if opts.arm_hypervisor && target.contains("aarch64") {
         append_features(&mut args, "hypervisor".to_string());
         marcos.push("ARCH_ARM_HYP=true".to_string());
+        marcos.push("AARCH64_VSPACE_S2_START_L1=true".to_string());
     }
 
     if opts.num_nodes > 1 {
@@ -180,7 +181,6 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
         if opts.arm_hypervisor {
             define.push("-DKernelArmHypervisorSupport=ON".to_string());
         }
-        
         if opts.num_nodes > 1 {
             define.push(format!("-DSMP=TRUE"));
             define.push(format!("-DNUM_NODES={}", opts.num_nodes));

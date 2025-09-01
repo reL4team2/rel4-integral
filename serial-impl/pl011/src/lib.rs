@@ -1,6 +1,4 @@
 #![no_std]
-#![feature(const_nonnull_new)]
-#![feature(const_option)]
 
 //! Types and definitions for PL011 UART.
 //!

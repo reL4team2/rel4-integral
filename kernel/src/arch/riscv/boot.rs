@@ -57,8 +57,8 @@ pub fn try_init_kernel(
         end: (ui_p_reg_end as isize - pv_offset) as usize,
     };
     let ipcbuf_vptr = ui_v_reg.end;
-    let bi_frame_vptr = ipcbuf_vptr + BIT!(PAGE_BITS);
-    let extra_bi_frame_vptr = bi_frame_vptr + BIT!(BI_FRAME_SIZE_BITS);
+    let bi_frame_vptr = ipcbuf_vptr + bit!(PAGE_BITS);
+    let extra_bi_frame_vptr = bi_frame_vptr + bit!(BI_FRAME_SIZE_BITS);
     rust_map_kernel_window();
     init_cpu();
     init_plat();
@@ -72,7 +72,7 @@ pub fn try_init_kernel(
 
     let it_v_reg = v_region_t {
         start: ui_v_reg.start,
-        end: extra_bi_frame_vptr + BIT!(extra_bi_size_bits),
+        end: extra_bi_frame_vptr + bit!(extra_bi_size_bits),
     };
 
     if it_v_reg.end >= USER_TOP {

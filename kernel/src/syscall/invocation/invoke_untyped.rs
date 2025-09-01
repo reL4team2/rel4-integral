@@ -10,7 +10,7 @@ use sel4_common::structures_gen::{
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::{cap_reply_cap, cap_sched_context_cap};
 use sel4_common::{
-    sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref, BIT, ROUND_DOWN,
+    bit, sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref, ROUND_DOWN,
 };
 use sel4_cspace::deps::preemption_point;
 use sel4_cspace::interface::{cte_t, insert_new_cap};
@@ -142,7 +142,7 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
         prev_cap.set_capFreeIndex(0);
     } else {
         let mut offset: isize = ROUND_DOWN!(offset - 1, chunk) as isize;
-        while offset != -(BIT!(chunk) as isize) {
+        while offset != -(bit!(chunk) as isize) {
             clear_memory(
                 GET_OFFSET_FREE_PTR(region_base, offset as usize) as *mut u8,
                 chunk,
@@ -152,7 +152,7 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
             if status != exception_t::EXCEPTION_NONE {
                 return status;
             }
-            offset -= BIT!(chunk) as isize;
+            offset -= bit!(chunk) as isize;
         }
     }
     exception_t::EXCEPTION_NONE

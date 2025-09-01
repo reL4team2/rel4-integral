@@ -1,3 +1,4 @@
+use crate::bit;
 #[cfg(target_arch = "aarch64")]
 use sel4_common::{
     sel4_config::{ID_AA64PFR0_EL1_ASIMD, ID_AA64PFR0_EL1_FP},
@@ -7,13 +8,11 @@ use sel4_common::{
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{dsb, isb};
 
-use crate::BIT;
-
 #[cfg(target_arch = "riscv64")]
 #[inline]
 pub fn clear_memory(ptr: *mut u8, bits: usize) {
     unsafe {
-        core::slice::from_raw_parts_mut(ptr, BIT!(bits)).fill(0);
+        core::slice::from_raw_parts_mut(ptr, bit!(bits)).fill(0);
     }
 }
 
@@ -31,10 +30,10 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
     use sel4_vspace::{clean_cache_range_ram, pptr_to_paddr};
 
     unsafe {
-        core::slice::from_raw_parts_mut(ptr, BIT!(bits)).fill(0);
+        core::slice::from_raw_parts_mut(ptr, bit!(bits)).fill(0);
         clean_cache_range_ram(
             ptr as usize,
-            ptr_to_usize_add(ptr, BIT!(bits) - 1),
+            ptr_to_usize_add(ptr, bit!(bits) - 1),
             pptr_to_paddr(ptr as usize),
         );
     }
@@ -53,10 +52,10 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
 //     use sel4_vspace::{clean_cache_range_pou, pptr_to_paddr};
 
 //     unsafe {
-//         core::slice::from_raw_parts_mut(ptr, BIT!(bits)).fill(0);
+//         core::slice::from_raw_parts_mut(ptr, bit!(bits)).fill(0);
 //         clean_cache_range_pou(
 //             ptr as usize,
-//             ptr.add(BIT!(bits) - 1) as usize,
+//             ptr.add(bit!(bits) - 1) as usize,
 //             pptr_to_paddr(ptr as usize),
 //         );
 //     }
@@ -65,15 +64,12 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
 #[inline]
 #[cfg(target_arch = "aarch64")]
 pub fn set_vtable(addr: usize) {
+    use aarch64_cpu::registers::Writeable;
     dsb();
     #[cfg(feature = "hypervisor")]
-    unsafe {
-        core::arch::asm!("MSR vbar_el2, {0}", in(reg) addr);
-    }
+    aarch64_cpu::registers::VBAR_EL2.set(addr as _);
     #[cfg(not(feature = "hypervisor"))]
-    unsafe {
-        core::arch::asm!("MSR vbar_el1, {0}", in(reg) addr);
-    }
+    aarch64_cpu::registers::VBAR_EL1.set(addr as _);
     isb();
 }
 

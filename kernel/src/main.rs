@@ -1,16 +1,12 @@
 #![no_std]
 #![crate_type = "staticlib"]
 #![feature(core_intrinsics)]
-#![feature(const_option)]
-#![feature(const_nonnull_new)]
 #![no_main]
 #![allow(internal_features)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 #![feature(alloc_error_handler)]
-#![feature(asm_const)]
-#![feature(panic_info_message)]
 #![feature(linkage)]
 #![feature(stmt_expr_attributes)]
 
@@ -34,7 +30,7 @@ mod interfaces_impl;
 mod smp;
 
 use boot::interface::rust_try_init_kernel;
-pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
+pub use sel4_common::{bit, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
 use sel4_task::{activateThread, schedule};
 use structures::p_region_t;
 
@@ -72,6 +68,7 @@ pub fn init_kernel(
         &avail_p_regs as *const p_region_t as *const usize,
         core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
     );
+
     let result = rust_try_init_kernel(
         ui_p_reg_start,
         ui_p_reg_end,

@@ -7,7 +7,7 @@ mod utils;
 use core::mem::size_of;
 
 // use crate::ffi::tcbDebugAppend;
-use crate::{BIT, ROUND_UP};
+use crate::{bit, ROUND_UP};
 use log::debug;
 use sel4_common::arch::config::PADDR_TOP;
 #[cfg(feature = "kernel_mcs")]
@@ -51,7 +51,7 @@ pub fn calculate_extra_bi_size_bits(size: usize) -> usize {
 
     let clzl_ret = ROUND_UP!(size, SEL4_PAGE_BITS).leading_zeros() as usize;
     let mut msb = SEL4_WORD_BITS - 1 - clzl_ret;
-    if size > BIT!(msb) {
+    if size > bit!(msb) {
         msb += 1;
     }
     return msb;
@@ -62,7 +62,7 @@ pub fn init_dtb(
     dtb_phys_addr: usize,
     extra_bi_size: &mut usize,
 ) -> Option<p_region_t> {
-    let mut dtb_p_reg = p_region_t { start: 0, end: 0 };
+    let mut dtb_p_reg: sel4_common::structures::p_region_t = p_region_t { start: 0, end: 0 };
     if dtb_size > 0 {
         let dtb_phys_end = dtb_phys_addr + dtb_size;
         if dtb_phys_end < dtb_phys_addr {
@@ -124,7 +124,7 @@ pub fn bi_finalise(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) 
     unsafe {
         (*ndks_boot.bi_frame).empty = SlotRegion {
             start: ndks_boot.slot_pos_cur,
-            end: BIT!(CONFIG_ROOT_CNODE_SIZE_BITS),
+            end: bit!(CONFIG_ROOT_CNODE_SIZE_BITS),
         };
     }
     init_bootinfo(dtb_size, dtb_phys_addr, extra_bi_size);

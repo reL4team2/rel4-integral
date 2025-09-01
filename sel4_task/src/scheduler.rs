@@ -21,7 +21,7 @@ use sel4_common::sel4_config::{
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 use sel4_common::utils::{convert_to_mut_type_ref, ptr_to_usize_add};
-use sel4_common::{BIT, MASK};
+use sel4_common::{bit, MASK};
 
 use crate::deps::ksIdleThreadTCB;
 #[cfg(feature = "kernel_mcs")]
@@ -395,14 +395,14 @@ pub fn add_to_bitmap(_cpu: usize, dom: usize, prio: usize) {
         let l1index_inverted = invert_l1index(l1index);
         #[cfg(feature = "enable_smp")]
         {
-            ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] |= BIT!(l1index);
+            ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] |= bit!(l1index);
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] |=
-                BIT!(prio & MASK!(WORD_RADIX));
+                bit!(prio & MASK!(WORD_RADIX));
         }
         #[cfg(not(feature = "enable_smp"))]
         {
-            ksReadyQueuesL1Bitmap[dom] |= BIT!(l1index);
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= BIT!(prio & MASK!(WORD_RADIX));
+            ksReadyQueuesL1Bitmap[dom] |= bit!(l1index);
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= bit!(prio & MASK!(WORD_RADIX));
         }
     }
 }
@@ -416,16 +416,16 @@ pub fn remove_from_bigmap(_cpu: usize, dom: usize, prio: usize) {
         #[cfg(feature = "enable_smp")]
         {
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] &=
-                !BIT!(prio & MASK!(WORD_RADIX));
+                !bit!(prio & MASK!(WORD_RADIX));
             if unlikely(ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
-                ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] &= !(BIT!((l1index)));
+                ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] &= !(bit!((l1index)));
             }
         }
         #[cfg(not(feature = "enable_smp"))]
         {
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !BIT!(prio & MASK!(WORD_RADIX));
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !bit!(prio & MASK!(WORD_RADIX));
             if unlikely(ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
-                ksReadyQueuesL1Bitmap[dom] &= !(BIT!((l1index)));
+                ksReadyQueuesL1Bitmap[dom] &= !(bit!((l1index)));
             }
         }
     }

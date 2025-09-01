@@ -30,7 +30,7 @@ use sel4_common::{
     structures::{exception_t, seL4_IPCBuffer},
     MASK,
 };
-use sel4_common::{BIT, IS_ALIGNED};
+use sel4_common::{bit, IS_ALIGNED};
 use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::interface::{cte_insert, cte_t};
 
@@ -221,7 +221,7 @@ fn decode_page_clean_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let page_size = BIT!(pageBitsForSize(
+    let page_size = bit!(pageBitsForSize(
         cap::cap_frame_cap(&cte.capability).get_capFSize() as usize
     ));
     if start >= page_size || end > page_size {
@@ -370,7 +370,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
     unsafe {
-        core::slice::from_raw_parts_mut(frame as *mut u8, BIT!(SEL4_ASID_POOL_BITS)).fill(0);
+        core::slice::from_raw_parts_mut(frame as *mut u8, bit!(SEL4_ASID_POOL_BITS)).fill(0);
     }
     cte_insert(
         &cap_asid_pool_cap::new(asid_base as u64, frame as u64).unsplay(),
@@ -427,11 +427,11 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     let mut i = 0;
 
     // TODO: Make pool judge more efficient and pretty.
-    while i < BIT!(ASID_LOW_BITS) && (asid + i == 0 || pool[i].0.arr[0] != 0) {
+    while i < bit!(ASID_LOW_BITS) && (asid + i == 0 || pool[i].0.arr[0] != 0) {
         i += 1;
     }
 
-    if i == BIT!(ASID_LOW_BITS) {
+    if i == bit!(ASID_LOW_BITS) {
         unsafe {
             current_syscall_error._type = SEL4_DELETE_FIRST;
         }
@@ -507,7 +507,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
     } else {
-        if unlikely(vaddr + BIT!(pageBitsForSize(frame_size)) - 1 > USER_TOP) {
+        if unlikely(vaddr + bit!(pageBitsForSize(frame_size)) - 1 > USER_TOP) {
             global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
             global_ops!(current_syscall_error.invalidArgumentNumber = 0);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
@@ -642,7 +642,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
     //     }
     // } else {
-    //     let vtop = vaddr + BIT!(pageBitsForSize(frame_size)) - 1;
+    //     let vtop = vaddr + bit!(pageBitsForSize(frame_size)) - 1;
     //     if unlikely(vtop >= USER_TOP) {
     //         unsafe {
     //             current_syscall_error._type = SEL4_INVALID_ARGUMENT;

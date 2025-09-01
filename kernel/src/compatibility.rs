@@ -3,7 +3,6 @@ use sel4_cspace::interface::cte_t;
 use sel4_task::{set_thread_state, tcb_t, ThreadState};
 use sel4_vspace::{vptr_t, PTE};
 
-#[inline]
 #[no_mangle]
 pub fn isMDBParentOf() {
     panic!("should not be invoked!")

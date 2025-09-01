@@ -19,14 +19,14 @@ use super::{
 ///页表采用`SV39`，该变量是内核使用的页表的根页表（一级页表）
 #[no_mangle]
 #[link_section = ".page_table"]
-pub(crate) static mut kernel_root_pageTable: [PTE; BIT!(PT_INDEX_BITS)] =
-    [PTE::pte_invalid(); BIT!(PT_INDEX_BITS)];
+pub(crate) static mut kernel_root_pageTable: [PTE; bit!(PT_INDEX_BITS)] =
+    [PTE::pte_invalid(); bit!(PT_INDEX_BITS)];
 
 ///内核使用的二级页表
 #[no_mangle]
 #[link_section = ".page_table"]
-pub(crate) static mut kernel_image_level2_pt: [PTE; BIT!(PT_INDEX_BITS)] =
-    [PTE::pte_invalid(); BIT!(PT_INDEX_BITS)];
+pub(crate) static mut kernel_image_level2_pt: [PTE; bit!(PT_INDEX_BITS)] =
+    [PTE::pte_invalid(); bit!(PT_INDEX_BITS)];
 
 pub(crate) static mut KERNEL_ROOT_PAGE_TABLE: PageTable = PageTable::new(paddr_t(0));
 pub(crate) static mut KERNEL_LEVEL2_PAGE_TABLE: PageTable = PageTable::new(paddr_t(0));
@@ -144,7 +144,7 @@ pub fn activate_kernel_vspace() {
 #[no_mangle]
 pub fn copyGlobalMappings(Lvl1pt: usize) {
     let mut i: usize = riscv_get_pt_index(0x80000000, 0);
-    while i < BIT!(PT_INDEX_BITS) {
+    while i < bit!(PT_INDEX_BITS) {
         unsafe {
             let newLvl1pt = (Lvl1pt + i * 8) as *mut usize;
             *newLvl1pt = kernel_root_pageTable[i].0;

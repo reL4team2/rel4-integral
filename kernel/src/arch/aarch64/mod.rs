@@ -6,6 +6,9 @@ pub(self) mod instruction;
 mod pg;
 mod platform;
 
+#[cfg(feature = "hypervisor")]
+pub mod vcpu;
+
 pub mod arm_gic;
 #[cfg(feature = "have_fpu")]
 pub mod fpu;

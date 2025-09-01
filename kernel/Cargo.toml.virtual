@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "kernel",
-    "driver-collect",
     "sel4_common",
     "sel4_cspace",
     "sel4_ipc",
@@ -15,8 +14,6 @@ members = [
 [profile.release]
 lto = true
 
-[patch.'https://github.com/reL4team2/driver-collect.git']
-driver-collect = { path = "driver-collect" }
 [patch.'https://github.com/reL4team2/serial-frame.git']
 serial-frame = { path = "serial-frame" }
 [patch.'https://github.com/reL4team2/serial-impl-pl011.git']

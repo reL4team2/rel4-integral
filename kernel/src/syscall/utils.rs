@@ -2,8 +2,9 @@ use core::intrinsics::unlikely;
 
 use crate::kernel::boot::current_extra_caps;
 use crate::{
+    bit,
     kernel::boot::{current_lookup_fault, current_syscall_error},
-    BIT, IS_ALIGNED, MASK,
+    IS_ALIGNED, MASK,
 };
 use log::debug;
 use sel4_common::arch::{maskVMRights, ArchReg, MSG_REGISTER_NUM};
@@ -31,7 +32,7 @@ use sel4_ipc::notification_func;
 use sel4_task::{get_currenct_thread, lookupSlot_ret_t, tcb_t};
 
 pub fn alignUp(baseValue: usize, alignment: usize) -> usize {
-    (baseValue + BIT!(alignment) - 1) & !MASK!(alignment)
+    (baseValue + bit!(alignment) - 1) & !MASK!(alignment)
 }
 
 pub fn FREE_INDEX_TO_OFFSET(freeIndex: usize) -> usize {

@@ -1,5 +1,6 @@
 use crate::PTE;
 use sel4_common::{
+    bit,
     sel4_config::{ASID_HIGH_BITS, ASID_LOW_BITS, IT_ASID},
     structures::exception_t,
     structures_gen::{
@@ -7,7 +8,7 @@ use sel4_common::{
         cap_asid_pool_cap, cap_vspace_cap, lookup_fault, lookup_fault_invalid_root,
     },
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
-    BIT, MASK,
+    MASK,
 };
 
 use crate::{asid_pool_t, asid_t, findVSpaceForASID_ret, set_vm_root};
@@ -16,11 +17,11 @@ use sel4_common::structures_gen::asid_map;
 use super::asid_pool_from_addr;
 use super::machine::invalidate_local_tlb_asid;
 
-pub(crate) static mut armKSASIDTable: [usize; BIT!(ASID_HIGH_BITS)] = [0; BIT!(ASID_HIGH_BITS)];
+pub(crate) static mut armKSASIDTable: [usize; bit!(ASID_HIGH_BITS)] = [0; bit!(ASID_HIGH_BITS)];
 
 #[inline]
 fn get_asid_table() -> &'static mut [usize] {
-    unsafe { core::slice::from_raw_parts_mut(armKSASIDTable.as_mut_ptr(), BIT!(ASID_HIGH_BITS)) }
+    unsafe { core::slice::from_raw_parts_mut(&raw mut armKSASIDTable as _, bit!(ASID_HIGH_BITS)) }
 }
 
 #[inline]
@@ -96,7 +97,7 @@ pub fn delete_asid_pool(
     if pool as usize == pool_in_table {
         // clear all asid in target asid pool
         let pool = convert_to_mut_type_ref::<asid_pool_t>(pool_in_table);
-        for offset in 0..BIT!(ASID_LOW_BITS) {
+        for offset in 0..bit!(ASID_LOW_BITS) {
             let asidmap = &pool[offset];
             if asidmap.get_tag() == asid_map_tag::asid_map_asid_map_vspace {
                 invalidate_local_tlb_asid(asid_base + offset);
@@ -109,7 +110,6 @@ pub fn delete_asid_pool(
 }
 
 #[no_mangle]
-#[inline]
 pub fn write_it_asid_pool(it_ap_cap: &cap_asid_pool_cap, it_vspace_cap: &cap_vspace_cap) {
     let ap = asid_pool_from_addr(it_ap_cap.get_capASIDPool() as usize);
     let asidmap = asid_map_asid_map_vspace::new(it_vspace_cap.get_capVSBasePtr() as u64).unsplay();

@@ -65,7 +65,7 @@ pub struct ArchTCB {
 impl Default for ArchTCB {
     fn default() -> Self {
         let mut uctx = UserContext::default();
-        uctx.spsr = (SPSR_EL1::F::SET + SPSR_EL1::A::SET).value;
+        uctx.spsr = (SPSR_EL1::F::Masked + SPSR_EL1::A::Masked).value;
         Self { ctx: uctx }
     }
 }

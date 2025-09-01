@@ -15,8 +15,8 @@ use crate::{asid_pool_t, asid_t, findVSpaceForASID_ret, pptr_t, set_vm_root, PTE
 ///存放`asid pool`的数组，每一个下标对应一个`asid pool`，
 ///一个`asid pool`可以存放`ASID_LOW_BITS`个asid值
 #[no_mangle]
-pub static mut riscvKSASIDTable: [*mut asid_pool_t; BIT!(ASID_HIGH_BITS)] =
-    [0 as *mut asid_pool_t; BIT!(ASID_HIGH_BITS)];
+pub static mut riscvKSASIDTable: [*mut asid_pool_t; bit!(ASID_HIGH_BITS)] =
+    [0 as *mut asid_pool_t; bit!(ASID_HIGH_BITS)];
 
 pub fn write_it_asid_pool(it_ap_cap: &cap_asid_pool_cap, it_lvl1pt_cap: &cap_page_table_cap) {
     let ap = it_ap_cap.get_capASIDPool() as usize;
@@ -53,7 +53,7 @@ pub fn delete_asid(
 ///
 /// From `riscvKSASIDSpace` set the index-relevant asid pool.
 pub fn set_asid_pool_by_index(index: usize, pool_ptr: pptr_t) {
-    // assert!(index < BIT!(ASID_HIGH_BITS));
+    // assert!(index < bit!(ASID_HIGH_BITS));
     unsafe {
         riscvKSASIDTable[index] = pool_ptr as *mut asid_pool_t;
     }
@@ -65,7 +65,7 @@ pub fn set_asid_pool_by_index(index: usize, pool_ptr: pptr_t) {
 #[inline]
 pub fn get_asid_pool_by_index(index: usize) -> Option<&'static mut asid_pool_t> {
     unsafe {
-        if unlikely(index >= BIT!(ASID_HIGH_BITS)) {
+        if unlikely(index >= bit!(ASID_HIGH_BITS)) {
             return None;
         }
         return convert_to_option_mut_type_ref::<asid_pool_t>(riscvKSASIDTable[index] as usize);
