@@ -7,6 +7,10 @@
 #![allow(non_upper_case_globals)]
 #![allow(clippy::enum_clike_unportable_variant)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+
+#[macro_use]
+extern crate rel4_utils;
+
 pub mod arch;
 pub mod console;
 pub mod fault;
@@ -20,6 +24,8 @@ pub mod sel4_config;
 pub mod structures;
 pub mod utils;
 pub mod vm_rights;
+
+pub use rel4_utils::{bit, bits};
 
 // pbf auto generated code
 pub mod shared_types_bf_gen {

@@ -70,9 +70,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.9.1"
+version = "2.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
+checksum = "2261d10cca569e4643e526d8dc2e62e433cc8aba21ab764233731f8d369bf394"
 
 [[package]]
 name = "block-buffer"
@@ -291,7 +291,7 @@ version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf760ebf69878d9fd8f110c89703d90ce35095324d1f1edcb595c63945ee757"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "ignore",
  "walkdir",
 ]
@@ -636,10 +636,16 @@ name = "rel4-arch"
 version = "0.1.0"
 dependencies = [
  "aarch64-cpu",
+ "bitflags 2.9.4",
  "cfg-if",
  "log",
+ "rel4-utils",
  "static_assertions",
 ]
+
+[[package]]
+name = "rel4-utils"
+version = "0.1.0"
 
 [[package]]
 name = "rel4_config"
@@ -723,7 +729,7 @@ version = "0.38.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "errno",
  "libc",
  "linux-raw-sys",
@@ -788,6 +794,7 @@ dependencies = [
  "cfg-if",
  "log",
  "rel4-arch",
+ "rel4-utils",
  "rel4_config",
  "riscv",
  "rust_sel4_pbf_parser",
@@ -833,8 +840,9 @@ name = "sel4_vspace"
 version = "0.1.0"
 dependencies = [
  "aarch64-cpu",
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "log",
+ "rel4-utils",
  "riscv",
  "sel4_common",
  "sel4_cspace",

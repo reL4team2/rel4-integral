@@ -1,4 +1,3 @@
-use crate::bit;
 use crate::sel4_bitfield_types::Bitfield;
 use crate::sel4_config::{CONFIG_KERNEL_STACK_BITS, CONFIG_MAX_NUM_NODES};
 use crate::structures_gen::seL4_Fault;

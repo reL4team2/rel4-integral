@@ -5,6 +5,10 @@
 #![allow(non_upper_case_globals)]
 #![feature(decl_macro)]
 #![feature(core_intrinsics)]
+
+#[macro_use]
+extern crate rel4_utils;
+
 pub mod arch;
 mod asid;
 mod boot;

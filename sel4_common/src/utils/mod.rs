@@ -3,9 +3,6 @@ use core::slice;
 
 pub mod no_lock;
 
-#[cfg(not(feature = "SMP"))]
-use rel4_arch::aarch64::macros;
-
 use crate::sel4_config::*;
 
 #[macro_export]
@@ -42,30 +39,13 @@ macro_rules! IS_ALIGNED {
     }};
 }
 
-#[macro_export]
-/// Calculate 1 << n for given n.
-macro_rules! bit {
-    ($e:expr) => {
-        (1 << ($e))
-    };
-}
-
-#[macro_export]
-macro_rules! bits {
-    ($($e:expr),*) => {
-        $( (1 << ($e)) )|*
-    };
-}
-
 /// Get the global variable.
 /// WARN: But on smp, need to becareful to use this macro.
 /// TODO: Write macro ffi_set or other functions to set the global variable
-#[cfg(not(feature = "SMP"))]
 pub macro global_read($name: ident) {
     unsafe { $name }
 }
 
-#[cfg(not(feature = "SMP"))]
 pub macro global_ops($expr: expr) {
     unsafe { $expr }
 }

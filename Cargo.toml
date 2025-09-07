@@ -11,6 +11,7 @@ members = [
     "serial-impl/pl011",
     "serial-impl/sbi",
     "rel4-arch",
+    "rel4-utils",
 ]
 
 exclude = ["rel4_config", "xtask"]
@@ -20,6 +21,7 @@ lto = true
 
 [workspace.dependencies]
 aarch64-cpu = "9.4.0"
+rel4-utils = { path = "rel4-utils" }
 
 [patch.'https://github.com/reL4team2/serial-frame.git']
 serial-frame = { path = "serial-frame" }

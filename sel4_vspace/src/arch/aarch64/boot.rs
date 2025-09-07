@@ -26,56 +26,9 @@ enum find_type {
     PTE,
 }
 
-pub const RESERVED: usize = 3;
-
-// BOOT_CODE void map_kernel_window(void)
-// {
-
-//     paddr_t paddr;
-//     pptr_t vaddr;
-//     word_t idx;
-
-//     /* place the PUD into the PGD */
-//     armKSGlobalKernelPGD[get_pgd_index(PPTR_BASE)] = pgde_pgde_pud_new(
-//                                                          addrFromKPPtr(armKSGlobalKernelPUD));
-
-//     /* place all PDs except the last one in PUD */
-//     for (idx = get_pud_index(PPTR_BASE); idx < get_pud_index(PPTR_TOP); idx++) {
-//         armKSGlobalKernelPUD[idx] = pude_pude_pd_new(
-//                                         addrFromKPPtr(&armKSGlobalKernelPDs[idx][0])
-//                                     );
-//     }
-
-//     /* map the kernel window using large pages */
-//     vaddr = PPTR_BASE;
-//     for (paddr = PADDR_BASE; paddr < PADDR_TOP; paddr += BIT(SEL4_LARGE_PAGE_BITS)) {
-//         armKSGlobalKernelPDs[get_pud_index(vaddr)][get_pd_index(vaddr)] = pde_pde_large_new(
-//                                                                               1, // UXN
-//                                                                               paddr,
-//                                                                               0,                        /* global */
-//                                                                               1,                        /* access flag */
-//                                                                               SMP_TERNARY(SMP_SHARE, 0),        /* Inner-shareable if SMP enabled, otherwise unshared */
-//                                                                               0,                        /* VMKernelOnly */
-//                                                                               NORMAL
-//                                                                           );
-//         vaddr += BIT(SEL4_LARGE_PAGE_BITS);
-//     }
-
-//     /* put the PD into the PUD for device window */
-//     armKSGlobalKernelPUD[get_pud_index(PPTR_TOP)] = pude_pude_pd_new(
-//                                                         addrFromKPPtr(&armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][0])
-//                                                     );
-
-//     /* put the PT into the PD for device window */
-//     armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][BIT(PD_INDEX_BITS) - 1] = pde_pde_small_new(
-//                                                                                 addrFromKPPtr(armKSGlobalKernelPT)
-//                                                                             );
-// }
-
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn rust_map_kernel_window() {
-    // println!("go into rusta map kernel window");
     set_kernel_page_global_directory_by_index(
         (VAddr(PPTR_BASE)).get_kpt_index(0),
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_upper_directory_base())),
@@ -111,16 +64,6 @@ pub fn rust_map_kernel_window() {
         vaddr += bit!(SEL4_LARGE_PAGE_BITS);
         paddr += bit!(SEL4_LARGE_PAGE_BITS)
     }
-
-    //     /* put the PD into the PUD for device window */
-    //     armKSGlobalKernelPUD[get_pud_index(PPTR_TOP)] = pude_pude_pd_new(
-    //                                                         addrFromKPPtr(&armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][0])
-    //                                                     );
-
-    //     /* put the PT into the PD for device window */
-    //     armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][BIT(PD_INDEX_BITS) - 1] = pde_pde_small_new(
-    //                                                                                 addrFromKPPtr(armKSGlobalKernelPT)
-    //
 
     set_kernel_page_upper_directory_by_index(
         VAddr(PPTR_TOP).get_kpt_index(1),
@@ -243,18 +186,35 @@ fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
     pt[vptr.pt_index()].self_addr()
 }
 
+/// Create a new pud cap in the vspace.
+///
+/// vptr is the virtual address of the pud cap will be created
+/// pptr is the address to the physical address will be mapped
+#[no_mangle]
+#[link_section = ".boot.text"]
+pub fn create_it_pud_cap(
+    vspace_cap: &cap_vspace_cap,
+    pptr: pptr_t,
+    vptr: vptr_t,
+    asid: usize,
+) -> cap_page_table_cap {
+    let capability = cap_page_table_cap::new(asid as u64, pptr as u64, 1, vptr as u64);
+    map_it_pud_cap(vspace_cap, &capability);
+    return capability;
+}
+
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn create_it_pd_cap(vspace_cap: &cap_vspace_cap, pptr: usize, vptr: usize, asid: usize) -> cap {
     let capability = cap_page_table_cap::new(asid as u64, pptr as u64, 1, vptr as u64);
     map_it_pd_cap(vspace_cap, &capability);
-    return capability.unsplay();
+    capability.unsplay()
 }
 
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn create_unmapped_it_frame_cap(pptr: pptr_t, use_large: bool) -> cap_frame_cap {
-    return create_it_frame_cap(pptr, 0, 0, use_large);
+    create_it_frame_cap(pptr, 0, 0, use_large)
 }
 
 #[no_mangle]

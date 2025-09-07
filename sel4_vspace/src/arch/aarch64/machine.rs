@@ -59,16 +59,12 @@ pub const fn ttbr_new(asid: usize, addr: usize) -> usize {
 */
 #[inline]
 pub fn dsb() {
-    unsafe {
-        asm!("dsb sy", options(nostack, preserves_flags));
-    }
+    barrier::dsb(barrier::SY);
 }
 
 #[inline]
 pub fn isb() {
-    unsafe {
-        asm!("isb sy", options(nostack, preserves_flags));
-    }
+    barrier::isb(barrier::SY);
 }
 
 #[inline]

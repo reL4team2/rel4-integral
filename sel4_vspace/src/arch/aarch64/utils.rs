@@ -144,23 +144,6 @@ pub struct PTE(pub usize);
 #[derive(Debug, Clone)]
 pub struct ASID(usize);
 
-/// Implemente generic function for given Ident
-#[macro_export]
-macro_rules! impl_multi {
-    ($($t:ident),* {$($block:item)*}) => {
-        macro_rules! methods {
-            () => {
-                $($block)*
-            };
-        }
-        $(
-            impl $t {
-                methods!();
-            }
-        )*
-    }
-}
-
 // // Implemente generic function for PGDE PUDE PDE
 // impl_multi!(PGDE, PUDE, PDE {
 //     /// Get the slice of the next level page.
