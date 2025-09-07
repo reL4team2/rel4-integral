@@ -5,6 +5,7 @@ use crate::syscall::ThreadState;
 use crate::syscall::{current_lookup_fault, get_syscall_arg, set_thread_state, unlikely};
 use crate::syscall::{ensure_empty_slot, get_currenct_thread, lookup_slot_for_cnode_op};
 use log::debug;
+use rel4_arch::basic::PAddr;
 use sel4_common::arch::maskVMRights;
 use sel4_common::platform::MAX_IRQ;
 use sel4_common::sel4_bitfield_types::Bitfield;
@@ -164,9 +165,12 @@ fn decode_page_table_invocation(
         global_ops!(current_syscall_error._type = SEL4_DELETE_FIRST);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let pte = PTE::pte_new_table(pptr_to_paddr(
-        cap::cap_page_table_cap(&cte.capability).get_capPTBasePtr() as usize,
-    ));
+    let pte = PTE::pte_new_table(
+        pptr_to_paddr(pptr!(
+            cap::cap_page_table_cap(&cte.capability).get_capPTBasePtr()
+        ))
+        .raw(),
+    );
     cap::cap_page_table_cap(&cte.capability).set_capPTIsMapped(1);
     cap::cap_page_table_cap(&cte.capability).set_capPTMappedASID(asid as u64);
     cap::cap_page_table_cap(&cte.capability)
@@ -177,7 +181,7 @@ fn decode_page_table_invocation(
     // log::warn!("Need to clean D-Cache using cleanByVA_PoU");
     clean_by_va_pou(
         convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot)),
-        pptr_to_paddr(convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot))),
+        pptr_to_paddr(pptr!(convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot)))),
     );
     exception_t::EXCEPTION_NONE
 }
@@ -231,7 +235,7 @@ fn decode_page_clean_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let pstart =
-        pptr_to_paddr(cap::cap_frame_cap(&cte.capability).get_capFBasePtr() as usize + start);
+        pptr_to_paddr(pptr!(cap::cap_frame_cap(&cte.capability).get_capFBasePtr()) + start);
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
 
     if start < end {
@@ -514,7 +518,9 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         }
     }
     let mut vspace_root_pte = PTE::new_from_pte(vspace_root);
-    let base = pptr_to_paddr(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize);
+    let base = pptr_to_paddr(pptr!(
+        cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr()
+    ));
     let lu_ret = vspace_root_pte.lookup_pt_slot(vaddr);
     if unlikely(lu_ret.ptBitsLeft != pageBitsForSize(frame_size)) {
         unsafe {
@@ -532,7 +538,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     return invoke_page_map(
         asid,
         cap::cap_frame_cap(&frame_slot.capability.clone()).clone(),
-        PTE::make_user_pte(base, vm_rights, attr, frame_size),
+        PTE::make_user_pte(base.raw(), vm_rights, attr, frame_size),
         pt_slot,
     );
     // match frame_size {
@@ -841,7 +847,7 @@ fn decode_vspace_root_invocation(
                 asid,
                 start,
                 end,
-                pstart,
+                paddr!(pstart),
             );
         }
         _ => {
@@ -857,7 +863,7 @@ fn decode_vspace_flush_invocation(
     asid: asid_t,
     start: vptr_t,
     end: vptr_t,
-    pstart: usize,
+    pstart: PAddr,
 ) -> exception_t {
     if start < end {
         let root_switched = set_vm_root_for_flush(vspace, asid);

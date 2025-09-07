@@ -8,6 +8,8 @@
 
 #[macro_use]
 extern crate rel4_utils;
+#[macro_use]
+extern crate rel4_arch;
 
 pub mod arch;
 mod asid;

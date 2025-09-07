@@ -3,10 +3,13 @@ use super::utils::{arch_get_n_paging, provide_cap, write_slot};
 use super::{ndks_boot, utils::is_reg_empty};
 use crate::interrupt::{set_irq_state_by_irq, IRQState};
 use crate::structures::{
-    create_frames_of_region_ret_t, region_t, rootserver_mem_t, v_region_t, BootInfo, SlotRegion,
+    create_frames_of_region_ret_t, rootserver_mem_t, v_region_t, BootInfo, SlotRegion,
 };
 use crate::{bit, ROUND_DOWN};
 use log::debug;
+use rel4_arch::basic::PPtr;
+#[cfg(target_arch = "aarch64")]
+use rel4_arch::basic::Region;
 use sel4_common::arch::{ArchReg, ArchTCB};
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::platform::{timer, Timer_func};
@@ -32,7 +35,7 @@ use sel4_task::*;
 use sel4_vspace::*;
 #[no_mangle]
 #[link_section = ".boot.bss"]
-pub static mut rootserver_mem: region_t = region_t { start: 0, end: 0 };
+pub static mut rootserver_mem: Region = Region::empty();
 
 #[no_mangle]
 #[link_section = ".boot.bss"]
@@ -46,10 +49,7 @@ pub static mut rootserver: rootserver_mem_t = rootserver_mem_t {
     tcb: 0,
     #[cfg(feature = "kernel_mcs")]
     sc: 0,
-    paging: region_t {
-        start: (0),
-        end: (0),
-    },
+    paging: Region::empty(),
 };
 
 pub fn root_server_init(
@@ -59,7 +59,7 @@ pub fn root_server_init(
     bi_frame_vptr: usize,
     extra_bi_size: usize,
     extra_bi_frame_vptr: usize,
-    ui_reg: region_t,
+    ui_reg: Region,
     pv_offset: isize,
     v_entry: usize,
 ) -> Option<(*mut tcb_t, cap_cnode_cap)> {
@@ -435,7 +435,7 @@ fn init_sched_control(root_cnode_cap: &cap_cnode_cap, num_nodes: usize) -> bool 
 fn create_frame_ui_frames(
     root_cnode_cap: &cap_cnode_cap,
     it_pd_cap: &cap_vspace_cap,
-    ui_reg: region_t,
+    ui_reg: Region,
     pv_offset: isize,
 ) -> bool {
     let create_frames_ret = rust_create_frames_of_region(
@@ -495,24 +495,26 @@ unsafe fn root_server_mem_init(it_v_reg: v_region_t, extra_bi_size_bits: usize) 
         assert!(is_reg_empty(&ndks_boot.freemem[i + 1]));
 
         let empty_index = i + 1;
-        let unaligned_start = ndks_boot.freemem[i].end - size;
+        let unaligned_start = ndks_boot.freemem[i].end.raw() - size;
         let start = ROUND_DOWN!(unaligned_start, max);
 
         /* if unaligned_start didn't underflow, and start fits in the region,
          * then we've found a region that fits the root server objects. */
-        if unaligned_start <= ndks_boot.freemem[i].end && start >= ndks_boot.freemem[i].start {
+        if unaligned_start <= ndks_boot.freemem[i].end.raw()
+            && start >= ndks_boot.freemem[i].start.raw()
+        {
             create_rootserver_objects(start, it_v_reg, extra_bi_size_bits);
-            ndks_boot.freemem[empty_index] = region_t {
-                start: start + size,
+            ndks_boot.freemem[empty_index] = Region {
+                start: PPtr::new(start + size),
                 end: ndks_boot.freemem[i].end,
             };
-            ndks_boot.freemem[i].end = start;
+            ndks_boot.freemem[i].end = PPtr::new(start);
             return;
         }
         /* Region i isn't big enough, so shuffle it up to slot (i + 1),
          * which we know is unused. */
         ndks_boot.freemem[empty_index] = ndks_boot.freemem[i];
-        ndks_boot.freemem[i] = region_t { start: 0, end: 0 };
+        ndks_boot.freemem[i] = Region::empty();
         i -= 1;
     }
 }
@@ -567,7 +569,7 @@ fn rootserver_max_size_bits(extra_bi_size_bits: usize) -> usize {
 
 fn alloc_rootserver_obj(size_bits: usize, n: usize) -> usize {
     unsafe {
-        let allocated = rootserver_mem.start;
+        let allocated = rootserver_mem.start.raw();
         assert!(allocated % bit!(size_bits) == 0);
         rootserver_mem.start += n * bit!(size_bits);
         assert!(rootserver_mem.start <= rootserver_mem.end);
@@ -580,7 +582,7 @@ unsafe fn it_alloc_paging() -> usize {
     let allocated = rootserver.paging.start;
     rootserver.paging.start += bit!(SEL4_PAGE_TABLE_BITS);
     assert!(rootserver.paging.start <= rootserver.paging.end);
-    allocated
+    allocated.raw()
 }
 
 unsafe fn maybe_alloc_extra_bi(cmp_size_bits: usize, extra_bi_size_bits: usize) {
@@ -594,8 +596,8 @@ unsafe fn create_rootserver_objects(start: usize, it_v_reg: v_region_t, extra_bi
     let max = rootserver_max_size_bits(extra_bi_size_bits);
 
     let size = calculate_rootserver_size(it_v_reg, extra_bi_size_bits);
-    rootserver_mem.start = start;
-    rootserver_mem.end = start + size;
+    rootserver_mem.start = PPtr::new(start);
+    rootserver_mem.end = PPtr::new(start + size);
     maybe_alloc_extra_bi(max, extra_bi_size_bits);
 
     rootserver.cnode = alloc_rootserver_obj(cnode_size_bits, 1);
@@ -608,7 +610,7 @@ unsafe fn create_rootserver_objects(start: usize, it_v_reg: v_region_t, extra_bi
     rootserver.boot_info = alloc_rootserver_obj(BI_FRAME_SIZE_BITS, 1);
 
     let n = arch_get_n_paging(it_v_reg);
-    rootserver.paging.start = alloc_rootserver_obj(SEL4_PAGE_TABLE_BITS, n);
+    rootserver.paging.start = PPtr::new(alloc_rootserver_obj(SEL4_PAGE_TABLE_BITS, n));
     rootserver.paging.end = rootserver.paging.start + n * bit!(SEL4_PAGE_TABLE_BITS);
     rootserver.tcb = alloc_rootserver_obj(SEL4_TCB_BITS, 1);
 
@@ -788,9 +790,9 @@ fn init_bi_frame_cap(
     }
     if extra_bi_size > 0 {
         let extra_bi_region = unsafe {
-            region_t {
-                start: rootserver.extra_bi,
-                end: rootserver.extra_bi + extra_bi_size,
+            Region {
+                start: PPtr::new(rootserver.extra_bi),
+                end: PPtr::new(rootserver.extra_bi + extra_bi_size),
             }
         };
         let extra_bi_ret = rust_create_frames_of_region(
@@ -798,7 +800,7 @@ fn init_bi_frame_cap(
             it_pd_cap,
             extra_bi_region,
             true,
-            pptr_to_paddr(extra_bi_region.start) as isize - extra_bi_frame_vptr as isize,
+            pptr_to_paddr(extra_bi_region.start).raw() as isize - extra_bi_frame_vptr as isize,
         );
 
         if !extra_bi_ret.success {
@@ -852,19 +854,19 @@ fn init_bi_frame_cap(
 fn rust_create_frames_of_region(
     root_cnode_cap: &cap_cnode_cap,
     pd_cap: &cap_vspace_cap,
-    reg: region_t,
+    reg: Region,
     do_map: bool,
     pv_offset: isize,
 ) -> create_frames_of_region_ret_t {
     let slot_pos_before = unsafe { ndks_boot.slot_pos_cur };
-    let mut f = reg.start;
+    let mut f = reg.start.raw();
     let mut frame_cap: cap_frame_cap;
-    while f < reg.end {
+    while f < reg.end.raw() {
         if do_map {
             frame_cap = create_mapped_it_frame_cap(
                 pd_cap,
                 f,
-                pptr_to_paddr((f as isize - pv_offset) as usize),
+                pptr_to_paddr(pptr!(f as isize - pv_offset)).raw(),
                 IT_ASID,
                 false,
                 true,

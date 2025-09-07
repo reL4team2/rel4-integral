@@ -11,6 +11,10 @@
 #![feature(stmt_expr_attributes)]
 
 extern crate core;
+
+#[macro_use]
+extern crate rel4_arch;
+
 use sel4_common::arch::shutdown;
 // mod console;
 mod arch;

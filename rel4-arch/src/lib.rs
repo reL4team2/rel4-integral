@@ -7,6 +7,9 @@ extern crate rel4_utils;
 #[macro_use]
 pub mod utils;
 
+#[macro_use]
+pub mod macros;
+
 #[cfg(target_arch = "aarch64")]
 pub mod aarch64;
 

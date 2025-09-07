@@ -34,7 +34,7 @@ pub fn clear_memory(ptr: *mut u8, bits: usize) {
         clean_cache_range_ram(
             ptr as usize,
             ptr_to_usize_add(ptr, bit!(bits) - 1),
-            pptr_to_paddr(ptr as usize),
+            pptr_to_paddr(pptr!(ptr)),
         );
     }
 }

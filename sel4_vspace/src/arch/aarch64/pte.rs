@@ -108,7 +108,9 @@ impl PTE {
     }
 
     pub fn get_pte_from_ppn_mut(&self) -> &mut PTE {
-        convert_to_mut_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << SEL4_PAGE_TABLE_BITS))
+        convert_to_mut_type_ref::<PTE>(
+            paddr_to_pptr(paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)).raw(),
+        )
     }
 
     pub fn get_ppn(&self) -> usize {
@@ -136,7 +138,7 @@ impl PTE {
         *self = pte;
         clean_by_va_pou(
             convert_ref_type_to_usize(self),
-            convert_ref_type_to_usize(self),
+            paddr!(convert_ref_type_to_usize(self)),
         );
     }
 
@@ -248,7 +250,7 @@ impl PTE {
             level = level - 1;
             ret.ptBitsLeft = ret.ptBitsLeft - PT_INDEX_BITS;
             let paddr = ptr_to_mut(ret.ptSlot).next_level_paddr();
-            pt = paddr_to_pptr(paddr) as *mut PTE;
+            pt = paddr_to_pptr(paddr).get_mut_ptr::<PTE>();
             pt = unsafe { pt.add((vptr >> ret.ptBitsLeft) & MASK!(PT_INDEX_BITS)) };
             ret.ptSlot = pt;
         }

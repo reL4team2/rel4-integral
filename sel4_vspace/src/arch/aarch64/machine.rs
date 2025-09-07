@@ -2,6 +2,7 @@ use core::arch::asm;
 
 use aarch64_cpu::registers::Writeable;
 use aarch64_cpu::{asm::barrier, registers};
+use rel4_arch::basic::PAddr;
 use sel4_common::{sel4_config::CONFIG_L1_CACHE_LINE_SIZE_BITS, MASK, ROUND_DOWN};
 #[inline]
 pub fn set_current_kernel_vspace_root(val: usize) {
@@ -90,7 +91,7 @@ pub fn invalidate_local_tlb_va_asid(mva_plus_asid: usize) {
 }
 
 #[inline(always)]
-pub fn clean_by_va_pou(vaddr: usize, _paddr: usize) {
+pub fn clean_by_va_pou(vaddr: usize, _paddr: PAddr) {
     unsafe {
         asm!("dc cvau, {}", in(reg) vaddr);
     }
@@ -98,7 +99,7 @@ pub fn clean_by_va_pou(vaddr: usize, _paddr: usize) {
 }
 
 #[inline(always)]
-pub fn clean_by_va(vaddr: usize, _paddr: usize) {
+pub fn clean_by_va(vaddr: usize, _paddr: PAddr) {
     unsafe {
         asm!("dc cvac, {}", in(reg) vaddr);
     }
@@ -106,7 +107,7 @@ pub fn clean_by_va(vaddr: usize, _paddr: usize) {
 }
 
 #[inline(always)]
-pub fn invalidate_by_va(vaddr: usize, _paddr: usize) {
+pub fn invalidate_by_va(vaddr: usize, _paddr: PAddr) {
     unsafe {
         asm!("dc ivac, {}", in(reg) vaddr);
     }
@@ -114,7 +115,7 @@ pub fn invalidate_by_va(vaddr: usize, _paddr: usize) {
 }
 
 #[inline(always)]
-pub fn clean_inval_by_va(vaddr: usize, _paddr: usize) {
+pub fn clean_inval_by_va(vaddr: usize, _paddr: PAddr) {
     unsafe {
         asm!("dc civac, {}", in(reg) vaddr);
     }
@@ -122,7 +123,7 @@ pub fn clean_inval_by_va(vaddr: usize, _paddr: usize) {
 }
 
 #[inline(always)]
-pub fn invalidate_by_va_i(vaddr: usize, _paddr: usize) {
+pub fn invalidate_by_va_i(vaddr: usize, _paddr: PAddr) {
     unsafe {
         asm!("ic ivau, {}", in(reg) vaddr);
     }
@@ -139,7 +140,7 @@ pub fn dmb() {
 
 // TIPS: please use const to make code cleaner and faster.
 
-pub fn clean_cache_range_ram(start: usize, end: usize, pstart: usize) {
+pub fn clean_cache_range_ram(start: usize, end: usize, pstart: PAddr) {
     clean_cache_range_poc(start, end, pstart);
 
     dsb();
@@ -158,7 +159,7 @@ const fn LINE_INDEX(a: usize) -> usize {
 }
 
 #[inline]
-pub fn invalidate_cache_range_i(start: usize, end: usize, pstart: usize) {
+pub fn invalidate_cache_range_i(start: usize, end: usize, pstart: PAddr) {
     for idx in LINE_INDEX(start)..LINE_INDEX(end) + 1 {
         let line = idx << CONFIG_L1_CACHE_LINE_SIZE_BITS;
         invalidate_by_va_i(line, pstart + line - start);
@@ -166,7 +167,7 @@ pub fn invalidate_cache_range_i(start: usize, end: usize, pstart: usize) {
 }
 
 #[inline]
-pub fn clean_cache_range_poc(start: usize, end: usize, pstart: usize) {
+pub fn clean_cache_range_poc(start: usize, end: usize, pstart: PAddr) {
     for idx in LINE_INDEX(start)..LINE_INDEX(end) + 1 {
         let line = idx << CONFIG_L1_CACHE_LINE_SIZE_BITS;
         clean_by_va(line, pstart + line - start);
@@ -174,14 +175,14 @@ pub fn clean_cache_range_poc(start: usize, end: usize, pstart: usize) {
 }
 
 #[inline]
-pub fn clean_cache_range_pou(start: usize, end: usize, pstart: usize) {
+pub fn clean_cache_range_pou(start: usize, end: usize, pstart: PAddr) {
     for idx in LINE_INDEX(start)..LINE_INDEX(end) + 1 {
         let line = idx << CONFIG_L1_CACHE_LINE_SIZE_BITS;
         clean_by_va_pou(line, pstart + line - start);
     }
 }
 
-pub fn plat_clean_l2_range(_pstart: usize, _pend: usize) {}
+pub fn plat_clean_l2_range(_pstart: PAddr, _pend: PAddr) {}
 
 #[inline]
 const fn loc(x: usize) -> usize {
@@ -217,12 +218,12 @@ pub enum arm_cache_type {
 fn plat_cleanInvalidateL2Range(_start: usize, _end: usize) {}
 
 #[inline]
-pub fn clean_invalidate_cache_range_ram(start: usize, end: usize, pstart: usize) {
+pub fn clean_invalidate_cache_range_ram(start: usize, end: usize, pstart: PAddr) {
     clean_cache_range_poc(start, end, pstart);
 
     dsb();
 
-    plat_cleanInvalidateL2Range(pstart, pstart + end - start);
+    plat_cleanInvalidateL2Range(pstart.raw(), pstart.raw() + end - start);
     for idx in LINE_INDEX(start)..LINE_INDEX(end) + 1 {
         let line = idx << CONFIG_L1_CACHE_LINE_SIZE_BITS;
         clean_inval_by_va(line, pstart + line - start);
@@ -233,7 +234,7 @@ pub fn clean_invalidate_cache_range_ram(start: usize, end: usize, pstart: usize)
 fn plat_invalidateL2Range(_start: usize, _end: usize) {}
 
 #[inline]
-pub fn invalidate_cache_range_ram(start: usize, end: usize, pstart: usize) {
+pub fn invalidate_cache_range_ram(start: usize, end: usize, pstart: PAddr) {
     if start != LINE_START(start) {
         clean_cache_range_ram(start, end, pstart);
     }
@@ -241,7 +242,7 @@ pub fn invalidate_cache_range_ram(start: usize, end: usize, pstart: usize) {
         let line = LINE_START(end);
         clean_cache_range_ram(line, line, pstart + line - start);
     }
-    plat_invalidateL2Range(pstart, pstart + end - start);
+    plat_invalidateL2Range(pstart.raw(), pstart.raw() + end - start);
 
     for idx in LINE_INDEX(start)..LINE_INDEX(end) + 1 {
         let line = idx << CONFIG_L1_CACHE_LINE_SIZE_BITS;

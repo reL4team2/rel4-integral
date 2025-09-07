@@ -11,6 +11,10 @@
 #![feature(stmt_expr_attributes)]
 
 extern crate core;
+
+#[macro_use]
+extern crate rel4_arch;
+
 use sel4_common::arch::shutdown;
 // mod console;
 mod arch;
@@ -32,7 +36,6 @@ mod smp;
 use boot::interface::rust_try_init_kernel;
 pub use sel4_common::{bit, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
 use sel4_task::{activateThread, schedule};
-use structures::p_region_t;
 
 #[no_mangle]
 pub extern "C" fn halt() {
@@ -101,11 +104,12 @@ pub fn init_kernel(
     dtb_addr_p: usize,
     dtb_size: usize,
 ) {
+    use rel4_arch::basic::PRegion;
     use sel4_common::platform::avail_p_regs;
     use sel4_common::utils::cpu_id;
     boot::interface::pRegsToR(
-        &avail_p_regs as *const p_region_t as *const usize,
-        core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<p_region_t>(),
+        &avail_p_regs as *const PRegion as *const usize,
+        core::mem::size_of_val(&avail_p_regs) / core::mem::size_of::<PRegion>(),
     );
 
     if cpu_id() == 0 {

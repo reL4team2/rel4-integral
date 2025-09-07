@@ -3,12 +3,12 @@ use aarch64_cpu::asm::barrier::{self, dsb, isb};
 use aarch64_cpu::registers::TPIDR_EL1;
 use aarch64_cpu::registers::{Writeable, CNTKCTL_EL1};
 use core::arch::asm;
+use rel4_arch::basic::PRegion;
 use sel4_common::arch::config::{KERNEL_ELF_BASE, PADDR_TOP};
 use sel4_common::ffi::kernel_stack_alloc;
 use sel4_common::ffi_addr;
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::*;
-use sel4_common::structures::p_region_t;
 use sel4_common::utils::cpu_id;
 
 use crate::boot::{
@@ -75,7 +75,7 @@ pub fn init_cpu() -> bool {
     true
 }
 
-pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
+pub fn init_freemem(ui_p_reg: PRegion, dtb_p_reg: PRegion) -> bool {
     unsafe {
         res_reg[0].start = paddr_to_pptr(kpptr_to_paddr(KERNEL_ELF_BASE));
         res_reg[0].end = paddr_to_pptr(kpptr_to_paddr(ffi_addr!(ki_end)));
@@ -83,7 +83,7 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
 
     let mut index = 1;
 
-    if dtb_p_reg.start != 0 {
+    if !dtb_p_reg.start.is_null() {
         if index >= NUM_RESERVED_REGIONS {
             debug!("ERROR: no slot to add DTB to reserved regions\n");
             return false;
@@ -97,7 +97,7 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
     // here use the MODE_RESERVED:ARRAY_SIZE(mode_reserved_region) to judge
     // but in aarch64, the array size is always 0
     // so eliminate some code
-    if ui_p_reg.start < PADDR_TOP {
+    if ui_p_reg.start.raw() < PADDR_TOP {
         if index >= NUM_RESERVED_REGIONS {
             debug!("ERROR: no slot to add the user image to the reserved regions");
             return false;
@@ -109,10 +109,7 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
         }
     } else {
         unsafe {
-            reserve_region(p_region_t {
-                start: ui_p_reg.start,
-                end: ui_p_reg.end,
-            });
+            reserve_region(ui_p_reg);
         }
     }
 

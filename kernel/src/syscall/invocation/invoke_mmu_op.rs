@@ -94,7 +94,7 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
     let thread = get_currenct_thread();
     if call {
         thread.tcbArch.set_register(ArchReg::Badge, 0);
-        let length = thread.set_mr(0, pptr_to_paddr(vbase_ptr)) as u64;
+        let length = thread.set_mr(0, pptr_to_paddr(pptr!(vbase_ptr)).raw()) as u64;
         thread.tcbArch.set_register(
             ArchReg::MsgInfo,
             seL4_MessageInfo::new(0, 0, 0, length).to_word(),
@@ -169,7 +169,7 @@ pub fn invoke_page_map(
 
     clean_by_va_pou(
         convert_ref_type_to_usize(pt_slot),
-        pptr_to_paddr(convert_ref_type_to_usize(pt_slot)),
+        pptr_to_paddr(pptr!(convert_ref_type_to_usize(pt_slot))),
     );
     if unlikely(tlbflush_required) {
         assert!(asid < bit!(16));

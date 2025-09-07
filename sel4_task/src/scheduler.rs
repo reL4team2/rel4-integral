@@ -5,7 +5,6 @@
 //! new threads to run, managing ready queues, and handling domain scheduling.
 //!
 #![allow(unused_unsafe)]
-#![allow(static_mut_ref)]
 
 #[cfg(feature = "enable_smp")]
 use crate::deps::do_mask_reschedule;
@@ -513,7 +512,7 @@ fn choose_thread() {
             {
                 set_current_user_vspace_root(ttbr_new(
                     0,
-                    kpptr_to_paddr(get_arm_global_user_vspace_base()),
+                    kpptr_to_paddr(get_arm_global_user_vspace_base()).raw(),
                 ));
                 set_current_thread(get_idle_thread());
             }

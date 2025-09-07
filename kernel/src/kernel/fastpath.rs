@@ -86,7 +86,7 @@ pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: 
         #[cfg(target_arch = "riscv64")]
         set_vspace_root(pptr_to_paddr(vroot as usize), asid);
         #[cfg(target_arch = "aarch64")]
-        set_current_user_vspace_root(ttbr_new(asid, pptr_to_paddr(vroot as usize)));
+        set_current_user_vspace_root(ttbr_new(asid, pptr_to_paddr(pptr!(vroot)).raw()));
         // panic!("switch_to_thread_fp");
         // ksCurThread = thread as usize;
         set_current_thread(&*thread);

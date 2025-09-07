@@ -1,3 +1,4 @@
+use rel4_arch::basic::{PRegion, Region};
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap};
@@ -10,15 +11,6 @@ pub struct BootInfoHeader {
     pub id: usize,
     pub len: usize,
 }
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct region_t {
-    pub start: usize,
-    pub end: usize,
-}
-
-pub type p_region_t = sel4_common::structures::p_region_t;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -71,9 +63,9 @@ pub struct BootInfo {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ndks_boot_t {
-    pub reserved: [p_region_t; MAX_NUM_RESV_REG],
+    pub reserved: [PRegion; MAX_NUM_RESV_REG],
     pub resv_count: usize,
-    pub freemem: [region_t; MAX_NUM_FREEMEM_REG],
+    pub freemem: [Region; MAX_NUM_FREEMEM_REG],
     pub bi_frame: *mut BootInfo,
     pub slot_pos_cur: seL4_SlotPos,
 }
@@ -90,7 +82,7 @@ pub struct rootserver_mem_t {
     pub tcb: usize,
     #[cfg(feature = "kernel_mcs")]
     pub sc: usize,
-    pub paging: region_t,
+    pub paging: Region,
 }
 
 #[repr(C)]

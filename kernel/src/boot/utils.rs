@@ -1,7 +1,8 @@
 use super::ndks_boot;
-use crate::structures::{p_region_t, region_t, v_region_t};
+use crate::structures::v_region_t;
 use crate::{bit, ROUND_DOWN, ROUND_UP};
 use log::debug;
+use rel4_arch::basic::{PRegion, Region};
 use sel4_common::arch::config::{PADDR_TOP, PPTR_BASE, PPTR_TOP};
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::*;
@@ -12,28 +13,28 @@ use sel4_vspace::*;
 // use sel4_vspace::
 
 #[inline]
-pub fn is_reg_empty(reg: &region_t) -> bool {
-    reg.start == reg.end
+pub fn is_reg_empty(reg: &Region) -> bool {
+    reg.is_empty()
 }
 
 #[inline]
-pub fn paddr_to_pptr_reg(reg: &p_region_t) -> region_t {
-    region_t {
+pub fn paddr_to_pptr_reg(reg: &PRegion) -> Region {
+    Region {
         start: paddr_to_pptr(reg.start),
         end: paddr_to_pptr(reg.end),
     }
 }
 
 pub fn ceiling_kernel_window(mut p: usize) -> usize {
-    if pptr_to_paddr(p) > PADDR_TOP {
+    if pptr_to_paddr(pptr!(p)).raw() > PADDR_TOP {
         p = PPTR_TOP;
     }
     p
 }
 
 #[inline]
-pub fn pptr_to_paddr_reg(reg: region_t) -> p_region_t {
-    p_region_t {
+pub fn pptr_to_paddr_reg(reg: Region) -> PRegion {
+    PRegion {
         start: pptr_to_paddr(reg.start),
         end: pptr_to_paddr(reg.end),
     }

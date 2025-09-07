@@ -42,13 +42,6 @@ impl seL4_IPCBuffer {
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct p_region_t {
-    pub start: usize,
-    pub end: usize,
-}
-
 use crate::arch::config::PPTR_BASE;
 use core::{
     ffi::CStr,

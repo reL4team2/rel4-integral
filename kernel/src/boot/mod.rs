@@ -9,6 +9,7 @@ use core::mem::size_of;
 // use crate::ffi::tcbDebugAppend;
 use crate::{bit, ROUND_UP};
 use log::debug;
+use rel4_arch::basic::{PRegion, Region};
 use sel4_common::arch::config::PADDR_TOP;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::platform::{timer, Timer_func};
@@ -16,7 +17,7 @@ use sel4_common::sel4_config::*;
 use spin::Mutex;
 
 pub use crate::boot::utils::paddr_to_pptr_reg;
-use crate::structures::{ndks_boot_t, p_region_t, region_t, BootInfo, BootInfoHeader, SlotRegion};
+use crate::structures::{ndks_boot_t, BootInfo, BootInfoHeader, SlotRegion};
 
 #[cfg(target_arch = "aarch64")]
 pub use mm::reserve_region;
@@ -37,9 +38,9 @@ pub static node_boot_lock: Mutex<usize> = Mutex::new(0);
 #[no_mangle]
 #[link_section = ".boot.bss"]
 pub static mut ndks_boot: ndks_boot_t = ndks_boot_t {
-    reserved: [p_region_t { start: 0, end: 0 }; MAX_NUM_RESV_REG],
+    reserved: [PRegion::empty(); MAX_NUM_RESV_REG],
     resv_count: 0,
-    freemem: [region_t { start: 0, end: 0 }; MAX_NUM_FREEMEM_REG],
+    freemem: [Region::empty(); MAX_NUM_FREEMEM_REG],
     bi_frame: 0 as *mut BootInfo,
     slot_pos_cur: SEL4_NUM_INITIAL_CAPS,
 };
@@ -61,8 +62,8 @@ pub fn init_dtb(
     dtb_size: usize,
     dtb_phys_addr: usize,
     extra_bi_size: &mut usize,
-) -> Option<p_region_t> {
-    let mut dtb_p_reg: sel4_common::structures::p_region_t = p_region_t { start: 0, end: 0 };
+) -> Option<PRegion> {
+    let mut dtb_p_reg = PRegion::empty();
     if dtb_size > 0 {
         let dtb_phys_end = dtb_phys_addr + dtb_size;
         if dtb_phys_end < dtb_phys_addr {
@@ -82,9 +83,9 @@ pub fn init_dtb(
         }
 
         (*extra_bi_size) += size_of::<BootInfoHeader>() + dtb_size;
-        dtb_p_reg = p_region_t {
-            start: dtb_phys_addr,
-            end: dtb_phys_end,
+        dtb_p_reg = PRegion {
+            start: paddr!(dtb_phys_addr),
+            end: paddr!(dtb_phys_end),
         };
     }
     Some(dtb_p_reg)
@@ -101,7 +102,10 @@ pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize
         }
         extra_bi_offset += size_of::<BootInfoHeader>();
         let src = unsafe {
-            core::slice::from_raw_parts(paddr_to_pptr(dtb_phys_addr) as *const u8, dtb_size)
+            core::slice::from_raw_parts(
+                paddr_to_pptr(paddr!(dtb_phys_addr)).get_ptr::<u8>(),
+                dtb_size,
+            )
         };
         unsafe {
             let dst = core::slice::from_raw_parts_mut(

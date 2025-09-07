@@ -7,6 +7,7 @@ edition = "2021"
 bitflags = "2.0.2"
 sel4_cspace = { git = "https://github.com/reL4team2/sel4_cspace.git", branch = "master" }
 sel4_common = { git = "https://github.com/reL4team2/sel4_common.git", branch = "master" }
+rel4-arch = { workspace = true }
 rel4-utils = { workspace = true }
 
 log = "0.4"

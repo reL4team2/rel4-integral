@@ -31,14 +31,14 @@ enum find_type {
 pub fn rust_map_kernel_window() {
     set_kernel_page_global_directory_by_index(
         (VAddr(PPTR_BASE)).get_kpt_index(0),
-        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_upper_directory_base())),
+        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_upper_directory_base()).raw()),
     );
 
     let mut idx = VAddr(PPTR_BASE).get_kpt_index(1);
     while idx < VAddr(PPTR_TOP).get_kpt_index(1) {
         set_kernel_page_upper_directory_by_index(
             idx,
-            PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(idx))),
+            PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(idx)).raw()),
         );
         idx += 1;
     }
@@ -67,14 +67,17 @@ pub fn rust_map_kernel_window() {
 
     set_kernel_page_upper_directory_by_index(
         VAddr(PPTR_TOP).get_kpt_index(1),
-        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(
-            bit!(PUD_INDEX_BITS) - 1,
-        ))),
+        PTE::pte_new_table(
+            kpptr_to_paddr(get_kernel_page_directory_base_by_index(
+                bit!(PUD_INDEX_BITS) - 1,
+            ))
+            .raw(),
+        ),
     );
     set_kernel_page_directory_by_index(
         bit!(PUD_INDEX_BITS) - 1,
         bit!(PUD_INDEX_BITS) - 1,
-        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_table_base())),
+        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_table_base()).raw()),
     );
     map_kernel_devices();
     // ffi_call!(map_kernel_devices());
@@ -119,7 +122,7 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
     let pt = pt_cap.get_capPTBasePtr() as usize;
     let target_pte =
         convert_to_mut_type_ref::<PTE>(find_pt(vspace_root, vptr.into(), find_type::PDE));
-    target_pte.set_next_level_paddr(pptr_to_paddr(pt));
+    target_pte.set_next_level_paddr(pptr_to_paddr(pptr!(pt)));
     // TODO: move 0x3 into a proper position.
     target_pte.set_attr(3);
 }
@@ -128,25 +131,25 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn map_it_pd_cap(vspace_cap: &cap_vspace_cap, pd_cap: &cap_page_table_cap) {
-    let pgd = page_slice::<PTE>(vspace_cap.get_capVSBasePtr() as usize);
+    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
     let pd_addr = pd_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pd_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pd_cap.get_capPTIsMapped(), 1);
     // TODO: move 0x3 into a proper position.
     assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
     let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
-    pud[vptr.pud_index()] = PTE::new_page(pptr_to_paddr(pd_addr), 0x3);
+    pud[vptr.pud_index()] = PTE::new_page(pptr_to_paddr(pptr!(pd_addr)), 0x3);
 }
 
 /// TODO: Write the comments.
 pub fn map_it_pud_cap(vspace_cap: &cap_vspace_cap, pud_cap: &cap_page_table_cap) {
-    let pgd = page_slice::<PTE>(vspace_cap.get_capVSBasePtr() as usize);
+    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
     let pud_addr = pud_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pud_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pud_cap.get_capPTIsMapped(), 1);
 
     // TODO: move 0x3 into a proper position.
-    pgd[vptr.pgd_index()] = PTE::new_page(pptr_to_paddr(pud_addr), 0x3);
+    pgd[vptr.pgd_index()] = PTE::new_page(pptr_to_paddr(pptr!(pud_addr)), 0x3);
 }
 
 /// TODO: Write the comments.
@@ -166,13 +169,13 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     #[cfg(feature = "hypervisor")]
     let (ng, attr) = (1, 0);
     pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, 0, ng, 1, shareable, 1, attr).0);
-    pte.set_next_level_paddr(pptr_to_paddr(frame_cap.get_capFBasePtr() as usize));
+    pte.set_next_level_paddr(pptr_to_paddr(pptr!(frame_cap.get_capFBasePtr())));
 }
 
 /// TODO: Write the comments.
 #[link_section = ".boot.text"]
 fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
-    let pgd = page_slice::<PTE>(vspace_root);
+    let pgd = page_slice::<PTE>(pptr!(vspace_root));
     let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
     if ftype == find_type::PUDE {
         return pud[vptr.pud_index()].self_addr();

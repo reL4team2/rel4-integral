@@ -1,4 +1,5 @@
 use log::{debug, info};
+use rel4_arch::basic::PRegion;
 use sel4_common::arch::config::KERNEL_ELF_BASE;
 use sel4_common::{bit, sel4_config::PAGE_BITS};
 use sel4_task::create_idle_thread;
@@ -14,7 +15,7 @@ use crate::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
         ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
     },
-    structures::{p_region_t, v_region_t, SlotRegion},
+    structures::{v_region_t, SlotRegion},
 };
 
 use sel4_common::sel4_config::{BI_FRAME_SIZE_BITS, USER_TOP};
@@ -53,15 +54,12 @@ pub fn try_init_kernel(
     intStateIRQNodeToR();
     // Init logging for log crate
     sel4_common::logging::init();
-    let boot_mem_reuse_p_reg = p_region_t {
-        start: kpptr_to_paddr(KERNEL_ELF_BASE),
-        end: kpptr_to_paddr(ki_boot_end as usize),
-    };
+    let boot_mem_reuse_p_reg = PRegion::new(
+        kpptr_to_paddr(KERNEL_ELF_BASE),
+        kpptr_to_paddr(ki_boot_end as usize),
+    );
     let boot_mem_reuse_reg = paddr_to_pptr_reg(&boot_mem_reuse_p_reg);
-    let ui_p_reg = p_region_t {
-        start: ui_p_reg_start,
-        end: ui_p_reg_end,
-    };
+    let ui_p_reg = PRegion::new(paddr!(ui_p_reg_start), paddr!(ui_p_reg_end));
     let ui_reg = paddr_to_pptr_reg(&ui_p_reg);
 
     let mut extra_bi_size = 0;

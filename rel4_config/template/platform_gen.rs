@@ -37,9 +37,11 @@ pub const {{ irq.label }}: usize = {{ irq.number }};
 
 /* KERNEL DEVICES */
 #[allow(unused_imports)]
-use crate::structures::{kernel_frame_t, p_region_t, paddr_t};
+use crate::structures::{kernel_frame_t, paddr_t};
 #[allow(unused_imports)]
 use crate::arch::config::KDEV_BASE;
+#[allow(unused_imports)]
+use rel4_arch::{basic::PRegion, paddr};
 
 #[no_mangle]
 #[link_section = ".boot.text"]
@@ -58,11 +60,8 @@ pub static mut kernel_device_frames: [kernel_frame_t; {{ device_regions | length
 /* PHYSICAL MEMORY */
 #[cfg(feature = "build_binary")]
 #[link_section = ".boot.text"]
-pub static avail_p_regs: [p_region_t; {{ avail_mem_zones | length }}] = [
+pub static avail_p_regs: [PRegion; {{ avail_mem_zones | length }}] = [
 {% for zone in avail_mem_zones %}
-    p_region_t {
-        start: {{ zone.start | hex }},
-        end: {{ zone.end | hex }},
-    },
+    PRegion::new(paddr!({{ zone.start | hex }}), paddr!({{ zone.end | hex }})),
 {% endfor %}
 ];

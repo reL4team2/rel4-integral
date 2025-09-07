@@ -22,6 +22,7 @@ lto = true
 [workspace.dependencies]
 aarch64-cpu = "9.4.0"
 rel4-utils = { path = "rel4-utils" }
+rel4-arch = { path = "rel4-arch" }
 
 [patch.'https://github.com/reL4team2/serial-frame.git']
 serial-frame = { path = "serial-frame" }

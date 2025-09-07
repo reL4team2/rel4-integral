@@ -1,12 +1,13 @@
 use super::boot::map_kernel_frame;
 use crate::vm_attributes_t;
+use rel4_arch::basic::PRegion;
+use rel4_arch::paddr;
 use sel4_common::arch::vm_rights_t::VMKernelOnly;
 use sel4_common::platform::kernel_device_frames;
-use sel4_common::structures::p_region_t;
 use sel4_common::{bit, sel4_config::PAGE_BITS};
 
 extern "C" {
-    pub(self) fn reserve_region(reg: p_region_t) -> bool;
+    pub(self) fn reserve_region(reg: PRegion) -> bool;
 }
 
 #[no_mangle]
@@ -21,10 +22,10 @@ pub fn map_kernel_devices() {
                 vm_attr,
             );
             if kernel_frame.userAvailable == 0 {
-                reserve_region(p_region_t {
-                    start: kernel_frame.paddr.0,
-                    end: kernel_frame.paddr.0 + bit!(PAGE_BITS),
-                });
+                reserve_region(PRegion::new(
+                    paddr!(kernel_frame.paddr.0),
+                    paddr!(kernel_frame.paddr.0 + bit!(PAGE_BITS)),
+                ));
             }
         }
     }
