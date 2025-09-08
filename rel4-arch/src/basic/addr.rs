@@ -1,4 +1,4 @@
-use core::ops::{Add, AddAssign, Sub};
+use core::ops::{Add, AddAssign, BitAnd, BitOr, Sub, SubAssign};
 
 use rel4_utils::impl_multi;
 
@@ -24,30 +24,6 @@ pub struct PPtr(usize);
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct CPtr(usize);
-
-/// Kernel Virtual Memory Region
-#[derive(Debug, Clone, Copy)]
-#[repr(C)]
-pub struct Region {
-    pub start: PPtr,
-    pub end: PPtr,
-}
-
-/// Physical Memory Region
-#[derive(Debug, Clone, Copy)]
-#[repr(C)]
-pub struct PRegion {
-    pub start: PAddr,
-    pub end: PAddr,
-}
-
-/// User-Virtual Memory Region
-#[derive(Debug, Clone, Copy)]
-#[repr(C)]
-pub struct VRegion {
-    pub start: VPtr,
-    pub end: VPtr,
-}
 
 impl_multi!(VPtr, PAddr, PPtr, CPtr {
     pub const fn new(raw: usize) -> Self {
@@ -120,20 +96,6 @@ impl From<PPtr> for PAddr {
     }
 }
 
-impl Add<usize> for PPtr {
-    type Output = Self;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        Self(self.0 + rhs)
-    }
-}
-
-impl AddAssign<usize> for PPtr {
-    fn add_assign(&mut self, rhs: usize) {
-        self.0 += rhs
-    }
-}
-
 impl PAddr {
     /// Convert [PAddr](Physical Memory Address) to [PPtr](Kernel-Virtual Pointer)
     pub const fn to_pptr(&self) -> PPtr {
@@ -147,82 +109,54 @@ impl From<PAddr> for PPtr {
     }
 }
 
-impl Add<usize> for PAddr {
-    type Output = Self;
+macro_rules! impl_num_traits {
+    ($($name:ident),*) => {
+        $(
+            impl Add<usize> for $name {
+                type Output = Self;
 
-    fn add(self, rhs: usize) -> Self::Output {
-        Self(self.0.add(rhs))
-    }
+                fn add(self, rhs: usize) -> Self::Output {
+                    Self(self.0 + rhs)
+                }
+            }
+
+            impl AddAssign<usize> for $name {
+                fn add_assign(&mut self, rhs: usize) {
+                    self.0.add_assign(rhs)
+                }
+            }
+
+            impl Sub<usize> for $name {
+                type Output = Self;
+
+                fn sub(self, rhs: usize) -> Self::Output {
+                    Self(self.0.sub(rhs))
+                }
+            }
+
+            impl SubAssign<usize> for $name {
+                fn sub_assign(&mut self, rhs: usize) {
+                    self.0.sub_assign(rhs);
+                }
+            }
+
+            impl BitAnd<usize> for $name {
+                type Output = Self;
+
+                fn bitand(self, rhs: usize) -> Self::Output {
+                    Self(self.0.bitand(rhs))
+                }
+            }
+
+            impl BitOr<usize> for $name {
+                type Output = Self;
+
+                fn bitor(self, rhs: usize) -> Self::Output {
+                    Self(self.0.bitor(rhs))
+                }
+            }
+        )*
+    };
 }
 
-impl Sub<usize> for PAddr {
-    type Output = Self;
-
-    fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.0.sub(rhs))
-    }
-}
-
-impl Region {
-    pub const fn new(start: PPtr, end: PPtr) -> Self {
-        Self { start, end }
-    }
-
-    /// Create a empty region area.
-    ///
-    /// start is null(0) and end is null(0)
-    pub const fn empty() -> Self {
-        Self {
-            start: PPtr::new(0),
-            end: PPtr::new(0),
-        }
-    }
-
-    /// Check if the region area is zero
-    pub const fn is_empty(&self) -> bool {
-        self.start.raw() == self.end.raw()
-    }
-
-    /// Convert [PPtr] Region [Region] to [PAddr] region [PRegion]
-    pub const fn to_pregion(&self) -> PRegion {
-        PRegion::new(self.start.to_paddr(), self.end.to_paddr())
-    }
-}
-
-impl From<Region> for PRegion {
-    fn from(value: Region) -> Self {
-        value.to_pregion()
-    }
-}
-
-impl PRegion {
-    pub const fn new(start: PAddr, end: PAddr) -> Self {
-        Self { start, end }
-    }
-
-    /// Create a empty region area.
-    ///
-    /// start is null(0) and end is null(0)
-    pub const fn empty() -> Self {
-        Self {
-            start: PAddr::new(0),
-            end: PAddr::new(0),
-        }
-    }
-
-    /// Check if the region area is zero
-    pub const fn is_empty(&self) -> bool {
-        self.start.raw() == self.end.raw()
-    }
-
-    /// Convert [PAddr] region [PRegion] to [PPtr] Region [Region]
-    pub const fn to_region(&self) -> Region {
-        Region::new(self.start.to_pptr(), self.end.to_pptr())
-    }
-}
-
-impl From<PRegion> for Region {
-    fn from(value: PRegion) -> Self {
-        value.to_region()
-    }
-}
+impl_num_traits!(PPtr, PAddr, VPtr);
