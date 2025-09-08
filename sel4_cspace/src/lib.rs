@@ -1,7 +1,6 @@
 #![feature(core_intrinsics)]
 #![no_std]
 #![no_main]
-#![feature(asm_const)]
 #![allow(internal_features)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
@@ -10,6 +9,9 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::tests::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+
+#[macro_use]
+extern crate rel4_utils;
 
 pub mod capability;
 mod cte;

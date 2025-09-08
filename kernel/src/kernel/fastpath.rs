@@ -1,6 +1,5 @@
 use crate::arch::fastpath_restore;
 use crate::syscall::{slowpath, SYS_CALL, SYS_REPLY_RECV};
-use crate::MASK;
 use core::intrinsics::{likely, unlikely};
 #[cfg(feature = "kernel_mcs")]
 use sched_context::sched_context_t;
@@ -86,7 +85,7 @@ pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: 
         #[cfg(target_arch = "riscv64")]
         set_vspace_root(pptr_to_paddr(vroot as usize), asid);
         #[cfg(target_arch = "aarch64")]
-        set_current_user_vspace_root(ttbr_new(asid, pptr_to_paddr(pptr!(vroot)).raw()));
+        set_current_user_vspace_root(ttbr_new(asid, pptr!(vroot).to_paddr()));
         // panic!("switch_to_thread_fp");
         // ksCurThread = thread as usize;
         set_current_thread(&*thread);
@@ -112,7 +111,7 @@ pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
 
 #[no_mangle]
 pub fn fastpath_mi_check(msgInfo: usize) -> bool {
-    (msgInfo & MASK!(SEL4_MSG_LENGTH_BITS + SEL4_MSG_EXTRA_CAP_BITS)) > 4
+    (msgInfo & mask_bits!(SEL4_MSG_LENGTH_BITS + SEL4_MSG_EXTRA_CAP_BITS)) > 4
 }
 
 #[no_mangle]

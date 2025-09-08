@@ -1,11 +1,7 @@
 use core::intrinsics::unlikely;
 
 use crate::kernel::boot::current_extra_caps;
-use crate::{
-    bit,
-    kernel::boot::{current_lookup_fault, current_syscall_error},
-    IS_ALIGNED, MASK,
-};
+use crate::kernel::boot::{current_lookup_fault, current_syscall_error};
 use log::debug;
 use sel4_common::arch::{maskVMRights, ArchReg, MSG_REGISTER_NUM};
 use sel4_common::ffi::current_fault;
@@ -32,7 +28,7 @@ use sel4_ipc::notification_func;
 use sel4_task::{get_currenct_thread, lookupSlot_ret_t, tcb_t};
 
 pub fn alignUp(baseValue: usize, alignment: usize) -> usize {
-    (baseValue + bit!(alignment) - 1) & !MASK!(alignment)
+    (baseValue + bit!(alignment) - 1) & !mask_bits!(alignment)
 }
 
 pub fn FREE_INDEX_TO_OFFSET(freeIndex: usize) -> usize {
@@ -120,7 +116,7 @@ pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap) -> exception_t {
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    if !IS_ALIGNED!(vptr, SEL4_IPC_BUFFER_SIZE_BITS) {
+    if !is_aligned!(vptr, SEL4_IPC_BUFFER_SIZE_BITS) {
         debug!("Requested IPC Buffer location 0x%x is not aligned.");
         unsafe {
             current_syscall_error._type = SEL4_ALIGNMENT_ERROR;

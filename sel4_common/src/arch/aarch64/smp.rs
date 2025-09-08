@@ -1,7 +1,6 @@
 use aarch64_cpu::registers;
 use aarch64_cpu::registers::Readable;
 
-use crate::bit;
 use core::arch::asm;
 
 #[inline]

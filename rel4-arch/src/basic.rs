@@ -2,6 +2,9 @@ use core::ops::{Add, AddAssign, Sub};
 
 use rel4_utils::impl_multi;
 
+#[cfg(target_arch = "aarch64")]
+use crate::aarch64::config::PPTR_BASE_OFFSET;
+
 /// Pointer to User-Virtual Memory
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
@@ -104,6 +107,17 @@ impl PPtr {
     pub fn get_mut_ref<T>(&self) -> &'static mut T {
         unsafe { &mut *self.get_mut_ptr::<T>() }
     }
+
+    /// Convert [PPtr](Kernel-Virtual Pointer) to [PAddr](Physical Memory Address)
+    pub const fn to_paddr(&self) -> PAddr {
+        PAddr(self.0 - PPTR_BASE_OFFSET)
+    }
+}
+
+impl From<PPtr> for PAddr {
+    fn from(value: PPtr) -> Self {
+        value.to_paddr()
+    }
 }
 
 impl Add<usize> for PPtr {
@@ -117,6 +131,19 @@ impl Add<usize> for PPtr {
 impl AddAssign<usize> for PPtr {
     fn add_assign(&mut self, rhs: usize) {
         self.0 += rhs
+    }
+}
+
+impl PAddr {
+    /// Convert [PAddr](Physical Memory Address) to [PPtr](Kernel-Virtual Pointer)
+    pub const fn to_pptr(&self) -> PPtr {
+        PPtr(self.0 + PPTR_BASE_OFFSET)
+    }
+}
+
+impl From<PAddr> for PPtr {
+    fn from(value: PAddr) -> Self {
+        value.to_pptr()
     }
 }
 
@@ -137,6 +164,13 @@ impl Sub<usize> for PAddr {
 }
 
 impl Region {
+    pub const fn new(start: PPtr, end: PPtr) -> Self {
+        Self { start, end }
+    }
+
+    /// Create a empty region area.
+    ///
+    /// start is null(0) and end is null(0)
     pub const fn empty() -> Self {
         Self {
             start: PPtr::new(0),
@@ -144,8 +178,20 @@ impl Region {
         }
     }
 
+    /// Check if the region area is zero
     pub const fn is_empty(&self) -> bool {
         self.start.raw() == self.end.raw()
+    }
+
+    /// Convert [PPtr] Region [Region] to [PAddr] region [PRegion]
+    pub const fn to_pregion(&self) -> PRegion {
+        PRegion::new(self.start.to_paddr(), self.end.to_paddr())
+    }
+}
+
+impl From<Region> for PRegion {
+    fn from(value: Region) -> Self {
+        value.to_pregion()
     }
 }
 
@@ -154,6 +200,9 @@ impl PRegion {
         Self { start, end }
     }
 
+    /// Create a empty region area.
+    ///
+    /// start is null(0) and end is null(0)
     pub const fn empty() -> Self {
         Self {
             start: PAddr::new(0),
@@ -161,7 +210,19 @@ impl PRegion {
         }
     }
 
+    /// Check if the region area is zero
     pub const fn is_empty(&self) -> bool {
         self.start.raw() == self.end.raw()
+    }
+
+    /// Convert [PAddr] region [PRegion] to [PPtr] Region [Region]
+    pub const fn to_region(&self) -> Region {
+        Region::new(self.start.to_pptr(), self.end.to_pptr())
+    }
+}
+
+impl From<PRegion> for Region {
+    fn from(value: PRegion) -> Self {
+        value.to_region()
     }
 }

@@ -1,7 +1,8 @@
 pub mod ipi;
 pub mod lock;
 
-use sel4_common::{sel4_config::CONFIG_MAX_NUM_NODES, utils::no_lock::NoLock};
+use rel4_utils::no_lock::NoLock;
+use sel4_common::sel4_config::CONFIG_MAX_NUM_NODES;
 
 static BIG_KERNEL_LOCK: NoLock<lock::clh_lock> = NoLock::new(lock::clh_lock::new());
 

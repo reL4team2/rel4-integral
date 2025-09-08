@@ -9,6 +9,9 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
+#[macro_use]
+extern crate rel4_utils;
+
 mod deps;
 #[cfg(feature = "kernel_mcs")]
 mod ffi;

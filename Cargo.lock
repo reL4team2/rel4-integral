@@ -811,6 +811,7 @@ name = "sel4_cspace"
 version = "0.1.0"
 dependencies = [
  "log",
+ "rel4-utils",
  "riscv",
  "sel4_common",
 ]
@@ -832,6 +833,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "log",
+ "rel4-utils",
  "sel4_common",
  "sel4_cspace",
  "sel4_vspace",

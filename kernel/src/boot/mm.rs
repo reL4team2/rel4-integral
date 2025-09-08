@@ -5,10 +5,6 @@ use rel4_arch::basic::Region;
 
 use super::ndks_boot;
 use crate::boot::utils::ceiling_kernel_window;
-use crate::boot::utils::is_reg_empty;
-use crate::boot::utils::paddr_to_pptr_reg;
-use crate::boot::utils::pptr_to_paddr_reg;
-use crate::structures::*;
 
 use sel4_common::sel4_config::*;
 
@@ -44,7 +40,7 @@ pub fn rust_init_freemem(
         for i in 0..n_available {
             let ptr = (*(available as *mut PRegion).add(i)).clone();
 
-            avail_reg[i] = paddr_to_pptr_reg(&ptr);
+            avail_reg[i] = ptr.to_region();
             avail_reg[i].end = PPtr::new(ceiling_kernel_window(avail_reg[i].end.raw()));
             avail_reg[i].start = PPtr::new(ceiling_kernel_window(avail_reg[i].start.raw()));
         }
@@ -61,7 +57,7 @@ pub fn rust_init_freemem(
                 a += 1;
             } else if reserved[r].end <= avail_reg[a].start {
                 /* the reserved region is below the available region - skip it */
-                reserve_region(pptr_to_paddr_reg(reserved[r]));
+                reserve_region(reserved[r].to_pregion());
                 r += 1;
             } else if reserved[r].start >= avail_reg[a].end {
                 /* the reserved region is above the available region - take the whole thing */
@@ -74,7 +70,7 @@ pub fn rust_init_freemem(
                     } else {
                         reserved[r].end
                     };
-                    reserve_region(pptr_to_paddr_reg(reserved[r]));
+                    reserve_region(reserved[r].to_pregion());
                     r += 1;
                 } else {
                     assert!(reserved[r].start < avail_reg[a].end);
@@ -85,7 +81,7 @@ pub fn rust_init_freemem(
                     insert_region(m);
                     if avail_reg[a].end > reserved[r].end {
                         avail_reg[a].start = reserved[r].end;
-                        reserve_region(pptr_to_paddr_reg(reserved[r]));
+                        reserve_region(reserved[r].to_pregion());
                         r += 1;
                     } else {
                         a += 1;
@@ -96,7 +92,7 @@ pub fn rust_init_freemem(
 
         while r < n_reserved {
             if reserved[r].start < reserved[r].end {
-                reserve_region(pptr_to_paddr_reg(reserved[r]));
+                reserve_region(reserved[r].to_pregion());
             }
             r += 1;
         }
@@ -106,7 +102,7 @@ pub fn rust_init_freemem(
             }
             a += 1;
         }
-        if !is_reg_empty(&ndks_boot.freemem[ndks_boot.freemem.len() - 1]) {
+        if !ndks_boot.freemem[ndks_boot.freemem.len() - 1].is_empty() {
             debug!(
                 "ERROR: insufficient MAX_NUM_FREEMEM_REG {}\n",
                 MAX_NUM_FREEMEM_REG
@@ -173,13 +169,13 @@ fn insert_region(reg: Region) -> bool {
     unsafe {
         assert!(reg.start <= reg.end);
 
-        if is_reg_empty(&reg) {
+        if reg.is_empty() {
             return true;
         }
         let mut i = 0;
         while i < ndks_boot.freemem.len() {
-            if is_reg_empty(&ndks_boot.freemem[i]) {
-                reserve_region(pptr_to_paddr_reg(reg));
+            if ndks_boot.freemem[i].is_empty() {
+                reserve_region(reg.to_pregion());
                 ndks_boot.freemem[i] = reg;
                 return true;
             }

@@ -1,7 +1,7 @@
 use log::{debug, info};
 use rel4_arch::basic::PRegion;
 use sel4_common::arch::config::KERNEL_ELF_BASE;
-use sel4_common::{bit, sel4_config::PAGE_BITS};
+use sel4_common::sel4_config::PAGE_BITS;
 use sel4_task::create_idle_thread;
 #[cfg(feature = "enable_smp")]
 use sel4_task::{tcb_t, SCHEDULER_ACTION_RESUME_CURRENT_THREAD};
@@ -13,7 +13,7 @@ use crate::{
     arch::init_freemem,
     boot::{
         bi_finalise, calculate_extra_bi_size_bits, create_untypeds, init_core_state, init_dtb,
-        ksNumCPUs, ndks_boot, paddr_to_pptr_reg, root_server_init,
+        ksNumCPUs, ndks_boot, root_server_init,
     },
     structures::{v_region_t, SlotRegion},
 };
@@ -58,9 +58,9 @@ pub fn try_init_kernel(
         kpptr_to_paddr(KERNEL_ELF_BASE),
         kpptr_to_paddr(ki_boot_end as usize),
     );
-    let boot_mem_reuse_reg = paddr_to_pptr_reg(&boot_mem_reuse_p_reg);
+    let boot_mem_reuse_reg = boot_mem_reuse_p_reg.to_region();
     let ui_p_reg = PRegion::new(paddr!(ui_p_reg_start), paddr!(ui_p_reg_end));
-    let ui_reg = paddr_to_pptr_reg(&ui_p_reg);
+    let ui_reg = ui_p_reg.to_region();
 
     let mut extra_bi_size = 0;
     let ui_v_reg = v_region_t {

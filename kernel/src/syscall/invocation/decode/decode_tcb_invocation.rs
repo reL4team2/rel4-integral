@@ -6,7 +6,6 @@
 use log::debug;
 use sel4_common::arch::MessageLabel;
 use sel4_common::arch::{FRAME_REG_NUM, GP_REG_NUM};
-use sel4_common::bit;
 use sel4_common::sel4_config::{
     SEL4_ILLEGAL_OPERATION, SEL4_INVALID_CAPABILITY, SEL4_RANGE_ERROR, SEL4_TRUNCATED_MESSAGE,
     TCB_CTABLE, TCB_VTABLE,

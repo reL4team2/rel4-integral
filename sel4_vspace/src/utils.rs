@@ -1,10 +1,10 @@
 use core::ops::{Deref, DerefMut};
 
-use sel4_common::{bit, sel4_config::PT_INDEX_BITS, utils::pageBitsForSize, MASK};
+use sel4_common::{sel4_config::PT_INDEX_BITS, utils::pageBitsForSize};
 
 #[no_mangle]
 pub fn check_vp_alignment(sz: usize, w: usize) -> bool {
-    w & MASK!(pageBitsForSize(sz)) == 0
+    w & mask_bits!(pageBitsForSize(sz)) == 0
 }
 
 pub const PAGE_ALIGNED_LEN: usize = bit!(PT_INDEX_BITS);

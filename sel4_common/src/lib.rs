@@ -25,8 +25,6 @@ pub mod structures;
 pub mod utils;
 pub mod vm_rights;
 
-pub use rel4_utils::{bit, bits};
-
 // pbf auto generated code
 pub mod shared_types_bf_gen {
     include!(concat!(env!("OUT_DIR"), "/pbf/shared_types.bf.rs"));

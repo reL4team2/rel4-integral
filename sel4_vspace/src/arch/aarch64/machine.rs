@@ -3,7 +3,7 @@ use core::arch::asm;
 use aarch64_cpu::registers::Writeable;
 use aarch64_cpu::{asm::barrier, registers};
 use rel4_arch::basic::PAddr;
-use sel4_common::{sel4_config::CONFIG_L1_CACHE_LINE_SIZE_BITS, MASK, ROUND_DOWN};
+use sel4_common::sel4_config::CONFIG_L1_CACHE_LINE_SIZE_BITS;
 #[inline]
 pub fn set_current_kernel_vspace_root(val: usize) {
     #[cfg(not(feature = "hypervisor"))]
@@ -43,8 +43,8 @@ pub fn set_current_user_vspace_root(val: usize) {
 }
 
 #[inline]
-pub const fn ttbr_new(asid: usize, addr: usize) -> usize {
-    (asid & 0xffff) << 48 | (addr & 0xffffffffffff)
+pub const fn ttbr_new(asid: usize, addr: PAddr) -> usize {
+    (asid & 0xffff) << 48 | (addr.raw() & 0xffffffffffff)
 }
 
 /**
@@ -150,7 +150,7 @@ pub fn clean_cache_range_ram(start: usize, end: usize, pstart: PAddr) {
 
 #[inline]
 const fn LINE_START(a: usize) -> usize {
-    ROUND_DOWN!(a, CONFIG_L1_CACHE_LINE_SIZE_BITS)
+    round_down!(a, CONFIG_L1_CACHE_LINE_SIZE_BITS)
 }
 
 #[inline]
@@ -186,27 +186,27 @@ pub fn plat_clean_l2_range(_pstart: PAddr, _pend: PAddr) {}
 
 #[inline]
 const fn loc(x: usize) -> usize {
-    (x >> 24) & MASK!(3)
+    (x >> 24) & mask_bits!(3)
 }
 
 #[inline]
 const fn ctype(x: usize, n: usize) -> usize {
-    (x >> (n * 3)) & MASK!(3)
+    (x >> (n * 3)) & mask_bits!(3)
 }
 
 #[inline]
 const fn line_bits(s: usize) -> usize {
-    (s & MASK!(3)) + 4
+    (s & mask_bits!(3)) + 4
 }
 
 #[inline]
 const fn assoc(s: usize) -> usize {
-    ((s >> 3) & MASK!(10)) + 1
+    ((s >> 3) & mask_bits!(10)) + 1
 }
 
 #[inline]
 const fn nsets(s: usize) -> usize {
-    ((s >> 13) & MASK!(15)) + 1
+    ((s >> 13) & mask_bits!(15)) + 1
 }
 
 pub enum arm_cache_type {

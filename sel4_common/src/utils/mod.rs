@@ -1,43 +1,7 @@
 //! Utility functions and macros.
 use core::slice;
 
-pub mod no_lock;
-
 use crate::sel4_config::*;
-
-#[macro_export]
-/// Return fill the given number of bits with 1.
-macro_rules! MASK {
-    ($e:expr) => {
-        {
-             (1usize << $e) - 1usize
-        }
-    }
-}
-
-#[macro_export]
-/// Calculate the floor of the given number.
-macro_rules! ROUND_DOWN {
-    ($n:expr,$b:expr) => {{
-        ((($n) >> ($b)) << ($b))
-    }};
-}
-
-#[macro_export]
-/// Calculate the ceil of the given number.
-macro_rules! ROUND_UP {
-    ($n:expr,$b:expr) => {{
-        ((((($n) - 1usize) >> ($b)) + 1usize) << ($b))
-    }};
-}
-
-#[macro_export]
-/// Judge whether the given number is aligned to the given number of bits.
-macro_rules! IS_ALIGNED {
-    ($n:expr,$b:expr) => {{
-        $n & MASK!($b) == 0
-    }};
-}
 
 /// Get the global variable.
 /// WARN: But on smp, need to becareful to use this macro.

@@ -1,11 +1,10 @@
 use super::calculate_extra_bi_size_bits;
+use super::ndks_boot;
 use super::utils::{arch_get_n_paging, provide_cap, write_slot};
-use super::{ndks_boot, utils::is_reg_empty};
 use crate::interrupt::{set_irq_state_by_irq, IRQState};
 use crate::structures::{
     create_frames_of_region_ret_t, rootserver_mem_t, v_region_t, BootInfo, SlotRegion,
 };
-use crate::{bit, ROUND_DOWN};
 use log::debug;
 use rel4_arch::basic::PPtr;
 #[cfg(target_arch = "aarch64")]
@@ -483,7 +482,7 @@ unsafe fn root_server_mem_init(it_v_reg: v_region_t, extra_bi_size_bits: usize) 
     let max = rootserver_max_size_bits(extra_bi_size_bits);
     let mut i = ndks_boot.freemem.len() - 1;
     /* skip any empty regions */
-    while i != usize::MAX && is_reg_empty(&ndks_boot.freemem[i]) {
+    while i != usize::MAX && ndks_boot.freemem[i].is_empty() {
         i -= 1;
     }
     while i != usize::MAX && i < ndks_boot.freemem.len() {
@@ -492,11 +491,11 @@ unsafe fn root_server_mem_init(it_v_reg: v_region_t, extra_bi_size_bits: usize) 
         /* Invariant; the region at index i is the current candidate.
          * Invariant: regions 0 up to (i - 1), if any, are additional candidates.
          * Invariant: region (i + 1) is empty. */
-        assert!(is_reg_empty(&ndks_boot.freemem[i + 1]));
+        assert!(ndks_boot.freemem[i + 1].is_empty());
 
         let empty_index = i + 1;
         let unaligned_start = ndks_boot.freemem[i].end.raw() - size;
-        let start = ROUND_DOWN!(unaligned_start, max);
+        let start = round_down!(unaligned_start, max);
 
         /* if unaligned_start didn't underflow, and start fits in the region,
          * then we've found a region that fits the root server objects. */
@@ -686,7 +685,7 @@ unsafe fn rust_create_it_address_space(
     );
     let mut i = 0;
     while i < CONFIG_PT_LEVELS - 1 {
-        let mut pt_vptr = ROUND_DOWN!(it_v_reg.start, riscv_get_lvl_pgsize_bits(i));
+        let mut pt_vptr = round_down!(it_v_reg.start, riscv_get_lvl_pgsize_bits(i));
         while pt_vptr < it_v_reg.end {
             if !provide_cap(
                 root_cnode_cap,
@@ -726,7 +725,7 @@ unsafe fn rust_create_it_address_space(
     // let PGD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 3;
     // let PUD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 2;
     // let PD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS;
-    let mut vptr = ROUND_DOWN!(it_v_reg.start, PGD_INDEX_OFFSET);
+    let mut vptr = round_down!(it_v_reg.start, PGD_INDEX_OFFSET);
     // #[cfg(not(feature = "hypervisor"))]
     while vptr < it_v_reg.end {
         if !provide_cap(
@@ -739,7 +738,7 @@ unsafe fn rust_create_it_address_space(
     }
 
     // Create any PDs needed for the user land image
-    vptr = ROUND_DOWN!(it_v_reg.start, PUD_INDEX_OFFSET);
+    vptr = round_down!(it_v_reg.start, PUD_INDEX_OFFSET);
     while vptr < it_v_reg.end {
         if !provide_cap(
             root_cnode_cap,
@@ -751,7 +750,7 @@ unsafe fn rust_create_it_address_space(
     }
 
     // Create any PTs needed for the user land image
-    vptr = ROUND_DOWN!(it_v_reg.start, PD_INDEX_OFFSET);
+    vptr = round_down!(it_v_reg.start, PD_INDEX_OFFSET);
     while vptr < it_v_reg.end {
         if !provide_cap(
             root_cnode_cap,
@@ -800,7 +799,7 @@ fn init_bi_frame_cap(
             it_pd_cap,
             extra_bi_region,
             true,
-            pptr_to_paddr(extra_bi_region.start).raw() as isize - extra_bi_frame_vptr as isize,
+            extra_bi_region.start.to_paddr().raw() as isize - extra_bi_frame_vptr as isize,
         );
 
         if !extra_bi_ret.success {
@@ -866,7 +865,7 @@ fn rust_create_frames_of_region(
             frame_cap = create_mapped_it_frame_cap(
                 pd_cap,
                 f,
-                pptr_to_paddr(pptr!(f as isize - pv_offset)).raw(),
+                pptr!(f as isize - pv_offset).to_paddr().raw(),
                 IT_ASID,
                 false,
                 true,

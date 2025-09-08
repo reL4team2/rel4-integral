@@ -1,12 +1,10 @@
-use core::{intrinsics::likely, ptr::NonNull};
+use core::intrinsics::likely;
 
 use aarch64_cpu::{
     asm::barrier,
     registers::{Readable, Writeable, CPACR_EL1, HCR_EL2, ID_AA64MMFR0_EL1, SCTLR_EL1, VTCR_EL2},
 };
-use sel4_common::{bit, bits, sel4_config::NUM_DOMAINS};
 use sel4_task::tcb_t;
-use tock_registers::fields::FieldValue;
 
 use crate::interrupt::mask_interrupt;
 

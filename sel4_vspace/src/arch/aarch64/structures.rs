@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use crate::{vm_attributes_t, PTE};
 use sel4_common::{
-    bit, sel4_config::ASID_LOW_BITS, structures_gen::asid_map, utils::convert_to_mut_type_ref,
+    sel4_config::ASID_LOW_BITS, structures_gen::asid_map, utils::convert_to_mut_type_ref,
 };
 
 use super::machine::mair_types;

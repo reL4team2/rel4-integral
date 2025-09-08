@@ -2,14 +2,14 @@ use super::pte::pte_tag_t;
 use super::{kpptr_to_paddr, machine::*, UPT_LEVELS};
 use crate::arch::VAddr;
 use crate::utils::PageAligned;
-use crate::{asid_t, find_vspace_for_asid, paddr_to_pptr, pptr_t, pptr_to_paddr, vptr_t, PTE};
+use crate::{asid_t, find_vspace_for_asid, pptr_t, vptr_t, PTE};
 use core::intrinsics::unlikely;
 use rel4_arch::basic::PAddr;
 use sel4_common::arch::MessageLabel;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, cap_vspace_cap};
 use sel4_common::utils::{pageBitsForSize, ptr_to_mut};
-use sel4_common::{bit, sel4_config::SEL4_PAGE_BITS, structures_gen::lookup_fault};
+use sel4_common::{sel4_config::SEL4_PAGE_BITS, structures_gen::lookup_fault};
 use sel4_cspace::capability::cap_arch_func;
 
 #[no_mangle]
@@ -85,7 +85,7 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
     if !thread_root.is_valid_native_root() {
         set_current_user_vspace_root(ttbr_new(
             0,
-            kpptr_to_paddr(get_arm_global_user_vspace_base()).raw(),
+            kpptr_to_paddr(get_arm_global_user_vspace_base()),
         ));
         return Ok(());
     }
@@ -98,12 +98,16 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
         if find_ret.status != exception_t::EXCEPTION_NONE || root as usize != vspace_root {
             set_current_user_vspace_root(ttbr_new(
                 0,
-                kpptr_to_paddr(get_arm_global_user_vspace_base()).raw(),
+                kpptr_to_paddr(get_arm_global_user_vspace_base()),
             ));
             return Ok(());
         }
     }
-    set_current_user_vspace_root(pptr_to_paddr(pptr!(thread_root_vspace.get_capVSBasePtr())).raw());
+    set_current_user_vspace_root(
+        pptr!(thread_root_vspace.get_capVSBasePtr())
+            .to_paddr()
+            .raw(),
+    );
     Ok(())
 }
 
@@ -113,11 +117,11 @@ pub fn activate_kernel_vspace() {
     clean_invalidate_l1_caches();
     set_current_kernel_vspace_root(ttbr_new(
         0,
-        kpptr_to_paddr(get_kernel_page_global_directory_base()).raw(),
+        kpptr_to_paddr(get_kernel_page_global_directory_base()),
     ));
     set_current_user_vspace_root(ttbr_new(
         0,
-        kpptr_to_paddr(get_arm_global_user_vspace_base()).raw(),
+        kpptr_to_paddr(get_arm_global_user_vspace_base()),
     ));
     invalidate_local_tlb();
     /* A53 hardware does not support TLB locking */
@@ -137,7 +141,7 @@ pub fn set_vm_root_for_flush_with_thread_root(
     }
 
     // armv_context_switch(vspace, asid);
-    set_current_user_vspace_root(ttbr_new(asid, vspace as usize));
+    set_current_user_vspace_root(ttbr_new(asid, paddr!(vspace)));
     true
 }
 
@@ -182,7 +186,10 @@ pub fn unmap_page_table(asid: asid_t, vaddr: vptr_t, pt: &PTE) {
         if ptr_to_mut(ptSlot).get_type() != (pte_tag_t::pte_table) as usize {
             return;
         }
-        pte = paddr_to_pptr(ptr_to_mut(ptSlot).next_level_paddr()).get_mut_ptr::<PTE>();
+        pte = ptr_to_mut(ptSlot)
+            .next_level_paddr()
+            .to_pptr()
+            .get_mut_ptr::<PTE>();
         level = level + 1;
     }
     if pte as usize != pt as *const PTE as usize {
@@ -204,7 +211,7 @@ pub fn unmap_page(
     vptr: vptr_t,
     pptr: pptr_t,
 ) -> Result<(), lookup_fault> {
-    let addr = pptr_to_paddr(pptr!(pptr));
+    let addr = pptr!(pptr).to_paddr();
     let find_ret = find_vspace_for_asid(asid);
     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {
         return Ok(());
@@ -220,7 +227,7 @@ pub fn unmap_page(
     {
         return Ok(());
     }
-    if pte.get_page_base_address() != addr.raw() {
+    if pte.get_page_base_address() != addr {
         return Ok(());
     }
     unsafe {

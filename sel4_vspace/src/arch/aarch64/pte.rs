@@ -1,15 +1,13 @@
 use crate::{arch::aarch64::machine::clean_by_va_pou, vm_attributes_t, PTE};
 
-use super::utils::paddr_to_pptr;
 use super::{mair_types, UPT_LEVELS, VSPACE_INDEX_BITS};
 use crate::{lookupPTSlot_ret_t, vptr_t};
+use rel4_arch::basic::PAddr;
 use sel4_common::utils::ptr_to_mut;
-use sel4_common::MASK;
 use sel4_common::{
     arch::vm_rights_t,
-    bit,
     sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS, SEL4_PAGE_TABLE_BITS},
-    utils::{convert_ref_type_to_usize, convert_to_mut_type_ref},
+    utils::convert_ref_type_to_usize,
 };
 
 #[allow(unused)]
@@ -103,14 +101,14 @@ impl PTE {
     //     Self((addr & 0xfffffffff000) | flags.bits() | 0x400000000000003)
     // }
 
-    pub fn get_page_base_address(&self) -> usize {
-        self.0 & 0xfffffffff000
+    pub fn get_page_base_address(&self) -> PAddr {
+        paddr!(self.0 & 0xfffffffff000)
     }
 
     pub fn get_pte_from_ppn_mut(&self) -> &mut PTE {
-        convert_to_mut_type_ref::<PTE>(
-            paddr_to_pptr(paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)).raw(),
-        )
+        paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)
+            .to_pptr()
+            .get_mut_ref::<PTE>()
     }
 
     pub fn get_ppn(&self) -> usize {
@@ -151,7 +149,7 @@ impl PTE {
     }
 
     pub fn make_user_pte(
-        paddr: usize,
+        paddr: PAddr,
         rights: vm_rights_t,
         attr: vm_attributes_t,
         page_size: usize,
@@ -188,14 +186,14 @@ impl PTE {
         }
     }
 
-    pub fn pte_new_table(pt_base_address: usize) -> PTE {
-        let val = 0 | (pt_base_address & 0xfffffffff000) | (0x3);
+    pub fn pte_new_table(pt_base_address: PAddr) -> PTE {
+        let val = 0 | (pt_base_address.raw() & 0xfffffffff000) | (0x3);
         PTE(val)
     }
 
     pub fn pte_new_page(
         UXN: usize,
-        page_base_address: usize,
+        page_base_address: PAddr,
         nG: usize,
         AF: usize,
         SH: usize,
@@ -204,7 +202,7 @@ impl PTE {
     ) -> PTE {
         let val = 0
             | (UXN & 0x1) << 54
-            | (page_base_address & 0xfffffffff000) >> 0
+            | (page_base_address.raw() & 0xfffffffff000) >> 0
             | (nG & 0x1) << 11
             | (AF & 0x1) << 10
             | (SH & 0x3) << 8
@@ -217,7 +215,7 @@ impl PTE {
 
     pub fn pte_new_4k_page(
         UXN: usize,
-        page_base_address: usize,
+        page_base_address: PAddr,
         nG: usize,
         AF: usize,
         SH: usize,
@@ -226,7 +224,7 @@ impl PTE {
     ) -> PTE {
         let val = 0
             | (UXN & 0x1) << 54
-            | (page_base_address & 0xfffffffff000) >> 0
+            | (page_base_address.raw() & 0xfffffffff000) >> 0
             | (nG & 0x1) << 11
             | (AF & 0x1) << 10
             | (SH & 0x3) << 8
@@ -240,7 +238,7 @@ impl PTE {
         let mut pt = self.0 as *mut PTE;
         let mut level: usize = UPT_LEVELS - 1;
         let ptBitsLeft = PT_INDEX_BITS * level + SEL4_PAGE_BITS;
-        pt = unsafe { pt.add((vptr >> ptBitsLeft) & MASK!(VSPACE_INDEX_BITS)) };
+        pt = unsafe { pt.add((vptr >> ptBitsLeft) & mask_bits!(VSPACE_INDEX_BITS)) };
         let mut ret: lookupPTSlot_ret_t = lookupPTSlot_ret_t {
             ptSlot: pt,
             ptBitsLeft: ptBitsLeft,
@@ -250,8 +248,8 @@ impl PTE {
             level = level - 1;
             ret.ptBitsLeft = ret.ptBitsLeft - PT_INDEX_BITS;
             let paddr = ptr_to_mut(ret.ptSlot).next_level_paddr();
-            pt = paddr_to_pptr(paddr).get_mut_ptr::<PTE>();
-            pt = unsafe { pt.add((vptr >> ret.ptBitsLeft) & MASK!(PT_INDEX_BITS)) };
+            pt = paddr.to_pptr().get_mut_ptr::<PTE>();
+            pt = unsafe { pt.add((vptr >> ret.ptBitsLeft) & mask_bits!(PT_INDEX_BITS)) };
             ret.ptSlot = pt;
         }
         ret

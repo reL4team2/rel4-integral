@@ -8,7 +8,6 @@ use sel4_common::{
     structures::{exception_t, paddr_t, pptr_t},
     structures_gen::lookup_fault,
     utils::pageBitsForSize,
-    BIT, ROUND_DOWN,
 };
 
 use super::{
@@ -98,8 +97,8 @@ pub fn rust_map_kernel_window() {
         }
     }
 
-    let mut pptr = ROUND_DOWN!(KERNEL_ELF_BASE, riscv_get_lvl_pgsize_bits(0));
-    let mut paddr = ROUND_DOWN!(KERNEL_ELF_PADDR_BASE, riscv_get_lvl_pgsize_bits(0));
+    let mut pptr = round_down!(KERNEL_ELF_BASE, riscv_get_lvl_pgsize_bits(0));
+    let mut paddr = round_down!(KERNEL_ELF_PADDR_BASE, riscv_get_lvl_pgsize_bits(0));
     // 将根页表`KERNEL_ELF_PADDR_BASE`和`KERNEL_ELF_BASE`处的页表项改为使用`kernel_image_level2_pt`映射
     unsafe {
         KERNEL_ROOT_PAGE_TABLE.map_next_table(

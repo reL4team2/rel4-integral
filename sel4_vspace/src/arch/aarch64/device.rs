@@ -4,7 +4,7 @@ use rel4_arch::basic::PRegion;
 use rel4_arch::paddr;
 use sel4_common::arch::vm_rights_t::VMKernelOnly;
 use sel4_common::platform::kernel_device_frames;
-use sel4_common::{bit, sel4_config::PAGE_BITS};
+use sel4_common::sel4_config::PAGE_BITS;
 
 extern "C" {
     pub(self) fn reserve_region(reg: PRegion) -> bool;

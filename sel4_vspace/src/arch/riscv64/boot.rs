@@ -7,19 +7,18 @@ use sel4_common::{
     arch::vm_rights_t,
     sel4_config::{RISCV_MEGA_PAGE_BITS, RISCV_PAGE_BITS, SEL4_PAGE_BITS},
     utils::convert_to_mut_type_ref,
-    ROUND_DOWN,
 };
 
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn map_kernel_frame(paddr: usize, vaddr: usize, _vm_rights: vm_rights_t) {
     if vaddr >= KDEV_BASE {
-        let paddr = ROUND_DOWN!(paddr, riscv_get_lvl_pgsize_bits(1));
+        let paddr = round_down!(paddr, riscv_get_lvl_pgsize_bits(1));
         unsafe {
             KERNEL_LEVEL2_PAGE_TABLE.map_next_table(riscv_get_pt_index(vaddr, 0), paddr, true);
         }
     } else {
-        let paddr = ROUND_DOWN!(paddr, riscv_get_lvl_pgsize_bits(0));
+        let paddr = round_down!(paddr, riscv_get_lvl_pgsize_bits(0));
         unsafe {
             KERNEL_ROOT_PAGE_TABLE.map_next_table(riscv_get_pt_index(vaddr, 0), paddr, true);
         }

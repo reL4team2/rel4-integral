@@ -7,7 +7,6 @@ mod utils;
 use core::mem::size_of;
 
 // use crate::ffi::tcbDebugAppend;
-use crate::{bit, ROUND_UP};
 use log::debug;
 use rel4_arch::basic::{PRegion, Region};
 use sel4_common::arch::config::PADDR_TOP;
@@ -16,7 +15,6 @@ use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::*;
 use spin::Mutex;
 
-pub use crate::boot::utils::paddr_to_pptr_reg;
 use crate::structures::{ndks_boot_t, BootInfo, BootInfoHeader, SlotRegion};
 
 #[cfg(target_arch = "aarch64")]
@@ -24,7 +22,6 @@ pub use mm::reserve_region;
 pub use mm::{avail_p_regs_addr, avail_p_regs_size, res_reg, rust_init_freemem};
 pub use root_server::rootserver;
 use sel4_task::*;
-use sel4_vspace::*;
 
 pub use root_server::root_server_init;
 pub use untyped::create_untypeds;
@@ -50,7 +47,7 @@ pub fn calculate_extra_bi_size_bits(size: usize) -> usize {
         return 0;
     }
 
-    let clzl_ret = ROUND_UP!(size, SEL4_PAGE_BITS).leading_zeros() as usize;
+    let clzl_ret = round_up!(size, SEL4_PAGE_BITS).leading_zeros() as usize;
     let mut msb = SEL4_WORD_BITS - 1 - clzl_ret;
     if size > bit!(msb) {
         msb += 1;
@@ -102,10 +99,7 @@ pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize
         }
         extra_bi_offset += size_of::<BootInfoHeader>();
         let src = unsafe {
-            core::slice::from_raw_parts(
-                paddr_to_pptr(paddr!(dtb_phys_addr)).get_ptr::<u8>(),
-                dtb_size,
-            )
+            core::slice::from_raw_parts(paddr!(dtb_phys_addr).to_pptr().get_ptr::<u8>(), dtb_size)
         };
         unsafe {
             let dst = core::slice::from_raw_parts_mut(

@@ -3,7 +3,6 @@ use sel4_common::{
         config::{PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_TOP},
         vm_rights_t,
     },
-    bit,
     sel4_config::{ARM_LARGE_PAGE, ARM_SMALL_PAGE, PUD_INDEX_BITS, SEL4_LARGE_PAGE_BITS},
     structures_gen::{cap, cap_frame_cap, cap_page_table_cap, cap_vspace_cap},
     utils::convert_to_mut_type_ref,
@@ -11,7 +10,7 @@ use sel4_common::{
 
 use crate::{
     arch::VAddr, asid_t, get_kernel_page_directory_base_by_index, get_kernel_page_table_base,
-    get_kernel_page_upper_directory_base, kpptr_to_paddr, mair_types, pptr_t, pptr_to_paddr,
+    get_kernel_page_upper_directory_base, kpptr_to_paddr, mair_types, pptr_t,
     set_kernel_page_directory_by_index, set_kernel_page_global_directory_by_index,
     set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t,
     vptr_t, PTE,
@@ -31,14 +30,14 @@ enum find_type {
 pub fn rust_map_kernel_window() {
     set_kernel_page_global_directory_by_index(
         (VAddr(PPTR_BASE)).get_kpt_index(0),
-        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_upper_directory_base()).raw()),
+        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_upper_directory_base())),
     );
 
     let mut idx = VAddr(PPTR_BASE).get_kpt_index(1);
     while idx < VAddr(PPTR_TOP).get_kpt_index(1) {
         set_kernel_page_upper_directory_by_index(
             idx,
-            PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(idx)).raw()),
+            PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(idx))),
         );
         idx += 1;
     }
@@ -52,7 +51,15 @@ pub fn rust_map_kernel_window() {
         set_kernel_page_directory_by_index(
             VAddr(vaddr).get_kpt_index(1),
             VAddr(vaddr).get_kpt_index(2),
-            PTE::pte_new_page(0, paddr, 0, 1, shareable, 0, mair_types::NORMAL as usize),
+            PTE::pte_new_page(
+                0,
+                paddr!(paddr),
+                0,
+                1,
+                shareable,
+                0,
+                mair_types::NORMAL as usize,
+            ),
         );
         #[cfg(not(feature = "hypervisor"))]
         set_kernel_page_directory_by_index(
@@ -67,17 +74,14 @@ pub fn rust_map_kernel_window() {
 
     set_kernel_page_upper_directory_by_index(
         VAddr(PPTR_TOP).get_kpt_index(1),
-        PTE::pte_new_table(
-            kpptr_to_paddr(get_kernel_page_directory_base_by_index(
-                bit!(PUD_INDEX_BITS) - 1,
-            ))
-            .raw(),
-        ),
+        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(
+            bit!(PUD_INDEX_BITS) - 1,
+        ))),
     );
     set_kernel_page_directory_by_index(
         bit!(PUD_INDEX_BITS) - 1,
         bit!(PUD_INDEX_BITS) - 1,
-        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_table_base()).raw()),
+        PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_table_base())),
     );
     map_kernel_devices();
     // ffi_call!(map_kernel_devices());
@@ -104,7 +108,7 @@ pub fn map_kernel_frame(
         VAddr(vaddr).get_kpt_index(3),
         PTE::pte_new_4k_page(
             uxn,
-            paddr,
+            paddr!(paddr),
             0,
             1,
             shareable,
@@ -122,7 +126,7 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
     let pt = pt_cap.get_capPTBasePtr() as usize;
     let target_pte =
         convert_to_mut_type_ref::<PTE>(find_pt(vspace_root, vptr.into(), find_type::PDE));
-    target_pte.set_next_level_paddr(pptr_to_paddr(pptr!(pt)));
+    target_pte.set_next_level_paddr(pptr!(pt).to_paddr());
     // TODO: move 0x3 into a proper position.
     target_pte.set_attr(3);
 }
@@ -138,7 +142,7 @@ pub fn map_it_pd_cap(vspace_cap: &cap_vspace_cap, pd_cap: &cap_page_table_cap) {
     // TODO: move 0x3 into a proper position.
     assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
     let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
-    pud[vptr.pud_index()] = PTE::new_page(pptr_to_paddr(pptr!(pd_addr)), 0x3);
+    pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
 }
 
 /// TODO: Write the comments.
@@ -149,7 +153,7 @@ pub fn map_it_pud_cap(vspace_cap: &cap_vspace_cap, pud_cap: &cap_page_table_cap)
     assert_eq!(pud_cap.get_capPTIsMapped(), 1);
 
     // TODO: move 0x3 into a proper position.
-    pgd[vptr.pgd_index()] = PTE::new_page(pptr_to_paddr(pptr!(pud_addr)), 0x3);
+    pgd[vptr.pgd_index()] = PTE::new_page(pptr!(pud_addr).to_paddr(), 0x3);
 }
 
 /// TODO: Write the comments.
@@ -168,8 +172,8 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     let (ng, attr) = (1, 0);
     #[cfg(feature = "hypervisor")]
     let (ng, attr) = (1, 0);
-    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, 0, ng, 1, shareable, 1, attr).0);
-    pte.set_next_level_paddr(pptr_to_paddr(pptr!(frame_cap.get_capFBasePtr())));
+    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, paddr!(0), ng, 1, shareable, 1, attr).0);
+    pte.set_next_level_paddr(pptr!(frame_cap.get_capFBasePtr()).to_paddr());
 }
 
 /// TODO: Write the comments.

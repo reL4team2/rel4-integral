@@ -1,7 +1,5 @@
 #[cfg(target_arch = "aarch64")]
 use core::intrinsics::unlikely;
-#[cfg(target_arch = "aarch64")]
-use sel4_common::bit;
 use sel4_common::{
     arch::ArchReg,
     message_info::seL4_MessageInfo_func,
@@ -33,7 +31,7 @@ use sel4_vspace::{
 };
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{clean_by_va_pou, invalidate_tlb_by_asid_va, pte_tag_t};
-use sel4_vspace::{pptr_to_paddr, unmap_page, unmap_page_table, PTE};
+use sel4_vspace::{unmap_page, unmap_page_table, PTE};
 
 use crate::{kernel::boot::current_lookup_fault, utils::clear_memory};
 
@@ -94,7 +92,7 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
     let thread = get_currenct_thread();
     if call {
         thread.tcbArch.set_register(ArchReg::Badge, 0);
-        let length = thread.set_mr(0, pptr_to_paddr(pptr!(vbase_ptr)).raw()) as u64;
+        let length = thread.set_mr(0, pptr!(vbase_ptr).to_paddr().raw()) as u64;
         thread.tcbArch.set_register(
             ArchReg::MsgInfo,
             seL4_MessageInfo::new(0, 0, 0, length).to_word(),
@@ -169,7 +167,7 @@ pub fn invoke_page_map(
 
     clean_by_va_pou(
         convert_ref_type_to_usize(pt_slot),
-        pptr_to_paddr(pptr!(convert_ref_type_to_usize(pt_slot))),
+        pptr!(convert_ref_type_to_usize(pt_slot)).to_paddr(),
     );
     if unlikely(tlbflush_required) {
         assert!(asid < bit!(16));

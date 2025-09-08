@@ -13,6 +13,9 @@
 extern crate core;
 
 #[macro_use]
+extern crate rel4_utils;
+
+#[macro_use]
 extern crate rel4_arch;
 
 use sel4_common::arch::shutdown;
@@ -32,8 +35,6 @@ mod interfaces_impl;
 
 #[cfg(feature = "enable_smp")]
 mod smp;
-
-pub use sel4_common::{bit, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
 
 #[no_mangle]
 pub extern "C" fn halt() {

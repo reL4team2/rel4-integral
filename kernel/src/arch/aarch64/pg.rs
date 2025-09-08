@@ -35,6 +35,6 @@ pub fn set_vm_root_for_flush(vspace: usize, asid: asid_t) -> bool {
         return false;
     }
 
-    set_current_user_vspace_root(ttbr_new(asid, vspace));
+    set_current_user_vspace_root(ttbr_new(asid, paddr!(vspace)));
     true
 }

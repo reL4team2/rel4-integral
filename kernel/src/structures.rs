@@ -1,4 +1,4 @@
-use rel4_arch::basic::{PRegion, Region};
+use rel4_arch::basic::{PAddr, PRegion, Region};
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap};
@@ -32,7 +32,7 @@ pub struct SlotRegion {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct UntypedDesc {
-    pub paddr: usize,
+    pub paddr: PAddr,
     pub sizeBits: u8,
     pub isDevice: u8,
     pub padding: [u8; 6],

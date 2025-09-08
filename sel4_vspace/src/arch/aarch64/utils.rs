@@ -1,20 +1,15 @@
 use crate::arch::VAddr;
 use rel4_arch::basic::{PAddr, PPtr};
-use sel4_common::bit;
 use sel4_common::{
-    arch::{
-        config::{KERNEL_ELF_BASE_OFFSET, PPTR_BASE_OFFSET},
-        vm_rights_t,
-    },
+    arch::{config::KERNEL_ELF_BASE_OFFSET, vm_rights_t},
     sel4_config::*,
     utils::convert_to_mut_slice,
-    MASK,
 };
 
 pub const KPT_LEVELS: usize = 4;
 pub const UPT_LEVELS: usize = 4;
 pub const VSPACE_INDEX_BITS: usize = 9;
-pub(self) const PAGE_ADDR_MASK: usize = MASK!(48) & !0xfff;
+pub(self) const PAGE_ADDR_MASK: usize = mask_bits!(48) & !0xfff;
 #[inline]
 pub fn ulvl_frm_arm_pt_lvl(n: usize) -> usize {
     n
@@ -26,23 +21,23 @@ pub fn klvl_frm_arm_pt_lvl(n: usize) -> usize {
 
 #[inline]
 pub fn get_pt_index(addr: usize) -> usize {
-    (addr >> PT_INDEX_OFFSET) & MASK!(PT_INDEX_BITS)
+    (addr >> PT_INDEX_OFFSET) & mask_bits!(PT_INDEX_BITS)
 }
 #[inline]
 pub fn get_pd_index(addr: usize) -> usize {
-    (addr >> PD_INDEX_OFFSET) & MASK!(PD_INDEX_BITS)
+    (addr >> PD_INDEX_OFFSET) & mask_bits!(PD_INDEX_BITS)
 }
 #[inline]
 pub fn get_upud_index(addr: usize) -> usize {
-    (addr >> PUD_INDEX_OFFSET) & MASK!(UPUD_INDEX_BITS)
+    (addr >> PUD_INDEX_OFFSET) & mask_bits!(UPUD_INDEX_BITS)
 }
 #[inline]
 pub fn get_pud_index(addr: usize) -> usize {
-    (addr >> PUD_INDEX_OFFSET) & MASK!(PUD_INDEX_BITS)
+    (addr >> PUD_INDEX_OFFSET) & mask_bits!(PUD_INDEX_BITS)
 }
 #[inline]
 pub fn get_pgd_index(addr: usize) -> usize {
-    (addr >> PGD_INDEX_OFFSET) & MASK!(PGD_INDEX_BITS)
+    (addr >> PGD_INDEX_OFFSET) & mask_bits!(PGD_INDEX_BITS)
 }
 #[inline]
 pub fn kpt_level_shift(n: usize) -> usize {
@@ -66,24 +61,12 @@ pub fn kpptr_to_paddr(x: usize) -> PAddr {
     paddr!(x - KERNEL_ELF_BASE_OFFSET)
 }
 
-///计算以`PPTR_BASE`作为偏移的指针虚拟地址对应的物理地址
-#[inline]
-pub const fn pptr_to_paddr(x: PPtr) -> PAddr {
-    paddr!(x.raw() - PPTR_BASE_OFFSET)
-}
-
-///计算物理地址对应的虚拟地址，以`PPTR_BASE`作为偏移
-#[inline]
-pub fn paddr_to_pptr(x: PAddr) -> PPtr {
-    pptr!(x.raw() + PPTR_BASE_OFFSET)
-}
-
 impl VAddr {
     pub(super) fn get_kpt_index(&self, n: usize) -> usize {
-        ((self.0) >> (kpt_level_shift(n))) & MASK!(PT_INDEX_BITS)
+        ((self.0) >> (kpt_level_shift(n))) & mask_bits!(PT_INDEX_BITS)
     }
     pub(super) fn get_upt_index(&self, n: usize) -> usize {
-        ((self.0) >> (upt_level_shift(n))) & MASK!(PT_INDEX_BITS)
+        ((self.0) >> (upt_level_shift(n))) & mask_bits!(PT_INDEX_BITS)
     }
 
     /// Get the index of the pt(last level, bit 12..20)
@@ -218,7 +201,7 @@ impl PTE {
 
     #[inline]
     pub fn next_level_slice<T>(&self) -> &'static mut [T] {
-        page_slice(paddr_to_pptr(self.next_level_paddr()))
+        page_slice(self.next_level_paddr().to_pptr())
     }
 }
 

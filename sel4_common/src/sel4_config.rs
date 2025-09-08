@@ -1,6 +1,4 @@
 //! This module contains the configuration settings for sel4_common.
-use crate::bit;
-
 // include generated config constants
 include!(concat!(env!("OUT_DIR"), "/config.rs"));
 

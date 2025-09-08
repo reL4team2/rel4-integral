@@ -1,4 +1,3 @@
-use crate::bit;
 use log::debug;
 use sel4_common::arch::config::MAX_UNTYPED_BITS;
 use sel4_common::structures_gen::cap;

@@ -1,43 +1,19 @@
 use super::ndks_boot;
 use crate::structures::v_region_t;
-use crate::{bit, ROUND_DOWN, ROUND_UP};
 use log::debug;
-use rel4_arch::basic::{PRegion, Region};
 use sel4_common::arch::config::{PADDR_TOP, PPTR_BASE, PPTR_TOP};
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::*;
 use sel4_common::structures_gen::{cap, cap_cnode_cap, mdb_node};
 use sel4_cspace::interface::*;
-use sel4_vspace::*;
 // #[cfg(target_arch="riscv64")]
 // use sel4_vspace::
 
-#[inline]
-pub fn is_reg_empty(reg: &Region) -> bool {
-    reg.is_empty()
-}
-
-#[inline]
-pub fn paddr_to_pptr_reg(reg: &PRegion) -> Region {
-    Region {
-        start: paddr_to_pptr(reg.start),
-        end: paddr_to_pptr(reg.end),
-    }
-}
-
 pub fn ceiling_kernel_window(mut p: usize) -> usize {
-    if pptr_to_paddr(pptr!(p)).raw() > PADDR_TOP {
+    if pptr!(p).to_paddr().raw() > PADDR_TOP {
         p = PPTR_TOP;
     }
     p
-}
-
-#[inline]
-pub fn pptr_to_paddr_reg(reg: Region) -> PRegion {
-    PRegion {
-        start: pptr_to_paddr(reg.start),
-        end: pptr_to_paddr(reg.end),
-    }
 }
 
 pub fn pptr_in_kernel_window(pptr: usize) -> bool {
@@ -46,8 +22,8 @@ pub fn pptr_in_kernel_window(pptr: usize) -> bool {
 
 #[inline]
 pub fn get_n_paging(v_reg: v_region_t, bits: usize) -> usize {
-    let start = ROUND_DOWN!(v_reg.start, bits);
-    let end = ROUND_UP!(v_reg.end, bits);
+    let start = round_down!(v_reg.start, bits);
+    let end = round_up!(v_reg.end, bits);
     (end - start) / bit!(bits)
 }
 

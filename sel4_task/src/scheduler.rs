@@ -20,7 +20,6 @@ use sel4_common::sel4_config::{
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 use sel4_common::utils::{convert_to_mut_type_ref, ptr_to_usize_add};
-use sel4_common::{bit, MASK};
 
 use crate::deps::ksIdleThreadTCB;
 #[cfg(feature = "kernel_mcs")]
@@ -396,12 +395,12 @@ pub fn add_to_bitmap(_cpu: usize, dom: usize, prio: usize) {
         {
             ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] |= bit!(l1index);
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] |=
-                bit!(prio & MASK!(WORD_RADIX));
+                bit!(prio & mask_bits!(WORD_RADIX));
         }
         #[cfg(not(feature = "enable_smp"))]
         {
             ksReadyQueuesL1Bitmap[dom] |= bit!(l1index);
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= bit!(prio & MASK!(WORD_RADIX));
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= bit!(prio & mask_bits!(WORD_RADIX));
         }
     }
 }
@@ -415,14 +414,14 @@ pub fn remove_from_bigmap(_cpu: usize, dom: usize, prio: usize) {
         #[cfg(feature = "enable_smp")]
         {
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] &=
-                !bit!(prio & MASK!(WORD_RADIX));
+                !bit!(prio & mask_bits!(WORD_RADIX));
             if unlikely(ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
                 ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] &= !(bit!((l1index)));
             }
         }
         #[cfg(not(feature = "enable_smp"))]
         {
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !bit!(prio & MASK!(WORD_RADIX));
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !bit!(prio & mask_bits!(WORD_RADIX));
             if unlikely(ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
                 ksReadyQueuesL1Bitmap[dom] &= !(bit!((l1index)));
             }
@@ -512,7 +511,7 @@ fn choose_thread() {
             {
                 set_current_user_vspace_root(ttbr_new(
                     0,
-                    kpptr_to_paddr(get_arm_global_user_vspace_base()).raw(),
+                    kpptr_to_paddr(get_arm_global_user_vspace_base()),
                 ));
                 set_current_thread(get_idle_thread());
             }

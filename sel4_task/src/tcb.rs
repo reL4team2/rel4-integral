@@ -8,8 +8,6 @@ use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::{
     vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
 };
-#[cfg(feature = "enable_smp")]
-use sel4_common::bit;
 use sel4_common::fault::*;
 use sel4_common::ffi::current_fault;
 use sel4_common::message_info::seL4_MessageInfo_func;
@@ -23,7 +21,6 @@ use sel4_common::structures_gen::{
 #[cfg(not(feature = "kernel_mcs"))]
 use sel4_common::structures_gen::{cap_reply_cap, mdb_node};
 use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
-use sel4_common::MASK;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::{platform::time_def::ticks_t, utils::convert_to_option_mut_type_ref};
 #[cfg(not(feature = "kernel_mcs"))]
@@ -88,7 +85,7 @@ impl tcb_t {
     /// Get i th cspace of the TCB, unmutable reference
     pub fn get_cspace(&mut self, i: usize) -> &'static cte_t {
         unsafe {
-            let p = ((self.get_mut_ptr()) & !MASK!(SEL4_TCB_BITS)) as *mut cte_t;
+            let p = ((self.get_mut_ptr()) & !mask_bits!(SEL4_TCB_BITS)) as *mut cte_t;
             &*(p.add(i))
         }
     }
@@ -103,7 +100,7 @@ impl tcb_t {
     /// Get i th cspace of the TCB, mutable reference
     pub fn get_cspace_mut_ref(&mut self, i: usize) -> &'static mut cte_t {
         unsafe {
-            let p = ((self as *mut tcb_t as usize) & !MASK!(SEL4_TCB_BITS)) as *mut cte_t;
+            let p = ((self as *mut tcb_t as usize) & !mask_bits!(SEL4_TCB_BITS)) as *mut cte_t;
             &mut *(p.add(i))
         }
     }
@@ -675,7 +672,7 @@ impl tcb_t {
             let base_ptr = buffer_cap.get_capFBasePtr() as usize;
             let page_bits = pageBitsForSize(buffer_cap.get_capFSize() as usize);
             return Some(convert_to_mut_type_ref::<seL4_IPCBuffer>(
-                base_ptr + (w_buffer_ptr & MASK!(page_bits)),
+                base_ptr + (w_buffer_ptr & mask_bits!(page_bits)),
             ));
         }
         return None;
@@ -767,7 +764,7 @@ impl tcb_t {
             let base_ptr = buffer_cap.get_capFBasePtr() as usize;
             let page_bits = pageBitsForSize(buffer_cap.get_capFSize() as usize);
             return Some(convert_to_mut_type_ref::<seL4_IPCBuffer>(
-                base_ptr + (w_buffer_ptr & MASK!(page_bits)),
+                base_ptr + (w_buffer_ptr & mask_bits!(page_bits)),
             ));
         }
         return None;

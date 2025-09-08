@@ -1,9 +1,6 @@
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::sel4_config::SEL4_MIN_SCHED_CONTEXT_BITS;
-use sel4_common::{
-    bit,
-    sel4_config::{CONFIG_MAX_NUM_NODES, SEL4_TCB_BITS},
-};
+use sel4_common::sel4_config::{CONFIG_MAX_NUM_NODES, SEL4_TCB_BITS};
 #[repr(align(2048))]
 pub struct ksIdleThreadTCB_data {
     pub data: [[u8; bit!(SEL4_TCB_BITS)]; CONFIG_MAX_NUM_NODES],

@@ -1,6 +1,5 @@
 use crate::PTE;
 use sel4_common::{
-    bit,
     sel4_config::{ASID_HIGH_BITS, ASID_LOW_BITS, IT_ASID},
     structures::exception_t,
     structures_gen::{
@@ -8,7 +7,6 @@ use sel4_common::{
         cap_asid_pool_cap, cap_vspace_cap, lookup_fault, lookup_fault_invalid_root,
     },
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
-    MASK,
 };
 
 use crate::{asid_pool_t, asid_t, findVSpaceForASID_ret, set_vm_root};
@@ -42,7 +40,7 @@ pub fn find_map_for_asid(asid: usize) -> Option<&'static asid_map> {
         asid >> ASID_LOW_BITS,
     ));
     if let Some(pool) = poolPtr {
-        return Some(&pool[asid & MASK!(ASID_LOW_BITS)]);
+        return Some(&pool[asid & mask_bits!(ASID_LOW_BITS)]);
     }
     None
 }
@@ -72,12 +70,13 @@ pub fn delete_asid(asid: usize, vspace: *mut PTE, capability: &cap) -> Result<()
     let ptr =
         convert_to_option_mut_type_ref::<asid_pool_t>(get_asid_table()[asid >> ASID_LOW_BITS]);
     if let Some(pool) = ptr {
-        let asidmap = &pool[asid & MASK!(ASID_LOW_BITS)];
+        let asidmap = &pool[asid & mask_bits!(ASID_LOW_BITS)];
         match asidmap.clone().splay() {
             asid_map_Splayed::asid_map_vspace(data) => {
                 if data.get_vspace_root() == vspace as u64 {
                     invalidate_local_tlb_asid(asid);
-                    pool[asid & MASK!(ASID_LOW_BITS)] = asid_map_asid_map_none::new().unsplay();
+                    pool[asid & mask_bits!(ASID_LOW_BITS)] =
+                        asid_map_asid_map_none::new().unsplay();
                     return set_vm_root(capability);
                 }
             }

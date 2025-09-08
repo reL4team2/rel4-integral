@@ -29,15 +29,13 @@ use sel4_common::utils::{
 use sel4_common::{
     arch::MessageLabel,
     structures::{exception_t, seL4_IPCBuffer},
-    MASK,
 };
-use sel4_common::{bit, IS_ALIGNED};
 use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::interface::{cte_insert, cte_t};
 
 use sel4_vspace::{
     asid_pool_t, asid_t, clean_by_va_pou, do_flush, find_vspace_for_asid, get_asid_pool_by_index,
-    pptr_to_paddr, pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
+    pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
 };
 
 #[cfg(feature = "enable_smp")]
@@ -166,22 +164,19 @@ fn decode_page_table_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let pte = PTE::pte_new_table(
-        pptr_to_paddr(pptr!(
-            cap::cap_page_table_cap(&cte.capability).get_capPTBasePtr()
-        ))
-        .raw(),
+        pptr!(cap::cap_page_table_cap(&cte.capability).get_capPTBasePtr()).to_paddr(),
     );
     cap::cap_page_table_cap(&cte.capability).set_capPTIsMapped(1);
     cap::cap_page_table_cap(&cte.capability).set_capPTMappedASID(asid as u64);
     cap::cap_page_table_cap(&cte.capability)
-        .set_capPTMappedAddress((vaddr & !(MASK!(pd_slot.ptBitsLeft))) as u64);
+        .set_capPTMappedAddress((vaddr & !(mask_bits!(pd_slot.ptBitsLeft))) as u64);
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
 
     *ptr_to_mut(pd_slot.ptSlot) = pte;
     // log::warn!("Need to clean D-Cache using cleanByVA_PoU");
     clean_by_va_pou(
         convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot)),
-        pptr_to_paddr(pptr!(convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot)))),
+        pptr!(convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot))).to_paddr(),
     );
     exception_t::EXCEPTION_NONE
 }
@@ -234,8 +229,7 @@ fn decode_page_clean_invocation(
         global_ops!(current_syscall_error.invalidArgumentNumber = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let pstart =
-        pptr_to_paddr(pptr!(cap::cap_frame_cap(&cte.capability).get_capFBasePtr()) + start);
+    let pstart = (pptr!(cap::cap_frame_cap(&cte.capability).get_capFBasePtr()) + start).to_paddr();
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
 
     if start < end {
@@ -381,7 +375,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         parent_slot,
         dest_slot,
     );
-    assert!(asid_base & MASK!(ASID_LOW_BITS) == 0);
+    assert!(asid_base & mask_bits!(ASID_LOW_BITS) == 0);
     set_asid_pool_by_index(asid_base >> ASID_LOW_BITS, frame);
     exception_t::EXCEPTION_NONE
 }
@@ -448,7 +442,7 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     vspace_cap.set_capVSMappedASID(asid as u64);
     vspace_cap.set_capVSIsMapped(1);
     let asidmap = asid_map_asid_map_vspace::new(vspace_cap.get_capVSBasePtr() as u64).unsplay();
-    pool[asid & MASK!(ASID_LOW_BITS)] = asidmap;
+    pool[asid & mask_bits!(ASID_LOW_BITS)] = asidmap;
     exception_t::EXCEPTION_NONE
 }
 
@@ -489,7 +483,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         global_ops!(current_syscall_error.invalidCapNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if unlikely(!IS_ALIGNED!(vaddr, pageBitsForSize(frame_size))) {
+    if unlikely(!is_aligned!(vaddr, pageBitsForSize(frame_size))) {
         // global_var!(current_syscall_error)._type = SEL4_ALIGNMENT_ERROR;
         // Use unsafe here will cause the _type error.
         global_ops!(current_syscall_error._type = SEL4_ALIGNMENT_ERROR);
@@ -518,9 +512,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         }
     }
     let mut vspace_root_pte = PTE::new_from_pte(vspace_root);
-    let base = pptr_to_paddr(pptr!(
-        cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr()
-    ));
+    let base = pptr!(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr()).to_paddr();
     let lu_ret = vspace_root_pte.lookup_pt_slot(vaddr);
     if unlikely(lu_ret.ptBitsLeft != pageBitsForSize(frame_size)) {
         unsafe {
@@ -538,7 +530,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     return invoke_page_map(
         asid,
         cap::cap_frame_cap(&frame_slot.capability.clone()).clone(),
-        PTE::make_user_pte(base.raw(), vm_rights, attr, frame_size),
+        PTE::make_user_pte(base, vm_rights, attr, frame_size),
         pt_slot,
     );
     // match frame_size {
@@ -827,19 +819,19 @@ fn decode_vspace_root_invocation(
                 get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
                 return exception_t::EXCEPTION_NONE;
             }
-            let page_base_start = start & !MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
-            let page_base_end = (end - 1) & !MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let page_base_start = start & !mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let page_base_end = (end - 1) & !mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
             if page_base_start != page_base_end {
                 unsafe {
                     current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = start;
                     current_syscall_error.rangeErrorMax =
-                        page_base_start + MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
+                        page_base_start + mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let pstart = ptr_to_ref(pte).get_page_base_address() + start
-                & MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let pstart = ptr_to_ref(pte).get_page_base_address().raw() + start
+                & mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
             get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
             return decode_vspace_flush_invocation(
                 label,
