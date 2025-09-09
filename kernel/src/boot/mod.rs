@@ -110,6 +110,7 @@ pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize
             );
             dst.copy_from_slice(src);
         }
+        extra_bi_offset += dtb_size;
     }
     if extra_bi_size > extra_bi_offset {
         header.id = SEL4_BOOTINFO_HEADER_PADDING;
