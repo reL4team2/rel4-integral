@@ -23,6 +23,7 @@ fn parse_bool(s: &str) -> Result<bool, String> {
 /// * `arm_ptmr` - Enables ARM physical timer support.
 /// * `rust_only` - Builds the kernel using only Rust code, excluding any external dependencies.
 /// * `bin` - Generates a binary output for the kernel. Can be specified with `-B` or `--bin`.
+/// * `benchmark` -Enable Benchmark.
 pub struct BuildOptions {
     #[clap(
         default_value = "spike",
@@ -59,6 +60,8 @@ pub struct BuildOptions {
     pub num_nodes: usize,
     #[clap(default_value = "INFO", help = "set log level", long)]
     pub log: String,
+    #[clap(long)]
+    pub benchmark: bool,
 }
 
 fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
@@ -111,6 +114,12 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
     if opts.arm_ptmr && target.contains("aarch64") {
         append_features(&mut args, "enable_arm_ptmr".to_string());
         marcos.push("EXPORT_PTMR_USER=true".to_string());
+    }
+
+    if opts.benchmark {
+        append_features(&mut args, "enable_benchmark".to_string());
+        // TODO: I'm not sure whether should I add the feature of C code.
+        // marcos.push("EXPORT_PTMR_USER=true".to_string());
     }
 
     if opts.num_nodes > 1 {
@@ -170,6 +179,7 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
         if opts.arm_ptmr {
             define.push("-DKernelArmExportPTMRUser=ON".to_string());
         }
+        //TODO: maybe we should add the feature of C code about benchmark
         if opts.num_nodes > 1 {
             define.push(format!("-DSMP=TRUE"));
             define.push(format!("-DNUM_NODES={}", opts.num_nodes));
