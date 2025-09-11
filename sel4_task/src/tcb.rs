@@ -5,6 +5,8 @@ use crate::{
     sched_context::sched_context_t, NODE_STATE, NODE_STATE_ON_CORE, SET_NODE_STATE_ON_CORE,
 };
 use core::intrinsics::{likely, unlikely};
+use rel4_arch::basic::{PPtr, VPtr};
+use rel4_arch::pptr;
 use sel4_common::arch::{
     vm_rights_t, ArchReg, ArchTCB, MSG_REGISTER_NUM, N_EXCEPTON_MESSAGE, N_SYSCALL_MESSAGE,
 };
@@ -26,7 +28,7 @@ use sel4_common::{platform::time_def::ticks_t, utils::convert_to_option_mut_type
 #[cfg(not(feature = "kernel_mcs"))]
 use sel4_cspace::interface::cte_insert;
 use sel4_cspace::interface::{cte_t, resolve_address_bits};
-use sel4_vspace::{pptr_t, set_vm_root};
+use sel4_vspace::set_vm_root;
 
 use super::scheduler::{
     add_to_bitmap, get_current_thread_on_node, possible_switch_to, ready_queues_index,
@@ -67,7 +69,7 @@ pub struct tcb_t {
     /// The falut handler of the TCB
     pub TCB_FAULT_HANDLER: usize,
     /// The IPC buffer of the TCB
-    pub tcbIPCBuffer: usize,
+    pub tcbIPCBuffer: VPtr,
     /// the affinity of the TCB in SMP
     pub tcbAffinity: usize,
     /// The next TCB in the scheduling queue
@@ -85,7 +87,7 @@ impl tcb_t {
     /// Get i th cspace of the TCB, unmutable reference
     pub fn get_cspace(&mut self, i: usize) -> &'static cte_t {
         unsafe {
-            let p = ((self.get_mut_ptr()) & !mask_bits!(SEL4_TCB_BITS)) as *mut cte_t;
+            let p = ((self.get_mut_ptr().raw()) & !mask_bits!(SEL4_TCB_BITS)) as *mut cte_t;
             &*(p.add(i))
         }
     }
@@ -232,8 +234,8 @@ impl tcb_t {
     /// Bind the notification of the TCB
     /// # Arguments
     /// * `addr` - The address of the notification to bind.
-    pub fn bind_notification(&mut self, addr: pptr_t) {
-        self.tcbBoundNotification = addr;
+    pub fn bind_notification(&mut self, addr: PPtr) {
+        self.tcbBoundNotification = addr.raw();
     }
 
     #[inline]
@@ -500,16 +502,16 @@ impl tcb_t {
     /// Get the pointer of the TCB
     /// # Returns
     /// The raw pointer of the TCB
-    pub fn get_ptr(&self) -> pptr_t {
-        self as *const tcb_t as usize
+    pub fn get_ptr(&self) -> PPtr {
+        pptr!(self as *const tcb_t)
     }
 
     #[inline]
     /// Get the mut pointer of the TCB
     /// # Returns
     /// The raw mut pointer of the TCB
-    pub fn get_mut_ptr(&mut self) -> pptr_t {
-        self as *mut tcb_t as usize
+    pub fn get_mut_ptr(&mut self) -> PPtr {
+        pptr!(self as *mut tcb_t)
     }
 
     #[inline]
@@ -533,7 +535,7 @@ impl tcb_t {
     pub fn setup_reply_master(&mut self) {
         let slot = self.get_cspace_mut_ref(TCB_REPLY);
         if slot.capability.get_tag() == cap_tag::cap_null_cap {
-            slot.capability = cap_reply_cap::new(self.get_ptr() as u64, 1, 1).unsplay();
+            slot.capability = cap_reply_cap::new(self.get_ptr().raw() as u64, 1, 1).unsplay();
             slot.cteMDBNode = mdb_node::new(0, 1, 1, 0);
         }
     }
@@ -629,12 +631,12 @@ impl tcb_t {
         );
         assert_eq!(master_cap.get_capReplyMaster(), 1);
         assert_eq!(master_cap.get_capReplyCanGrant(), 1);
-        assert_eq!(master_cap.get_capTCBPtr() as usize, sender.get_ptr());
+        assert_eq!(master_cap.get_capTCBPtr() as usize, sender.get_ptr().raw());
 
         let caller_slot = self.get_cspace_mut_ref(TCB_CALLER);
         assert_eq!(caller_slot.capability.get_tag(), cap_tag::cap_null_cap);
         cte_insert(
-            &cap_reply_cap::new(sender.get_ptr() as u64, can_grant as u64, 0).unsplay(),
+            &cap_reply_cap::new(sender.get_ptr().raw() as u64, can_grant as u64, 0).unsplay(),
             reply_slot,
             caller_slot,
         );
@@ -672,7 +674,7 @@ impl tcb_t {
             let base_ptr = buffer_cap.get_capFBasePtr() as usize;
             let page_bits = pageBitsForSize(buffer_cap.get_capFSize() as usize);
             return Some(convert_to_mut_type_ref::<seL4_IPCBuffer>(
-                base_ptr + (w_buffer_ptr & mask_bits!(page_bits)),
+                base_ptr + (w_buffer_ptr.raw() & mask_bits!(page_bits)),
             ));
         }
         return None;
@@ -683,10 +685,7 @@ impl tcb_t {
     /// * `res` - The result array to store the extra caps
     /// # Returns
     /// The result of the lookup represented by seL4_Fault_t
-    pub fn lookup_extra_caps(
-        &mut self,
-        res: &mut [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
-    ) -> exception_t {
+    pub fn lookup_extra_caps(&mut self, res: &mut [PPtr; SEL4_MSG_MAX_EXTRA_CAPS]) -> exception_t {
         let info =
             seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
         if let Some(buffer) = self.lookup_ipc_buffer(false) {
@@ -702,14 +701,14 @@ impl tcb_t {
                     }
                     return lu_ret.status;
                 }
-                res[i as usize] = lu_ret.slot as usize;
+                res[i as usize] = pptr!(lu_ret.slot);
                 i += 1;
             }
             if i < SEL4_MSG_MAX_EXTRA_CAPS as u64 {
-                res[i as usize] = 0;
+                res[i as usize] = PPtr::new(0);
             }
         } else {
-            res[0] = 0;
+            res[0] = PPtr::new(0);
         }
         exception_t::EXCEPTION_NONE
     }
@@ -722,7 +721,7 @@ impl tcb_t {
     /// The result of the lookup represented by seL4_Fault_t
     pub fn lookup_extra_caps_with_buf(
         &mut self,
-        res: &mut [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+        res: &mut [PPtr; SEL4_MSG_MAX_EXTRA_CAPS],
         buf: Option<&seL4_IPCBuffer>,
     ) -> Result<(), seL4_Fault> {
         let info =
@@ -736,11 +735,11 @@ impl tcb_t {
                 if unlikely(lu_ret.status != exception_t::EXCEPTION_NONE) {
                     return Err(seL4_Fault_CapFault::new(cptr as u64, false as u64).unsplay());
                 }
-                res[i as usize] = lu_ret.slot as usize;
+                res[i as usize] = pptr!(lu_ret.slot);
                 i += 1;
             }
             if i < SEL4_MSG_MAX_EXTRA_CAPS as u64 {
-                res[i as usize] = 0;
+                res[i as usize] = PPtr::new(0);
             }
         }
         Ok(())
@@ -764,7 +763,7 @@ impl tcb_t {
             let base_ptr = buffer_cap.get_capFBasePtr() as usize;
             let page_bits = pageBitsForSize(buffer_cap.get_capFSize() as usize);
             return Some(convert_to_mut_type_ref::<seL4_IPCBuffer>(
-                base_ptr + (w_buffer_ptr & mask_bits!(page_bits)),
+                base_ptr + (w_buffer_ptr.raw() & mask_bits!(page_bits)),
             ));
         }
         return None;
@@ -1020,13 +1019,13 @@ impl tcb_t {
     pub fn queue_insert(&mut self, tcb_after: &mut tcb_t) {
         let before = tcb_after.tcbSchedPrev;
         assert!(before != 0);
-        assert!(before != tcb_after.get_ptr());
+        assert!(before != tcb_after.get_ptr().raw());
 
         self.tcbSchedPrev = before;
-        self.tcbSchedNext = tcb_after.get_ptr();
+        self.tcbSchedNext = tcb_after.get_ptr().raw();
 
-        tcb_after.tcbSchedPrev = self.get_ptr();
-        convert_to_mut_type_ref::<tcb_t>(before).tcbSchedNext = self.get_ptr();
+        tcb_after.tcbSchedPrev = self.get_ptr().raw();
+        convert_to_mut_type_ref::<tcb_t>(before).tcbSchedNext = self.get_ptr().raw();
     }
 
     #[inline]
@@ -1035,7 +1034,7 @@ impl tcb_t {
         if likely(self.tcbState.get_tcbInReleaseQueue() != 0) {
             let mut queue = NODE_STATE_ON_CORE!(self.tcbAffinity, ksReleaseQueue);
 
-            if queue.head == self.get_ptr() {
+            if queue.head == self.get_ptr().raw() {
                 SET_NODE_STATE_ON_CORE!(self.tcbAffinity, ksReprogram = true);
             }
             queue.remove(self);
@@ -1072,7 +1071,7 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn sched_context_cancel_yield_to(&mut self) {
-        if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
+        if !self.get_ptr().is_null() && self.tcbYieldTo != 0 {
             convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).scYieldFrom = 0;
             self.tcbYieldTo = 0;
         }
@@ -1080,7 +1079,7 @@ impl tcb_t {
     #[inline]
     #[cfg(feature = "kernel_mcs")]
     pub fn schedContext_completeYieldTo(&mut self) {
-        if self.get_ptr() != 0 && self.tcbYieldTo != 0 {
+        if !self.get_ptr().is_null() && self.tcbYieldTo != 0 {
             convert_to_mut_type_ref::<sched_context_t>(self.tcbYieldTo).set_consumed();
             self.sched_context_cancel_yield_to();
         }

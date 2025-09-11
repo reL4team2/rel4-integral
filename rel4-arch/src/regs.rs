@@ -21,7 +21,7 @@ pub enum ArchReg {
     #[cfg(feature = "mcs")]
     Reply,
     #[cfg(feature = "mcs")]
-    nbsRecvDest,
+    NBSRecvDest,
     #[cfg(target_arch = "riscv64")]
     SSTATUS,
 }

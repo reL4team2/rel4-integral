@@ -61,7 +61,7 @@ impl ArchReg {
             #[cfg(feature = "mcs")]
             ArchReg::Reply => REPLY_REGISTER,
             #[cfg(feature = "mcs")]
-            ArchReg::nbsRecvDest => NB_SEND_RECV_DEST,
+            ArchReg::NBSRecvDest => NB_SEND_RECV_DEST,
         }
     }
 }

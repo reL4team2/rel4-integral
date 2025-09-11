@@ -6,17 +6,17 @@ use rel4_utils::impl_multi;
 use crate::aarch64::config::PPTR_BASE_OFFSET;
 
 /// Pointer to User-Virtual Memory
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(transparent)]
 pub struct VPtr(usize);
 
 /// Pointer to Physical Memory
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(transparent)]
 pub struct PAddr(usize);
 
 /// Pointer to Kernel-Virtual Memory
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(transparent)]
 pub struct PPtr(usize);
 
@@ -33,6 +33,16 @@ impl_multi!(VPtr, PAddr, PPtr, CPtr {
     /// Get the raw value [usize]
     pub const fn raw(&self) -> usize {
         self.0
+    }
+
+    /// Get the raw value [u64]
+    pub const fn as_u64(&self) -> u64 {
+        self.0 as _
+    }
+
+    /// Create a Pointer which address is 0
+    pub const fn null() -> Self {
+        Self(0)
     }
 
     /// Check if the value is zero
@@ -82,6 +92,14 @@ impl PPtr {
     /// Should ensure the value of [PPtr] is valid
     pub fn get_mut_ref<T>(&self) -> &'static mut T {
         unsafe { &mut *self.get_mut_ptr::<T>() }
+    }
+
+    /// Trying to get mutable reference for the [PPtr]
+    ///
+    /// Return [Option::None] if the address is invalid
+    #[inline]
+    pub fn try_get_mut_ref<T>(&self) -> Option<&'static mut T> {
+        (!self.is_null()).then(|| self.get_mut_ref())
     }
 
     /// Convert [PPtr](Kernel-Virtual Pointer) to [PAddr](Physical Memory Address)

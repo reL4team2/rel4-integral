@@ -821,6 +821,7 @@ name = "sel4_ipc"
 version = "0.1.0"
 dependencies = [
  "log",
+ "rel4-arch",
  "sel4_common",
  "sel4_cspace",
  "sel4_task",
@@ -833,6 +834,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "log",
+ "rel4-arch",
  "rel4-utils",
  "sel4_common",
  "sel4_cspace",

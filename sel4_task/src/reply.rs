@@ -20,14 +20,14 @@ impl reply {
         self as *const _ as usize
     }
     pub fn unlink(&mut self, tcb: &mut tcb_t) {
-        assert!(self.replyTCB == tcb.get_ptr());
+        assert!(self.replyTCB == tcb.get_ptr().raw());
         assert!(tcb.tcbState.get_replyObject() as usize == self.get_ptr());
         tcb.tcbState.set_replyObject(0);
         self.replyTCB = 0;
         set_thread_state(tcb, ThreadState::ThreadStateInactive);
     }
     pub fn push(&mut self, tcb_caller: &mut tcb_t, tcb_callee: &mut tcb_t, canDonate: bool) {
-        assert!(tcb_caller.get_ptr() != 0);
+        assert!(!tcb_caller.get_ptr().is_null());
         assert!(self.get_ptr() != 0);
         assert!(self.replyTCB == 0);
 
@@ -43,7 +43,7 @@ impl reply {
         tcb_callee.tcbState.set_replyObject(0);
 
         /* link caller and reply */
-        self.replyTCB = tcb_caller.get_ptr();
+        self.replyTCB = tcb_caller.get_ptr().raw();
         tcb_caller.tcbState.set_replyObject(self.get_ptr() as u64);
         set_thread_state(tcb_caller, ThreadState::ThreadStateBlockedOnReply);
 
@@ -74,7 +74,7 @@ impl reply {
     }
     pub fn pop(&mut self, tcb: &mut tcb_t) {
         assert!(self.get_ptr() != 0);
-        assert!(self.replyTCB == tcb.get_ptr());
+        assert!(self.replyTCB == tcb.get_ptr().raw());
         assert!(tcb.tcbState.get_tsType() == ThreadState::ThreadStateBlockedOnReply as u64);
         assert!(tcb.tcbState.get_replyObject() as usize == self.get_ptr());
 
@@ -110,7 +110,7 @@ impl reply {
         self.unlink(tcb);
     }
     pub fn remove(&mut self, tcb: &mut tcb_t) {
-        assert!(self.replyTCB == tcb.get_ptr());
+        assert!(self.replyTCB == tcb.get_ptr().raw());
         assert!(tcb.tcbState.get_tsType() == ThreadState::ThreadStateBlockedOnReply as u64);
         assert!(tcb.tcbState.get_replyObject() == self.get_ptr() as u64);
 

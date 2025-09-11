@@ -206,7 +206,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         convert_to_mut_type_ref::<reply_t>(reply as usize).replyTCB = NODE_STATE!(ksCurThread);
 
         let sc = convert_to_mut_type_ref::<sched_context_t>(current.tcbSchedContext);
-        sc.scTcb = dest.get_ptr();
+        sc.scTcb = dest.get_ptr().raw();
         dest.tcbSchedContext = sc.get_ptr();
         current.tcbSchedContext = 0;
 
@@ -226,7 +226,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         let reply_can_grant = dest.tcbState.get_blockingIPCCanGrant();
 
         caller_slot.capability =
-            cap_reply_cap::new(current.get_ptr() as u64, reply_can_grant as u64, 0).unsplay();
+            cap_reply_cap::new(current.get_ptr().raw() as u64, reply_can_grant as u64, 0).unsplay();
         caller_slot.cteMDBNode.0.arr[0] = reply_slot.get_ptr() as u64;
         mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(
             &mut reply_slot.cteMDBNode,
@@ -311,7 +311,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     }
     thread_state_ptr_mset_blockingObject_tsType(
         &mut current.tcbState,
-        ep.get_ptr(),
+        ep.get_ptr().raw(),
         ThreadState::ThreadStateBlockedOnReceive as usize,
     );
     current
@@ -321,17 +321,17 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     if let Some(ep_tail_tcb) =
         convert_to_option_mut_type_ref::<tcb_t>(ep.get_epQueue_tail() as usize)
     {
-        ep_tail_tcb.tcbEPNext = current.get_ptr();
-        current.tcbEPPrev = ep_tail_tcb.get_ptr();
+        ep_tail_tcb.tcbEPNext = current.get_ptr().raw();
+        current.tcbEPPrev = ep_tail_tcb.get_ptr().raw();
         current.tcbEPNext = 0;
     } else {
         current.tcbEPPrev = 0;
         current.tcbEPNext = 0;
-        ep.set_epQueue_head(current.get_ptr() as u64);
+        ep.set_epQueue_head(current.get_ptr().raw() as u64);
     }
     endpoint_ptr_mset_epQueue_tail_state(
         ep as *mut endpoint,
-        get_currenct_thread().get_ptr(),
+        get_currenct_thread().get_ptr().raw(),
         EPState_Recv,
     );
 
@@ -432,14 +432,14 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
 
     thread_state_ptr_mset_blockingObject_tsType(
         &mut current.tcbState,
-        ep.get_ptr(),
+        ep.get_ptr().raw(),
         ThreadState::ThreadStateBlockedOnReceive as usize,
     );
     caller.tcbState.set_replyObject(0);
     current
         .tcbState
         .set_replyObject(reply_cap.get_capReplyPtr());
-    reply_ptr.replyTCB = current.get_ptr();
+    reply_ptr.replyTCB = current.get_ptr().raw();
     // #else
     //     thread_state_ptr_set_blockingIPCCanGrant(&NODE_STATE(ksCurThread)->tcbState,
     //                                              cap_endpoint_cap_get_capCanGrant(ep_cap));;
@@ -458,10 +458,10 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     } else {
         current.tcbEPPrev = 0;
         current.tcbEPNext = 0;
-        ep.set_epQueue_head(current.get_ptr() as u64);
+        ep.set_epQueue_head(current.get_ptr().as_u64());
         endpoint_ptr_mset_epQueue_tail_state(
             ep as *mut endpoint,
-            get_currenct_thread().get_ptr(),
+            get_currenct_thread().get_ptr().raw(),
             EPState_Recv,
         );
     }

@@ -2,9 +2,9 @@ use super::pte::pte_tag_t;
 use super::{kpptr_to_paddr, machine::*, UPT_LEVELS};
 use crate::arch::VAddr;
 use crate::utils::PageAligned;
-use crate::{asid_t, find_vspace_for_asid, pptr_t, vptr_t, PTE};
+use crate::{asid_t, find_vspace_for_asid, PTE};
 use core::intrinsics::unlikely;
-use rel4_arch::basic::PAddr;
+use rel4_arch::basic::{PAddr, PPtr, VPtr};
 use sel4_common::arch::MessageLabel;
 use sel4_common::structures::exception_t;
 use sel4_common::structures_gen::{cap, cap_tag, cap_vspace_cap};
@@ -35,7 +35,7 @@ pub(crate) static mut armKSGlobalUserVSpace: PageAligned<PTE> = PageAligned::new
 
 #[inline]
 pub fn get_kernel_page_global_directory_base() -> usize {
-    unsafe { armKSGlobalKernelPGD.as_ptr() as usize }
+    &raw const armKSGlobalKernelPGD as usize
 }
 
 #[inline]
@@ -45,7 +45,7 @@ pub fn set_kernel_page_global_directory_by_index(idx: usize, pgde: PTE) {
 
 #[inline]
 pub fn get_kernel_page_upper_directory_base() -> usize {
-    unsafe { armKSGlobalKernelPUD.as_ptr() as usize }
+    &raw const armKSGlobalKernelPUD as usize
 }
 
 #[inline]
@@ -65,12 +65,12 @@ pub fn set_kernel_page_directory_by_index(idx1: usize, idx2: usize, pde: PTE) {
 
 #[inline]
 pub fn get_arm_global_user_vspace_base() -> usize {
-    unsafe { armKSGlobalUserVSpace.as_ptr() as usize }
+    &raw const armKSGlobalUserVSpace as usize
 }
 
 #[inline]
 pub fn get_kernel_page_table_base() -> usize {
-    unsafe { armKSGlobalKernelPT.as_ptr() as usize }
+    &raw const armKSGlobalKernelPT as usize
 }
 
 #[inline]
@@ -160,20 +160,20 @@ pub fn invalidate_tlb_by_asid(asid: asid_t) {
 }
 
 #[inline]
-pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: vptr_t) {
-    invalidate_local_tlb_va_asid((asid << 48) | vaddr >> SEL4_PAGE_BITS);
+pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: VPtr) {
+    invalidate_local_tlb_va_asid((asid << 48) | vaddr.raw() >> SEL4_PAGE_BITS);
     #[cfg(feature = "enable_smp")]
     {
         extern "C" {
             fn remote_invalidate_translation_single(vptr: usize);
         }
         unsafe {
-            remote_invalidate_translation_single((asid << 48) | vaddr >> SEL4_PAGE_BITS);
+            remote_invalidate_translation_single((asid << 48) | vaddr.raw() >> SEL4_PAGE_BITS);
         }
     }
 }
 
-pub fn unmap_page_table(asid: asid_t, vaddr: vptr_t, pt: &PTE) {
+pub fn unmap_page_table(asid: asid_t, vaddr: VPtr, pt: &PTE) {
     let find_ret = find_vspace_for_asid(asid);
     if find_ret.status != exception_t::EXCEPTION_NONE {
         return;
@@ -182,7 +182,7 @@ pub fn unmap_page_table(asid: asid_t, vaddr: vptr_t, pt: &PTE) {
     let mut pte = find_ret.vspace_root.unwrap();
     let mut level: usize = 0;
     while level < UPT_LEVELS - 1 && pte as usize != pt as *const PTE as usize {
-        ptSlot = unsafe { pte.add(VAddr(vaddr).get_upt_index(level)) };
+        ptSlot = unsafe { pte.add(VAddr(vaddr.raw()).get_upt_index(level)) };
         if ptr_to_mut(ptSlot).get_type() != (pte_tag_t::pte_table) as usize {
             return;
         }
@@ -208,10 +208,10 @@ pub fn unmap_page_table(asid: asid_t, vaddr: vptr_t, pt: &PTE) {
 pub fn unmap_page(
     page_size: usize,
     asid: asid_t,
-    vptr: vptr_t,
-    pptr: pptr_t,
+    vptr: VPtr,
+    pptr: PPtr,
 ) -> Result<(), lookup_fault> {
-    let addr = pptr!(pptr).to_paddr();
+    let addr = pptr.to_paddr();
     let find_ret = find_vspace_for_asid(asid);
     if unlikely(find_ret.status != exception_t::EXCEPTION_NONE) {
         return Ok(());

@@ -303,7 +303,7 @@ pub fn get_current_thread_on_node(_node: usize) -> &'static mut tcb_t {
 #[inline]
 /// Set the current thread.
 pub fn set_current_thread(thread: &tcb_t) {
-    SET_NODE_STATE!(ksCurThread = thread.get_ptr());
+    SET_NODE_STATE!(ksCurThread = thread.get_ptr().raw());
 }
 
 #[inline]
@@ -564,7 +564,7 @@ pub fn awaken() {
         let awakened = tcb_release_dequeue();
         /* the currently running thread cannot have just woken up */
         unsafe {
-            assert!((*awakened).get_ptr() != NODE_STATE!(ksCurThread));
+            assert!((*awakened).get_ptr().raw() != NODE_STATE!(ksCurThread));
             /* round robin threads should not be in the release queue */
             assert!(
                 !convert_to_mut_type_ref::<sched_context_t>((*awakened).tcbSchedContext)
@@ -821,7 +821,7 @@ pub fn schedule() {
 #[inline]
 /// Schedule the given tcb.
 pub fn schedule_tcb(tcb_ref: &tcb_t) {
-    if tcb_ref.get_ptr() == NODE_STATE!(ksCurThread)
+    if tcb_ref.get_ptr().raw() == NODE_STATE!(ksCurThread)
         && NODE_STATE!(ksSchedulerAction) == SCHEDULER_ACTION_RESUME_CURRENT_THREAD
         && !tcb_ref.is_schedulable()
     {
@@ -841,7 +841,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
             reschedule_required();
             target.sched_enqueue();
         } else {
-            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
         }
     }
     #[cfg(feature = "kernel_mcs")]
@@ -853,7 +853,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
                 reschedule_required();
                 target.sched_enqueue();
             } else {
-                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
             }
         }
     }
@@ -871,7 +871,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
             reschedule_required();
             target.sched_enqueue();
         } else {
-            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
         }
     }
     #[cfg(feature = "kernel_mcs")]
@@ -883,7 +883,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
                 reschedule_required();
                 target.sched_enqueue();
             } else {
-                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
             }
         }
     }
@@ -966,7 +966,7 @@ pub fn activateThread() {
 pub fn configure_sched_context(tcb: &mut tcb_t, sc_pptr: &mut sched_context_t, timeslice: ticks_t) {
     tcb.tcbSchedContext = sc_pptr.get_ptr();
     sc_pptr.refill_new(MIN_REFILLS, timeslice, 0);
-    sc_pptr.scTcb = tcb.get_ptr();
+    sc_pptr.scTcb = tcb.get_ptr().raw();
 }
 
 #[cfg(not(feature = "enable_smp"))]

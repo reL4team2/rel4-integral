@@ -61,7 +61,6 @@ pub fn zombie_type_zombie_cnode(n: usize) -> usize {
 
 ///判断是否为循环`zombie cap`,指向自身且类型为`CapZombieCap`（似乎只有`CNode Capability`指向自己才会出现这种情况）
 /// 根据网上信息，当`cnode cap`为L2以上时，即`CNode`嵌套`CNode`的情况，就会产生`CyclicZombie`
-#[inline]
 #[no_mangle]
 pub fn cap_cyclic_zombie(capability: &cap, slot: *mut cte_t) -> bool {
     let ptr = cap::cap_zombie_cap(capability).get_zombie_ptr() as *mut cte_t;

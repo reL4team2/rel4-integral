@@ -1,7 +1,5 @@
 use crate::arch::config::KDEV_BASE;
 use crate::sel4_config::UINT64_MAX;
-#[cfg(feature = "kernel_mcs")]
-use crate::BIT;
 use aarch64_cpu::registers::{
     Readable, Writeable, CNTFRQ_EL0, CNTVCT_EL0, CNTV_CTL_EL0, CNTV_CVAL_EL0, CNTV_TVAL_EL0,
 };

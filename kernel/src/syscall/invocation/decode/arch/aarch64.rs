@@ -5,7 +5,7 @@ use crate::syscall::ThreadState;
 use crate::syscall::{current_lookup_fault, get_syscall_arg, set_thread_state, unlikely};
 use crate::syscall::{ensure_empty_slot, get_currenct_thread, lookup_slot_for_cnode_op};
 use log::debug;
-use rel4_arch::basic::PAddr;
+use rel4_arch::basic::{PAddr, VPtr};
 use sel4_common::arch::maskVMRights;
 use sel4_common::platform::MAX_IRQ;
 use sel4_common::sel4_bitfield_types::Bitfield;
@@ -35,7 +35,7 @@ use sel4_cspace::interface::{cte_insert, cte_t};
 
 use sel4_vspace::{
     asid_pool_t, asid_t, clean_by_va_pou, do_flush, find_vspace_for_asid, get_asid_pool_by_index,
-    pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
+    pte_tag_t, set_asid_pool_by_index, vm_attributes_t, PTE,
 };
 
 #[cfg(feature = "enable_smp")]
@@ -112,7 +112,7 @@ fn decode_page_table_invocation(
         global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if unlikely(length < 2 || global_ops!(current_extra_caps.excaprefs[0] == 0)) {
+    if unlikely(length < 2 || global_ops!(current_extra_caps.excaprefs[0].is_null())) {
         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -124,7 +124,7 @@ fn decode_page_table_invocation(
 
     let vaddr = get_syscall_arg(0, buffer);
     let vspace_root_cap =
-        convert_to_mut_type_ref::<cap_vspace_cap>(global_ops!(current_extra_caps.excaprefs[0]));
+        global_ops!(current_extra_caps.excaprefs[0].get_mut_ref::<cap_vspace_cap>());
 
     if unlikely(!vspace_root_cap.clone().unsplay().is_valid_native_root()) {
         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
@@ -154,7 +154,7 @@ fn decode_page_table_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let pd_slot = PTE(vspace_root).lookup_pt_slot(vaddr);
+    let pd_slot = PTE(vspace_root).lookup_pt_slot(vptr!(vaddr));
 
     if unlikely(
         pd_slot.ptBitsLeft == SEL4_PAGE_BITS
@@ -313,19 +313,17 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
     }
     if unlikely(
         length < 2
-            || global_ops!(current_extra_caps.excaprefs[0] == 0)
-            || global_ops!(current_extra_caps.excaprefs[1] == 0),
+            || global_ops!(current_extra_caps.excaprefs[0].is_null())
+            || global_ops!(current_extra_caps.excaprefs[1].is_null()),
     ) {
         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let index = get_syscall_arg(0, buffer);
     let depth = get_syscall_arg(1, buffer);
-    let parent_slot =
-        convert_to_mut_type_ref::<cte_t>(global_ops!(current_extra_caps.excaprefs[0]));
+    let parent_slot = global_ops!(current_extra_caps.excaprefs[0].get_mut_ref::<cte_t>());
     let untyped = cap::cap_untyped_cap(&parent_slot.capability);
-    let root =
-        &convert_to_mut_type_ref::<cte_t>(global_ops!(current_extra_caps.excaprefs[1])).capability;
+    let root = &global_ops!(current_extra_caps.excaprefs[1].get_ref::<cte_t>()).capability;
 
     let mut i = 0;
     loop {
@@ -385,14 +383,13 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
         global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if unlikely(global_ops!(current_extra_caps.excaprefs[0] == 0)) {
+    if unlikely(global_ops!(current_extra_caps.excaprefs[0].is_null())) {
         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
     let vspace_cap_slot = global_ops!(current_extra_caps.excaprefs[0]);
-    let vspace_cap = convert_to_mut_type_ref::<cap_vspace_cap>(vspace_cap_slot);
-
+    let vspace_cap = vspace_cap_slot.get_mut_ref::<cap_vspace_cap>();
     if unlikely(
         !vspace_cap.clone().unsplay().is_vtable_root() || vspace_cap.get_capVSIsMapped() == 1,
     ) {
@@ -513,7 +510,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     }
     let mut vspace_root_pte = PTE::new_from_pte(vspace_root);
     let base = pptr!(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr()).to_paddr();
-    let lu_ret = vspace_root_pte.lookup_pt_slot(vaddr);
+    let lu_ret = vspace_root_pte.lookup_pt_slot(vptr!(vaddr));
     if unlikely(lu_ret.ptBitsLeft != pageBitsForSize(frame_size)) {
         unsafe {
             current_lookup_fault =
@@ -813,7 +810,7 @@ fn decode_vspace_root_invocation(
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let resolve_ret = ptr_to_mut(vspace_root).lookup_pt_slot(start);
+            let resolve_ret = ptr_to_mut(vspace_root).lookup_pt_slot(vptr!(start));
             let pte = resolve_ret.ptSlot;
             if ptr_to_ref(pte).get_type() != (pte_tag_t::pte_page) as usize {
                 get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
@@ -837,8 +834,8 @@ fn decode_vspace_root_invocation(
                 label,
                 find_ret.vspace_root.unwrap() as usize,
                 asid,
-                start,
-                end,
+                vptr!(start),
+                vptr!(end),
                 paddr!(pstart),
             );
         }
@@ -853,13 +850,13 @@ fn decode_vspace_flush_invocation(
     label: MessageLabel,
     vspace: usize,
     asid: asid_t,
-    start: vptr_t,
-    end: vptr_t,
+    start: VPtr,
+    end: VPtr,
     pstart: PAddr,
 ) -> exception_t {
     if start < end {
         let root_switched = set_vm_root_for_flush(vspace, asid);
-        do_flush(label, start, end, pstart);
+        do_flush(label, start.raw(), end.raw(), pstart);
         if root_switched {
             let _ = get_currenct_thread().set_vm_root();
         }

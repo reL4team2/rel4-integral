@@ -129,7 +129,7 @@ pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap) -> exception_t {
 #[inline]
 pub fn do_bind_notification(tcb: &mut tcb_t, nftn: &mut notification) {
     nftn.bind_tcb(tcb);
-    tcb.bind_notification(nftn.get_ptr());
+    tcb.bind_notification(pptr!(nftn.get_ptr()));
 }
 
 #[inline]

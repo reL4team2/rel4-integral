@@ -1,7 +1,8 @@
+use rel4_arch::basic::VPtr;
 use sel4_common::{structures::seL4_IPCBuffer, structures_gen::cap};
 use sel4_cspace::interface::cte_t;
 use sel4_task::{set_thread_state, tcb_t, ThreadState};
-use sel4_vspace::{vptr_t, PTE};
+use sel4_vspace::PTE;
 
 #[no_mangle]
 pub fn isMDBParentOf() {
@@ -50,6 +51,6 @@ pub fn isPTEPageTable(_pte: *mut PTE) -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn lookupPTSlot(_lvl1pt: *mut PTE, _vptr: vptr_t) {
+pub extern "C" fn lookupPTSlot(_lvl1pt: *mut PTE, _vptr: VPtr) {
     panic!("should not be invoked!")
 }

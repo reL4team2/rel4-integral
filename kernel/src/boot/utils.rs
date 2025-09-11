@@ -1,6 +1,7 @@
 use super::ndks_boot;
-use crate::structures::v_region_t;
 use log::debug;
+#[cfg(target_arch = "aarch64")]
+use rel4_arch::basic::VRegion;
 use sel4_common::arch::config::{PADDR_TOP, PPTR_BASE, PPTR_TOP};
 use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::*;
@@ -21,9 +22,9 @@ pub fn pptr_in_kernel_window(pptr: usize) -> bool {
 }
 
 #[inline]
-pub fn get_n_paging(v_reg: v_region_t, bits: usize) -> usize {
-    let start = round_down!(v_reg.start, bits);
-    let end = round_up!(v_reg.end, bits);
+pub fn get_n_paging(v_reg: VRegion, bits: usize) -> usize {
+    let start = round_down!(v_reg.start.raw(), bits);
+    let end = round_up!(v_reg.end.raw(), bits);
     (end - start) / bit!(bits)
 }
 
@@ -37,7 +38,7 @@ pub fn arch_get_n_paging(it_v_reg: v_region_t) -> usize {
 }
 
 #[cfg(target_arch = "aarch64")]
-pub fn arch_get_n_paging(it_v_reg: v_region_t) -> usize {
+pub fn arch_get_n_paging(it_v_reg: VRegion) -> usize {
     let n = get_n_paging(it_v_reg, 3 * PT_INDEX_BITS + PAGE_SIZE_BITS)
         + get_n_paging(it_v_reg, PT_INDEX_BITS + PAGE_SIZE_BITS + PT_INDEX_BITS)
         + get_n_paging(it_v_reg, PT_INDEX_BITS + PAGE_SIZE_BITS);

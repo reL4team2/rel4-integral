@@ -86,7 +86,7 @@ pub fn decode_sched_control_invocation(
 ) -> exception_t {
     match inv_label {
         MessageLabel::SchedControlConfigureFlags => {
-            if global_ops!(current_extra_caps.excaprefs[0] == 0) {
+            if global_ops!(current_extra_caps.excaprefs[0].is_null()) {
                 debug!("SchedControl_ConfigureFlags: Truncated message.");
                 unsafe {
                     current_syscall_error._type = SEL4_TRUNCATED_MESSAGE;
@@ -110,9 +110,9 @@ pub fn decode_sched_control_invocation(
             let badge = get_syscall_arg(TIME_ARG_SIZE * 2 + 1, buffer);
             let flags = get_syscall_arg(TIME_ARG_SIZE * 2 + 2, buffer);
 
-            let targetCap =
-                &convert_to_mut_type_ref::<cte_t>(unsafe { current_extra_caps.excaprefs[0] })
-                    .capability;
+            let targetCap = &global_ops!(current_extra_caps.excaprefs[0])
+                .get_mut_ref::<cte_t>()
+                .capability;
             if unlikely(targetCap.get_tag() != cap_tag::cap_sched_context_cap) {
                 debug!("SchedControl_ConfigureFlags: target cap not a scheduling context cap");
                 unsafe {
@@ -319,7 +319,7 @@ pub fn decode_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
         }
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if sc.scTcb == thread.get_ptr() {
+    if sc.scTcb == thread.get_ptr().raw() {
         debug!("SchedContext_YieldTo: cannot seL4_SchedContext_YieldTo on self");
         unsafe {
             current_syscall_error._type = SEL4_ILLEGAL_OPERATION;

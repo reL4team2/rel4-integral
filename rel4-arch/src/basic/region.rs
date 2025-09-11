@@ -87,3 +87,9 @@ impl From<PRegion> for Region {
         value.to_region()
     }
 }
+
+impl VRegion {
+    pub const fn new(start: VPtr, end: VPtr) -> Self {
+        Self { start, end }
+    }
+}

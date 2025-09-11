@@ -116,7 +116,7 @@ impl notification_func for notification {
     #[inline]
     /// Bind the tcb to the notification
     fn bind_tcb(&mut self, tcb: &mut tcb_t) {
-        self.set_ntfnBoundTCB(tcb.get_ptr() as u64);
+        self.set_ntfnBoundTCB(tcb.get_ptr().raw() as u64);
     }
 
     #[inline]

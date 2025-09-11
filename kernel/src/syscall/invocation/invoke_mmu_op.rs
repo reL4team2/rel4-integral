@@ -40,7 +40,7 @@ pub fn invoke_page_table_unmap(capability: &mut cap_page_table_cap) -> exception
         let pt = convert_to_mut_type_ref::<PTE>(capability.get_capPTBasePtr() as usize);
         unmap_page_table(
             capability.get_capPTMappedASID() as usize,
-            capability.get_capPTMappedAddress() as usize,
+            vptr!(capability.get_capPTMappedAddress()),
             pt,
         );
         clear_memory(pt.get_mut_ptr() as *mut u8, SEL4_PAGE_TABLE_BITS)
@@ -103,13 +103,14 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
 }
 
 pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
-    if cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize != ASID_INVALID {
+    let page_cap = cap::cap_frame_cap(&frame_slot.capability);
+    if page_cap.get_capFMappedASID() as usize != ASID_INVALID {
         match unmap_page(
-            cap::cap_frame_cap(&frame_slot.capability).get_capFSize() as usize,
-            cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize,
+            page_cap.get_capFSize() as usize,
+            page_cap.get_capFMappedASID() as usize,
             // FIXME: here should be frame_mapped_address.
-            cap::cap_frame_cap(&frame_slot.capability).get_capFMappedAddress() as usize,
-            cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize,
+            vptr!(page_cap.get_capFMappedAddress()),
+            pptr!(page_cap.get_capFBasePtr() as usize),
         ) {
             Err(lookup_fault) => unsafe {
                 current_lookup_fault = lookup_fault;
@@ -117,8 +118,8 @@ pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
             _ => {}
         }
     }
-    cap::cap_frame_cap(&frame_slot.capability).set_capFMappedAddress(0);
-    cap::cap_frame_cap(&frame_slot.capability).set_capFMappedASID(ASID_INVALID as u64);
+    page_cap.set_capFMappedAddress(0);
+    page_cap.set_capFMappedASID(ASID_INVALID as u64);
     exception_t::EXCEPTION_NONE
 }
 
@@ -171,7 +172,7 @@ pub fn invoke_page_map(
     );
     if unlikely(tlbflush_required) {
         assert!(asid < bit!(16));
-        invalidate_tlb_by_asid_va(asid, capability.get_capFMappedAddress() as usize);
+        invalidate_tlb_by_asid_va(asid, vptr!(capability.get_capFMappedAddress()));
     }
     exception_t::EXCEPTION_NONE
 }

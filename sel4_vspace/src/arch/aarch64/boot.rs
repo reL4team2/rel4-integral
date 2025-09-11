@@ -1,3 +1,4 @@
+use rel4_arch::basic::{PPtr, VPtr};
 use sel4_common::{
     arch::{
         config::{PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_TOP},
@@ -10,10 +11,9 @@ use sel4_common::{
 
 use crate::{
     arch::VAddr, asid_t, get_kernel_page_directory_base_by_index, get_kernel_page_table_base,
-    get_kernel_page_upper_directory_base, kpptr_to_paddr, mair_types, pptr_t,
+    get_kernel_page_upper_directory_base, kpptr_to_paddr, mair_types,
     set_kernel_page_directory_by_index, set_kernel_page_global_directory_by_index,
-    set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t,
-    vptr_t, PTE,
+    set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t, PTE,
 };
 
 use super::{map_kernel_devices, page_slice};
@@ -201,37 +201,32 @@ fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
 #[link_section = ".boot.text"]
 pub fn create_it_pud_cap(
     vspace_cap: &cap_vspace_cap,
-    pptr: pptr_t,
-    vptr: vptr_t,
+    pptr: PPtr,
+    vptr: VPtr,
     asid: usize,
 ) -> cap_page_table_cap {
-    let capability = cap_page_table_cap::new(asid as u64, pptr as u64, 1, vptr as u64);
+    let capability = cap_page_table_cap::new(asid as u64, pptr.raw() as u64, 1, vptr.raw() as u64);
     map_it_pud_cap(vspace_cap, &capability);
     return capability;
 }
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-pub fn create_it_pd_cap(vspace_cap: &cap_vspace_cap, pptr: usize, vptr: usize, asid: usize) -> cap {
-    let capability = cap_page_table_cap::new(asid as u64, pptr as u64, 1, vptr as u64);
+pub fn create_it_pd_cap(vspace_cap: &cap_vspace_cap, pptr: PPtr, vptr: VPtr, asid: usize) -> cap {
+    let capability = cap_page_table_cap::new(asid as u64, pptr.raw() as u64, 1, vptr.raw() as u64);
     map_it_pd_cap(vspace_cap, &capability);
     capability.unsplay()
 }
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-pub fn create_unmapped_it_frame_cap(pptr: pptr_t, use_large: bool) -> cap_frame_cap {
-    create_it_frame_cap(pptr, 0, 0, use_large)
+pub fn create_unmapped_it_frame_cap(pptr: PPtr, use_large: bool) -> cap_frame_cap {
+    create_it_frame_cap(pptr, vptr!(0), 0, use_large)
 }
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-pub fn create_it_frame_cap(
-    pptr: pptr_t,
-    vptr: vptr_t,
-    asid: asid_t,
-    use_large: bool,
-) -> cap_frame_cap {
+pub fn create_it_frame_cap(pptr: PPtr, vptr: VPtr, asid: asid_t, use_large: bool) -> cap_frame_cap {
     let frame_size;
     if use_large {
         frame_size = ARM_LARGE_PAGE;
@@ -240,9 +235,9 @@ pub fn create_it_frame_cap(
     }
     cap_frame_cap::new(
         asid as u64,
-        pptr as u64,
+        pptr.raw() as u64,
         frame_size as u64,
-        vptr as u64,
+        vptr.raw() as u64,
         vm_rights_t::VMReadWrite as u64,
         0,
     )
@@ -251,8 +246,8 @@ pub fn create_it_frame_cap(
 #[no_mangle]
 pub fn create_mapped_it_frame_cap(
     pd_cap: &cap_vspace_cap,
-    pptr: usize,
-    vptr: usize,
+    pptr: PPtr,
+    vptr: VPtr,
     asid: usize,
     use_large: bool,
     exec: bool,

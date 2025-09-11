@@ -8,7 +8,7 @@ use core::mem::size_of;
 
 // use crate::ffi::tcbDebugAppend;
 use log::debug;
-use rel4_arch::basic::{PRegion, Region};
+use rel4_arch::basic::{PAddr, PRegion, Region};
 use sel4_common::arch::config::PADDR_TOP;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::platform::{timer, Timer_func};
@@ -57,7 +57,7 @@ pub fn calculate_extra_bi_size_bits(size: usize) -> usize {
 
 pub fn init_dtb(
     dtb_size: usize,
-    dtb_phys_addr: usize,
+    dtb_phys_addr: PAddr,
     extra_bi_size: &mut usize,
 ) -> Option<PRegion> {
     let mut dtb_p_reg = PRegion::empty();
@@ -67,28 +67,31 @@ pub fn init_dtb(
             debug!(
                 "ERROR: DTB location at {}
              len {} invalid",
-                dtb_phys_addr, dtb_size
+                dtb_phys_addr.raw(),
+                dtb_size
             );
             return None;
         }
-        if dtb_phys_end >= PADDR_TOP {
+        if dtb_phys_end.raw() >= PADDR_TOP {
             debug!(
                 "ERROR: DTB at [{}..{}] exceeds PADDR_TOP ({})\n",
-                dtb_phys_addr, dtb_phys_end, PADDR_TOP
+                dtb_phys_addr.raw(),
+                dtb_phys_end.raw(),
+                PADDR_TOP
             );
             return None;
         }
 
         (*extra_bi_size) += size_of::<BootInfoHeader>() + dtb_size;
         dtb_p_reg = PRegion {
-            start: paddr!(dtb_phys_addr),
-            end: paddr!(dtb_phys_end),
+            start: dtb_phys_addr,
+            end: dtb_phys_end,
         };
     }
     Some(dtb_p_reg)
 }
 
-pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) {
+pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: PAddr, extra_bi_size: usize) {
     let mut extra_bi_offset = 0;
     let mut header: BootInfoHeader = BootInfoHeader { id: 0, len: 0 };
     if dtb_size > 0 {
@@ -99,7 +102,7 @@ pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize
         }
         extra_bi_offset += size_of::<BootInfoHeader>();
         let src = unsafe {
-            core::slice::from_raw_parts(paddr!(dtb_phys_addr).to_pptr().get_ptr::<u8>(), dtb_size)
+            core::slice::from_raw_parts(dtb_phys_addr.to_pptr().get_ptr::<u8>(), dtb_size)
         };
         unsafe {
             let dst = core::slice::from_raw_parts_mut(
@@ -118,7 +121,7 @@ pub fn init_bootinfo(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize
     }
 }
 
-pub fn bi_finalise(dtb_size: usize, dtb_phys_addr: usize, extra_bi_size: usize) {
+pub fn bi_finalise(dtb_size: usize, dtb_phys_addr: PAddr, extra_bi_size: usize) {
     unsafe {
         (*ndks_boot.bi_frame).empty = SlotRegion {
             start: ndks_boot.slot_pos_cur,

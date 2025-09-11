@@ -1,3 +1,4 @@
+use rel4_arch::basic::PAddr;
 use sel4_task::{get_idle_thread, set_current_thread, tcb_t};
 
 use crate::arch::try_init_kernel;
@@ -20,11 +21,11 @@ extern "C" {
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn rust_try_init_kernel(
-    ui_p_reg_start: usize,
-    ui_p_reg_end: usize,
+    ui_p_reg_start: PAddr,
+    ui_p_reg_end: PAddr,
     pv_offset: isize,
     v_entry: usize,
-    dtb_phys_addr: usize,
+    dtb_phys_addr: PAddr,
     dtb_size: usize,
 ) -> bool {
     try_init_kernel(

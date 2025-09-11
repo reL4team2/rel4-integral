@@ -18,6 +18,12 @@ extern crate rel4_utils;
 #[macro_use]
 extern crate rel4_arch;
 
+#[cfg(all(
+    feature = "build_binary",
+    feature = "enable_smp",
+    target_arch = "aarch64"
+))]
+use rel4_arch::basic::PAddr;
 use sel4_common::arch::shutdown;
 // mod console;
 mod arch;
@@ -99,11 +105,11 @@ pub fn init_kernel(
     target_arch = "aarch64"
 ))]
 pub fn init_kernel(
-    ui_p_reg_start: usize,
-    ui_p_reg_end: usize,
+    ui_p_reg_start: PAddr,
+    ui_p_reg_end: PAddr,
     pv_offset: isize,
     v_entry: usize,
-    dtb_addr_p: usize,
+    dtb_addr_p: PAddr,
     dtb_size: usize,
 ) {
     use rel4_arch::basic::PRegion;

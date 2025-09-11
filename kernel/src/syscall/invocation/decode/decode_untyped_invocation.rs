@@ -148,7 +148,7 @@ pub fn decode_untyed_invocation(
     invoke_untyped_retype(
         slot,
         reset,
-        aligned_free_ref,
+        pptr!(aligned_free_ref),
         new_type,
         user_obj_size,
         convert_to_mut_type_ref::<cte_t>(node_cap.get_capCNodePtr() as usize),

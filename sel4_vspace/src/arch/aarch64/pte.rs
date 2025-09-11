@@ -1,8 +1,8 @@
 use crate::{arch::aarch64::machine::clean_by_va_pou, vm_attributes_t, PTE};
 
 use super::{mair_types, UPT_LEVELS, VSPACE_INDEX_BITS};
-use crate::{lookupPTSlot_ret_t, vptr_t};
-use rel4_arch::basic::PAddr;
+use crate::lookupPTSlot_ret_t;
+use rel4_arch::basic::{PAddr, VPtr};
 use sel4_common::utils::ptr_to_mut;
 use sel4_common::{
     arch::vm_rights_t,
@@ -234,11 +234,11 @@ impl PTE {
         PTE(val)
     }
     ///用于记录某个虚拟地址`vptr`对应的pte表项在内存中的位置
-    pub fn lookup_pt_slot(&mut self, vptr: vptr_t) -> lookupPTSlot_ret_t {
+    pub fn lookup_pt_slot(&mut self, vptr: VPtr) -> lookupPTSlot_ret_t {
         let mut pt = self.0 as *mut PTE;
         let mut level: usize = UPT_LEVELS - 1;
         let ptBitsLeft = PT_INDEX_BITS * level + SEL4_PAGE_BITS;
-        pt = unsafe { pt.add((vptr >> ptBitsLeft) & mask_bits!(VSPACE_INDEX_BITS)) };
+        pt = unsafe { pt.add((vptr.raw() >> ptBitsLeft) & mask_bits!(VSPACE_INDEX_BITS)) };
         let mut ret: lookupPTSlot_ret_t = lookupPTSlot_ret_t {
             ptSlot: pt,
             ptBitsLeft: ptBitsLeft,
@@ -249,7 +249,7 @@ impl PTE {
             ret.ptBitsLeft = ret.ptBitsLeft - PT_INDEX_BITS;
             let paddr = ptr_to_mut(ret.ptSlot).next_level_paddr();
             pt = paddr.to_pptr().get_mut_ptr::<PTE>();
-            pt = unsafe { pt.add((vptr >> ret.ptBitsLeft) & mask_bits!(PT_INDEX_BITS)) };
+            pt = unsafe { pt.add((vptr.raw() >> ret.ptBitsLeft) & mask_bits!(PT_INDEX_BITS)) };
             ret.ptSlot = pt;
         }
         ret

@@ -625,7 +625,7 @@ fn decode_set_sched_params(
     }
 
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    let t_cap = cap_thread_cap::new(tcb.get_ptr() as u64).unsplay();
+    let t_cap = cap_thread_cap::new(tcb.get_ptr().as_u64()).unsplay();
 
     let status = install_tcb_cap(
         tcb,

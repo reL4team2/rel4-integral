@@ -4,15 +4,6 @@ use sel4_common::{structures::exception_t, structures_gen::lookup_fault};
 
 use crate::PTE;
 
-/// 在`PSpace`段的虚拟地址空间中的指针
-///
-/// Virtual pointer used in PSpace
-pub type pptr_t = usize;
-/// 用戶地址地址空间中虚拟的指针
-///
-/// Virtual pointer in user space
-pub type vptr_t = usize;
-
 /// 进程对应的asid所属的类型
 pub type asid_t = usize;
 

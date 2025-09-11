@@ -1,22 +1,14 @@
-use rel4_arch::basic::{PAddr, PRegion, Region};
+use rel4_arch::basic::{PAddr, PPtr, PRegion, Region};
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap};
 use sel4_cspace::interface::cte_t;
-use sel4_vspace::pptr_t;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct BootInfoHeader {
     pub id: usize,
     pub len: usize,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct v_region_t {
-    pub start: usize,
-    pub end: usize,
 }
 
 #[allow(non_camel_case_types)]
@@ -141,5 +133,5 @@ pub struct syscall_error_t {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct extra_caps_t {
-    pub excaprefs: [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+    pub excaprefs: [PPtr; SEL4_MSG_MAX_EXTRA_CAPS],
 }
