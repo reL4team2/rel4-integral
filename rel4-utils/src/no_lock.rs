@@ -23,6 +23,7 @@ impl<T> NoLock<T> {
     }
 
     /// 返回可变引用，需要保证真的不需要锁的存在
+    #[allow(clippy::mut_from_ref)]
     pub const fn no_lock(&self) -> &mut T {
         unsafe { &mut *self.0.get() }
     }

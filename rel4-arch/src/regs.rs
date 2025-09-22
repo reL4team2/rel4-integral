@@ -8,7 +8,9 @@ pub enum ArchReg {
     Cap,
     Badge,
     MsgInfo,
+    /// The address of the fault instruction position
     FaultIP,
+    /// Next Instruction Pointer
     NextIP,
     /// Message Registers Msg(offset)
     Msg(usize),

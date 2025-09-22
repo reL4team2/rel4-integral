@@ -10,7 +10,7 @@ use sel4_common::structures_gen::{
 };
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::{cap_reply_cap, cap_sched_context_cap};
-use sel4_common::{sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref};
+use sel4_common::{sel4_config::*, structures::exception_t};
 use sel4_cspace::deps::preemption_point;
 use sel4_cspace::interface::{cte_t, insert_new_cap};
 use sel4_task::{get_current_domain, tcb_t};

@@ -65,7 +65,15 @@ pub fn rust_map_kernel_window() {
         set_kernel_page_directory_by_index(
             VAddr(vaddr).get_kpt_index(1),
             VAddr(vaddr).get_kpt_index(2),
-            PTE::pte_new_page(1, paddr, 0, 1, shareable, 0, mair_types::NORMAL as usize),
+            PTE::pte_new_page(
+                1,
+                paddr!(paddr),
+                0,
+                1,
+                shareable,
+                0,
+                mair_types::NORMAL as usize,
+            ),
         );
 
         vaddr += bit!(SEL4_LARGE_PAGE_BITS);

@@ -7,6 +7,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 #![feature(alloc_error_handler)]
+#![feature(const_nonnull_new)]
 #![feature(linkage)]
 #![feature(stmt_expr_attributes)]
 

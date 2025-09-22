@@ -38,7 +38,7 @@ pub fn set_current_user_vspace_root(val: usize) {
     }
     dsb();
     isb();
-    log::warn!("virtual ttbr el2: {:#x}", val);
+    // log::warn!("virtual ttbr el2: {:#x}", val);
     // FIXME: use aisd instead of flush tlb
 }
 

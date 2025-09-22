@@ -94,7 +94,7 @@ impl paddr_t {
 
     #[inline]
     pub fn get_cstr(&self) -> &CStr {
-        unsafe { CStr::from_ptr(self.get_ptr::<u8>()) }
+        unsafe { CStr::from_ptr(self.get_ptr::<i8>()) }
     }
 }
 
