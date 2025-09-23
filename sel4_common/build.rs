@@ -23,12 +23,10 @@ fn main() {
         } else {
             println!("dir {} has been all del", out_dir.display());
         }
+    } else if !out_dir.exists() {
+        println!("dir {} not exist, and no need to del", out_dir.display());
     } else {
-        if !out_dir.exists() {
-            println!("dir {} not exist, and no need to del", out_dir.display());
-        } else {
-            eprintln!("path {} is not a dir", out_dir.display());
-        }
+        eprintln!("path {} is not a dir", out_dir.display());
     }
 
     match fs::create_dir(&out_dir) {

@@ -29,7 +29,7 @@ jobs:
   #       run: apt update && apt install -y wget gcc-${{ matrix.arch }}-linux-gnu
   #     - uses: actions-rust-lang/setup-rust-toolchain@v1
   #       with:
-  #         toolchain: nightly-2024-02-01
+  #         toolchain: nightly-2024-11-18
   #         components: rust-src
   #         rustflags:
   #     - name: Adapt dependencies
@@ -64,7 +64,7 @@ jobs:
         working-directory: .
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly-2024-02-01
+          toolchain: nightly-2024-11-18
           components: rust-src rustfmt
           rustflags:
           target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
@@ -119,7 +119,7 @@ jobs:
         working-directory: .
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly-2024-02-01
+          toolchain: nightly-2024-11-18
           components: rust-src rustfmt
           rustflags:
           target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
@@ -173,7 +173,7 @@ jobs:
         working-directory: .
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly-2024-02-01
+          toolchain: nightly-2024-11-18
           components: rust-src rustfmt
           rustflags:
           target: aarch64-unknown-none-softfloat
@@ -220,7 +220,7 @@ jobs:
         working-directory: .
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly-2024-02-01
+          toolchain: nightly-2024-11-18
           components: rust-src rustfmt
           rustflags:
           target: aarch64-unknown-none-softfloat
@@ -258,7 +258,7 @@ jobs:
         working-directory: .
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly-2024-02-01
+          toolchain: nightly-2024-11-18
           components: rust-src rustfmt
           rustflags:
           target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
