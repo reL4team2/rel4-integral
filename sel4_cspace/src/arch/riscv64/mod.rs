@@ -5,7 +5,6 @@ use sel4_common::{
     structures_gen::{cap, cap_null_cap, cap_tag},
     utils::pageBitsForSize,
     vm_rights::vm_rights_from_word,
-    MASK,
 };
 
 use crate::{
@@ -123,11 +122,11 @@ pub fn arch_same_region_as(cap1: &cap, cap2: &cap) -> bool {
                 let botA = cap::cap_frame_cap(cap1).get_capFBasePtr() as usize;
                 let botB = cap::cap_frame_cap(cap2).get_capFBasePtr() as usize;
                 let topA = botA
-                    + MASK!(pageBitsForSize(
+                    + mask_bits!(pageBitsForSize(
                         cap::cap_frame_cap(cap1).get_capFSize() as usize
                     ));
                 let topB = botB
-                    + MASK!(pageBitsForSize(
+                    + mask_bits!(pageBitsForSize(
                         cap::cap_frame_cap(cap2).get_capFSize() as usize
                     ));
                 return (botA <= botB) && (topA >= topB) && (botB <= topB);

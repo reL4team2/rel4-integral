@@ -1,8 +1,6 @@
 pub mod handler;
 
 #[cfg(target_arch = "riscv64")]
-use crate::BIT;
-#[cfg(target_arch = "riscv64")]
 use core::arch::asm;
 use rel4_arch::basic::PPtr;
 use sel4_common::platform::*;

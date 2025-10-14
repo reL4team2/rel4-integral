@@ -5,6 +5,9 @@ use rel4_utils::impl_multi;
 #[cfg(target_arch = "aarch64")]
 use crate::aarch64::config::PPTR_BASE_OFFSET;
 
+#[cfg(target_arch = "riscv64")]
+use crate::riscv64::config::PPTR_BASE_OFFSET;
+
 /// Pointer to User-Virtual Memory
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(transparent)]
@@ -92,6 +95,13 @@ impl PPtr {
     /// Should ensure the value of [PPtr] is valid
     pub fn get_mut_ref<T>(&self) -> &'static mut T {
         unsafe { &mut *self.get_mut_ptr::<T>() }
+    }
+
+    /// Get mutable reference for the [PPtr]
+    ///
+    /// Should ensure the value of [PPtr] is valid
+    pub fn get_mut_slice<const LEN: usize, T>(&self) -> &'static mut [T] {
+        unsafe { core::slice::from_raw_parts_mut(self.get_mut_ptr(), LEN) }
     }
 
     /// Trying to get mutable reference for the [PPtr]

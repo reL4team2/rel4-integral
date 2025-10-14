@@ -16,7 +16,6 @@ use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_tag};
 use sel4_common::structures_gen::{lookup_fault_invalid_root, lookup_fault_missing_capability};
 use sel4_common::utils::{convert_to_mut_type_ref, pageBitsForSize};
-use sel4_common::{BIT, MASK};
 use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 use sel4_vspace::{
@@ -181,7 +180,7 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    invoke_asid_control(frame as usize, dest_slot, parent_slot, asid_base)
+    invoke_asid_control(pptr!(frame), dest_slot, parent_slot, asid_base)
 }
 
 fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
@@ -217,7 +216,7 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
 
     let asid = cap::cap_asid_pool_cap(&cte.capability).get_capASIDBase() as usize;
     if let Some(pool) = get_asid_pool_by_index(asid >> ASID_LOW_BITS) {
-        if pool.get_ptr() != cap::cap_asid_pool_cap(&cte.capability).get_capASIDPool() as usize {
+        if pool.get_ptr().as_u64() != cap::cap_asid_pool_cap(&cte.capability).get_capASIDPool() {
             unsafe {
                 current_syscall_error._type = SEL4_INVALID_CAPABILITY;
                 current_syscall_error.invalidCapNumber = 0;
@@ -281,7 +280,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
 
-        let lu_ret = lvl1pt.lookup_pt_slot(vaddr);
+        let lu_ret = lvl1pt.lookup_pt_slot(vptr!(vaddr));
         if lu_ret.ptBitsLeft != pageBitsForSize(frame_size) {
             unsafe {
                 current_lookup_fault =
@@ -409,7 +408,7 @@ fn decode_page_table_map(
     let lvl1pt_cap = &get_extra_cap_by_index(0).unwrap().capability;
 
     if let Some((lvl1pt, asid)) = get_vspace(lvl1pt_cap) {
-        let lu_ret = lvl1pt.lookup_pt_slot(vaddr);
+        let lu_ret = lvl1pt.lookup_pt_slot(vptr!(vaddr));
         let lu_slot = convert_to_mut_type_ref::<PTE>(lu_ret.ptSlot as usize);
         #[cfg(target_arch = "riscv64")]
         if lu_ret.ptBitsLeft == SEL4_PAGE_BITS || lu_slot.get_valid() != 0 {
@@ -420,7 +419,12 @@ fn decode_page_table_map(
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
         set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-        return invoke_page_table_map(capability, lu_slot, asid, vaddr & !MASK!(lu_ret.ptBitsLeft));
+        return invoke_page_table_map(
+            capability,
+            lu_slot,
+            asid,
+            vaddr & !mask_bits!(lu_ret.ptBitsLeft),
+        );
     } else {
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }

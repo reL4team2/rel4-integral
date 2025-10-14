@@ -24,4 +24,8 @@ impl KernelStack {
     pub fn get_stack_top(&self, node_id: usize) -> usize {
         self.0[node_id].as_ptr() as usize + bit!(CONFIG_KERNEL_STACK_BITS)
     }
+
+    pub const fn base_ptr(&self) -> *const u8 {
+        self.0.as_ptr() as _
+    }
 }

@@ -4,6 +4,7 @@ use crate::arch::config::RESET_CYCLES;
 use crate::arch::{get_time, set_timer};
 use crate::platform::time_def::ticks_t;
 use core::arch::asm;
+use core::ptr::NonNull;
 use serial_frame::SerialDriver;
 use serial_impl_sbi::SerialSBI;
 

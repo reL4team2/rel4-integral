@@ -16,15 +16,15 @@ pub fn map_kernel_devices() {
         for kernel_frame in kernel_device_frames {
             let vm_attr: vm_attributes_t = vm_attributes_t(kernel_frame.armExecuteNever as usize);
             map_kernel_frame(
-                kernel_frame.paddr.0,
-                kernel_frame.pptr,
+                kernel_frame.paddr.raw(),
+                kernel_frame.pptr.raw(),
                 VMKernelOnly,
                 vm_attr,
             );
             if kernel_frame.userAvailable == 0 {
                 reserve_region(PRegion::new(
-                    paddr!(kernel_frame.paddr.0),
-                    paddr!(kernel_frame.paddr.0 + bit!(PAGE_BITS)),
+                    paddr!(kernel_frame.paddr.raw()),
+                    paddr!(kernel_frame.paddr.raw() + bit!(PAGE_BITS)),
                 ));
             }
         }

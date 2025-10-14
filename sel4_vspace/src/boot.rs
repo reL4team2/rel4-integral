@@ -1,4 +1,3 @@
-#[cfg(target_arch = "aarch64")]
 use rel4_arch::basic::{PPtr, VPtr};
 use sel4_common::structures_gen::cap_page_table_cap;
 
@@ -28,7 +27,7 @@ pub fn create_it_pt_cap(
     vptr: VPtr,
     asid: usize,
 ) -> cap_page_table_cap {
-    let capability = cap_page_table_cap::new(asid as u64, pptr as u64, 1, vptr as u64);
+    let capability = cap_page_table_cap::new(asid as u64, pptr.raw() as u64, 1, vptr.raw() as u64);
     map_it_pt_cap(vspace_cap, &capability);
     return capability;
 }

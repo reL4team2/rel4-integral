@@ -1,6 +1,7 @@
-use sel4_common::{sel4_config::ASID_LOW_BITS, utils::convert_to_option_mut_type_ref, BIT};
+use rel4_arch::basic::PPtr;
+use sel4_common::{sel4_config::ASID_LOW_BITS, utils::convert_to_option_mut_type_ref};
 
-use crate::{pptr_t, PTE};
+use crate::PTE;
 
 ///lookup_pt_slot函数的返回值，
 /// `ptSlot`：找到的虚地址对应的`pte`的存放槽
@@ -21,8 +22,8 @@ pub struct asid_pool_t {
 /// `asid pool`相关操作
 impl asid_pool_t {
     #[inline]
-    pub fn get_ptr(&self) -> pptr_t {
-        self as *const Self as pptr_t
+    pub fn get_ptr(&self) -> PPtr {
+        pptr!(self as *const Self)
     }
 
     #[inline]
@@ -31,8 +32,8 @@ impl asid_pool_t {
     }
 
     #[inline]
-    pub fn set_vspace_by_index(&mut self, index: usize, vspace_ptr: pptr_t) {
+    pub fn set_vspace_by_index(&mut self, index: usize, vspace_ptr: PPtr) {
         // assert!(index < bit!(ASID_LOW_BITS));
-        self.array[index] = vspace_ptr as *mut PTE;
+        self.array[index] = vspace_ptr.get_mut_ptr();
     }
 }

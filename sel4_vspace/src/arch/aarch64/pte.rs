@@ -91,10 +91,10 @@ bitflags::bitflags! {
 }
 
 impl PTE {
-    pub fn new(addr: usize, flags: PTEFlags) -> Self {
-        Self((addr & 0xfffffffff000) | flags.bits())
+    pub fn new(addr: PAddr, flags: PTEFlags) -> Self {
+        Self((addr.raw() & 0xfffffffff000) | flags.bits())
     }
-    pub fn pte_next_table(addr: usize, _: bool) -> Self {
+    pub fn pte_next_table(addr: PAddr, _: bool) -> Self {
         Self::new(addr, PTEFlags::VALID | PTEFlags::NON_BLOCK)
     }
     // fn new_4k_page(addr: usize, flags: PTEFlags) -> Self {

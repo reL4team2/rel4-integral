@@ -1,5 +1,7 @@
 use super::ndks_boot;
 use log::debug;
+#[cfg(target_arch = "riscv64")]
+use rel4_arch::basic::VRegion;
 #[cfg(target_arch = "aarch64")]
 use rel4_arch::basic::VRegion;
 use sel4_common::arch::config::{PADDR_TOP, PPTR_BASE, PPTR_TOP};
@@ -7,7 +9,8 @@ use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::*;
 use sel4_common::structures_gen::{cap, cap_cnode_cap, mdb_node};
 use sel4_cspace::interface::*;
-// #[cfg(target_arch="riscv64")]
+#[cfg(target_arch="riscv64")]
+use sel4_vspace::riscv_get_lvl_pgsize_bits;
 // use sel4_vspace::
 
 pub fn ceiling_kernel_window(mut p: usize) -> usize {
@@ -29,7 +32,7 @@ pub fn get_n_paging(v_reg: VRegion, bits: usize) -> usize {
 }
 
 #[cfg(target_arch = "riscv64")]
-pub fn arch_get_n_paging(it_v_reg: v_region_t) -> usize {
+pub fn arch_get_n_paging(it_v_reg: VRegion) -> usize {
     let mut n: usize = 0;
     for i in 0..CONFIG_PT_LEVELS - 1 {
         n += get_n_paging(it_v_reg, riscv_get_lvl_pgsize_bits(i));

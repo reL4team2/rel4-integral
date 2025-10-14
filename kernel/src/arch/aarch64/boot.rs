@@ -65,7 +65,7 @@ pub fn try_init_kernel(
     let mut extra_bi_size = 0;
     let ui_v_reg = VRegion::new(
         vptr!(ui_p_reg_start.raw() as isize - pv_offset),
-        vptr!((ui_p_reg_end.raw() as isize - pv_offset)),
+        vptr!(ui_p_reg_end.raw() as isize - pv_offset),
     );
     let ipcbuf_vptr = ui_v_reg.end;
     let bi_frame_vptr = ipcbuf_vptr + bit!(PAGE_BITS);

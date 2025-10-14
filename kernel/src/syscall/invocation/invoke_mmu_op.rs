@@ -16,7 +16,6 @@ use sel4_common::{
     sel4_bitfield_types::Bitfield,
     shared_types_bf_gen::seL4_CapRights,
     utils::{max_free_index, pageBitsForSize},
-    MASK,
 };
 use sel4_common::{sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref};
 
@@ -26,8 +25,7 @@ use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::{
-    asid_pool_t, copyGlobalMappings, pptr_t, set_asid_pool_by_index, sfence, vm_attributes_t,
-    PTEFlags,
+    asid_pool_t, copyGlobalMappings, set_asid_pool_by_index, sfence, vm_attributes_t, PTEFlags,
 };
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{clean_by_va_pou, invalidate_tlb_by_asid_va, pte_tag_t};
@@ -55,8 +53,8 @@ pub fn invoke_page_table_map(
     asid: usize,
     vaddr: usize,
 ) -> exception_t {
-    let paddr = pptr_to_paddr(pt_cap.get_capPTBasePtr() as usize);
-    let pte = PTE::new(paddr >> SEL4_PAGE_BITS, PTEFlags::V);
+    let paddr = pptr!(pt_cap.get_capPTBasePtr()).to_paddr();
+    let pte = PTE::new(paddr.raw() >> SEL4_PAGE_BITS, PTEFlags::V);
     *pt_slot = pte;
     pt_cap.set_capPTIsMapped(1);
     pt_cap.set_capPTMappedASID(asid as u64);
@@ -142,8 +140,9 @@ pub fn invoke_page_map(
             arr: [w_rights_mask as u64; 1],
         }),
     );
-    let frame_addr =
-        pptr_to_paddr(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize);
+    let frame_addr = pptr!(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr()).to_paddr();
+    // let frame_addr =
+    //     pptr_to_paddr(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize);
     cap::cap_frame_cap(&frame_slot.capability).set_capFMappedAddress(vaddr as u64);
     cap::cap_frame_cap(&frame_slot.capability).set_capFMappedASID(asid as u64);
     #[cfg(target_arch = "riscv64")]
@@ -256,7 +255,7 @@ pub fn invoke_page_map(
 
 #[cfg(target_arch = "riscv64")]
 pub fn invoke_asid_control(
-    frame_ptr: pptr_t,
+    frame_ptr: rel4_arch::basic::PPtr,
     slot: &mut cte_t,
     parent_slot: &mut cte_t,
     asid_base: usize,
@@ -266,13 +265,13 @@ pub fn invoke_asid_control(
     cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(max_free_index(
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
-    clear_memory(frame_ptr as *mut u8, pageBitsForSize(RISCV_4K_PAGE));
+    clear_memory(frame_ptr.get_mut_ptr(), pageBitsForSize(RISCV_4K_PAGE));
     cte_insert(
-        &cap_asid_pool_cap::new(asid_base as u64, frame_ptr as u64).unsplay(),
+        &cap_asid_pool_cap::new(asid_base as u64, frame_ptr.as_u64()).unsplay(),
         parent_slot,
         slot,
     );
-    assert_eq!(asid_base & MASK!(ASID_LOW_BITS), 0);
+    assert_eq!(asid_base & mask_bits!(ASID_LOW_BITS), 0);
     set_asid_pool_by_index(asid_base >> ASID_LOW_BITS, frame_ptr);
     exception_t::EXCEPTION_NONE
 }
@@ -283,12 +282,12 @@ pub fn invoke_asid_pool(
     pool: &mut asid_pool_t,
     vspace_slot: &mut cte_t,
 ) -> exception_t {
-    let region_base = cap::cap_page_table_cap(&vspace_slot.capability).get_capPTBasePtr() as usize;
+    let region_base = pptr!(cap::cap_page_table_cap(&vspace_slot.capability).get_capPTBasePtr());
     cap::cap_page_table_cap(&vspace_slot.capability).set_capPTIsMapped(1);
     cap::cap_page_table_cap(&vspace_slot.capability).set_capPTMappedAddress(0);
     cap::cap_page_table_cap(&vspace_slot.capability).set_capPTMappedASID(asid as u64);
 
     copyGlobalMappings(region_base);
-    pool.set_vspace_by_index(asid & MASK!(ASID_LOW_BITS), region_base);
+    pool.set_vspace_by_index(asid & mask_bits!(ASID_LOW_BITS), region_base);
     exception_t::EXCEPTION_NONE
 }

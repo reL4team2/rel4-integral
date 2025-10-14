@@ -67,7 +67,8 @@ pub const ASID_INVALID: usize = 0;
 pub const IT_ASID: usize = 1;
 
 /// kernel/include/model
-pub const L2_BITMAP_SIZE: usize = (CONFIG_NUM_PRIORITIES + WORD_BITS - 1) / WORD_BITS;
+// pub const L2_BITMAP_SIZE: usize = (CONFIG_NUM_PRIORITIES + WORD_BITS - 1) / WORD_BITS;
+pub const L2_BITMAP_SIZE: usize = CONFIG_NUM_PRIORITIES.div_ceil(WORD_BITS);
 pub const NUM_READY_QUEUES: usize = CONFIG_NUM_DOMAINS * CONFIG_NUM_PRIORITIES;
 
 /// kernel/include/object/structures.h

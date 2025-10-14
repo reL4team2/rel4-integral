@@ -83,7 +83,7 @@ pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: 
     let asid = stored_hw_asid.0;
     unsafe {
         #[cfg(target_arch = "riscv64")]
-        set_vspace_root(pptr_to_paddr(vroot as usize), asid);
+        set_vspace_root(pptr!(vroot).to_paddr(), asid);
         #[cfg(target_arch = "aarch64")]
         set_current_user_vspace_root(ttbr_new(asid, pptr!(vroot).to_paddr()));
         // panic!("switch_to_thread_fp");

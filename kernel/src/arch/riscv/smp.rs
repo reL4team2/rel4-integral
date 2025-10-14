@@ -1,5 +1,4 @@
 use crate::smp::clh_is_ipi_pending;
-use crate::BIT;
 use core::sync::atomic::{fence, Ordering};
 use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
 use sel4_common::arch::{hart_id_to_core_id, sbi_send_ipi};

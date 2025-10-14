@@ -308,7 +308,7 @@ impl cte_t {
     fn get_volatile_value(&self) -> usize {
         unsafe {
             let raw_value = ptr::read_volatile((self.get_ptr() + 24) as *const usize);
-            let mut value = ((raw_value >> 2) & MASK!(37)) << 2;
+            let mut value = ((raw_value >> 2) & mask_bits!(37)) << 2;
             if (value & (1usize << 38)) != 0 {
                 value |= 0xffffff8000000000;
             }

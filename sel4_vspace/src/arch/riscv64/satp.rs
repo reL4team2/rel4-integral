@@ -1,3 +1,4 @@
+use rel4_arch::basic::PAddr;
 use riscv::register::satp;
 #[cfg(feature = "enable_smp")]
 use sel4_common::arch::riscv64::remote_sfence_vma;
@@ -58,8 +59,8 @@ pub fn sfence() {
 /// Assign addr to satp.
 #[inline]
 #[no_mangle]
-pub fn set_vspace_root(addr: usize, asid: usize) {
-    let satp = satp_t::new(8usize, asid, addr >> 12);
+pub fn set_vspace_root(addr: PAddr, asid: usize) {
+    let satp = satp_t::new(8usize, asid, addr.raw() >> 12);
     satp::write(satp.words);
     #[cfg(not(feature = "enable_smp"))]
     sfence();

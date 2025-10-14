@@ -2,9 +2,9 @@ use crate::asid_t;
 use crate::find_vspace_for_asid;
 use crate::riscv_get_pt_index;
 use crate::sfence;
-use crate::vptr_t;
 use crate::PTEFlags;
 use core::intrinsics::unlikely;
+use rel4_arch::basic::VPtr;
 use sel4_common::sel4_config::CONFIG_PT_LEVELS;
 use sel4_common::structures_gen::cap;
 use sel4_common::structures_gen::cap_tag;
@@ -14,7 +14,7 @@ use sel4_common::{
 
 use crate::PTE;
 
-use super::{kpptr_to_paddr, pagetable::kernel_root_pageTable, pptr_to_paddr, set_vspace_root};
+use super::{kpptr_to_paddr, pagetable::kernel_root_pageTable, set_vspace_root};
 
 ///根据给定的`vspace_root`设置相应的页表，会检查`vspace_root`是否合法，如果不合法默认设置为内核页表
 ///
@@ -43,10 +43,10 @@ pub fn set_vm_root(vspace_root_cap: &cap) -> Result<(), lookup_fault> {
             set_vspace_root(kpptr_to_paddr(kernel_root_pageTable.as_ptr() as usize), 0);
         }
     }
-    set_vspace_root(pptr_to_paddr(lvl1pt as *mut PTE as usize), asid);
+    set_vspace_root(pptr!(lvl1pt as *mut PTE).to_paddr(), asid);
     ret
 }
-pub fn unmap_page_table(asid: asid_t, vptr: vptr_t, pt: &mut PTE) {
+pub fn unmap_page_table(asid: asid_t, vptr: VPtr, pt: &mut PTE) {
     let target_pt = pt as *mut PTE;
     let find_ret = find_vspace_for_asid(asid);
     if find_ret.status != exception_t::EXCEPTION_NONE {
@@ -54,10 +54,10 @@ pub fn unmap_page_table(asid: asid_t, vptr: vptr_t, pt: &mut PTE) {
     }
     assert_ne!(find_ret.vspace_root.unwrap(), target_pt);
     let mut pt = find_ret.vspace_root.unwrap();
-    let mut ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr, 0))) };
+    let mut ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr.raw(), 0))) };
     let mut i = 0;
     while i < CONFIG_PT_LEVELS - 1 && pt != target_pt {
-        ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr, i))) };
+        ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr.raw(), i))) };
         if unlikely(ptSlot.is_pte_table()) {
             return;
         }
