@@ -123,12 +123,16 @@ impl PTE {
 
     #[inline]
     pub fn get_pte_from_ppn_mut(&self) -> &'static mut Self {
-        pptr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS).get_mut_ref()
+        paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)
+            .to_pptr()
+            .get_mut_ref()
     }
 
     #[inline]
     pub fn get_pte_from_ppn(&self) -> &'static Self {
-        pptr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS).get_ref()
+        paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)
+            .to_pptr()
+            .get_ref()
     }
 
     #[inline]

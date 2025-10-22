@@ -8,8 +8,9 @@ pub(crate) fn sel4test_build(platform: &str, define: &str) -> Result<(), anyhow:
     let status = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "rm -rf {} && mkdir -p {} && cd {} && ../../init-build.sh -DPLATFORM={} -DSIMULATION=TRUE {}", 
-            build_dir_str, build_dir_str, build_dir_str, platform, define))
+            "mkdir -p {} && cd {} && ../../init-build.sh -DPLATFORM={} -DSIMULATION=TRUE {} && ninja clean",
+            build_dir_str, build_dir_str, platform, define
+        ))
         .status()
         .expect("failed to execute cmake command");
 

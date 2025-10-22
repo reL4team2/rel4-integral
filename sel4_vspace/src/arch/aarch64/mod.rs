@@ -14,7 +14,3 @@ pub use machine::*;
 pub use pte::{pte_tag_t, PTEFlags};
 pub use structures::*;
 pub use utils::*;
-
-impl crate::PageTable {
-    pub const PTE_NUM_IN_PAGE: usize = 0x200;
-}

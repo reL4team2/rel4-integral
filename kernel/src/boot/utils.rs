@@ -9,7 +9,7 @@ use sel4_common::sel4_bitfield_types::Bitfield;
 use sel4_common::sel4_config::*;
 use sel4_common::structures_gen::{cap, cap_cnode_cap, mdb_node};
 use sel4_cspace::interface::*;
-#[cfg(target_arch="riscv64")]
+#[cfg(target_arch = "riscv64")]
 use sel4_vspace::riscv_get_lvl_pgsize_bits;
 // use sel4_vspace::
 
