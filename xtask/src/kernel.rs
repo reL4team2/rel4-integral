@@ -1,6 +1,11 @@
 use clap::Parser;
 use rel4_config::utils::vec_rustflags;
-use std::{path::PathBuf, process::Command};
+use std::os::unix::fs::symlink;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn parse_bool(s: &str) -> Result<bool, String> {
     match s.to_lowercase().as_str() {
@@ -23,6 +28,7 @@ fn parse_bool(s: &str) -> Result<bool, String> {
 /// * `arm_ptmr` - Enables ARM physical timer support.
 /// * `rust_only` - Builds the kernel using only Rust code, excluding any external dependencies.
 /// * `bin` - Generates a binary output for the kernel. Can be specified with `-B` or `--bin`.
+/// * `benchmark` -Enable Benchmark.
 pub struct BuildOptions {
     #[clap(
         default_value = "spike",
@@ -59,6 +65,8 @@ pub struct BuildOptions {
     pub num_nodes: usize,
     #[clap(default_value = "INFO", help = "set log level", long)]
     pub log: String,
+    #[clap(long)]
+    pub benchmark: bool,
 }
 
 fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
@@ -68,6 +76,8 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat".to_string(),
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
+    let current_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+    let easy_setting_cmake_file = PathBuf::from(&current_dir).join("../../easy-settings.cmake");
 
     let mut args = vec![command.to_string(), target.clone(), "--release".into()];
 
@@ -111,6 +121,46 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
     if opts.arm_ptmr && target.contains("aarch64") {
         append_features(&mut args, "enable_arm_ptmr".to_string());
         marcos.push("EXPORT_PTMR_USER=true".to_string());
+    }
+
+    if Path::new(&easy_setting_cmake_file).exists() {
+        fs::remove_file(easy_setting_cmake_file.clone())?;
+        println!("Removed existing easy-settings.cmake");
+    }
+
+    if Path::new(&easy_setting_cmake_file).exists() {
+        return Err(anyhow::anyhow!("unknown file exist"));
+    }
+
+    if opts.benchmark {
+        append_features(&mut args, "enable_benchmark".to_string());
+        // TODO: I'm not sure whether should I add the feature of C code.
+        // marcos.push("EXPORT_PTMR_USER=true".to_string());
+
+        let target =
+            PathBuf::from(&current_dir).join("../../projects/sel4bench/easy-settings.cmake");
+        if Path::new(&target).exists() {
+            symlink(target, easy_setting_cmake_file)?;
+            println!("Created symlink to sel4bench easy-settings.cmake");
+        } else {
+            return Err(anyhow::anyhow!("Target file does not exist"));
+        }
+
+        let nanopb_dst_dir_path = PathBuf::from(&current_dir).join("../../nanopb");
+        let nanopb_src_dir_path = PathBuf::from(&current_dir).join("../../tools/nanopb");
+        if !Path::new(&nanopb_dst_dir_path).exists() {
+            symlink(nanopb_src_dir_path, nanopb_dst_dir_path)?;
+            println!("Created symlink to nanopb");
+        }
+    } else {
+        let target =
+            PathBuf::from(&current_dir).join("../../projects/sel4test/easy-settings.cmake");
+        if Path::new(&target).exists() {
+            symlink(target, easy_setting_cmake_file)?;
+            println!("Created symlink to sel4test easy-settings.cmake");
+        } else {
+            return Err(anyhow::anyhow!("Target file does not exist"));
+        }
     }
 
     if opts.num_nodes > 1 {
@@ -170,6 +220,7 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
         if opts.arm_ptmr {
             define.push("-DKernelArmExportPTMRUser=ON".to_string());
         }
+        //TODO: maybe we should add the feature of C code about benchmark
         if opts.num_nodes > 1 {
             define.push(format!("-DSMP=TRUE"));
             define.push(format!("-DNUM_NODES={}", opts.num_nodes));
