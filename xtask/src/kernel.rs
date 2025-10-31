@@ -1,6 +1,11 @@
 use clap::Parser;
 use rel4_config::utils::vec_rustflags;
-use std::{path::PathBuf, process::Command};
+use std::os::unix::fs::symlink;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn parse_bool(s: &str) -> Result<bool, String> {
     match s.to_lowercase().as_str() {
@@ -71,6 +76,8 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat".to_string(),
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
+    let current_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+    let easy_setting_cmake_file = PathBuf::from(&current_dir).join("../../easy-settings.cmake");
 
     let mut args = vec![command.to_string(), target.clone(), "--release".into()];
 
@@ -116,10 +123,44 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         marcos.push("EXPORT_PTMR_USER=true".to_string());
     }
 
+    if Path::new(&easy_setting_cmake_file).exists() {
+        fs::remove_file(easy_setting_cmake_file.clone())?;
+        println!("Removed existing easy-settings.cmake");
+    }
+
+    if Path::new(&easy_setting_cmake_file).exists() {
+        return Err(anyhow::anyhow!("unknown file exist"));
+    }
+
     if opts.benchmark {
         append_features(&mut args, "enable_benchmark".to_string());
         // TODO: I'm not sure whether should I add the feature of C code.
         // marcos.push("EXPORT_PTMR_USER=true".to_string());
+
+        let target =
+            PathBuf::from(&current_dir).join("../../projects/sel4bench/easy-settings.cmake");
+        if Path::new(&target).exists() {
+            symlink(target, easy_setting_cmake_file)?;
+            println!("Created symlink to sel4bench easy-settings.cmake");
+        } else {
+            return Err(anyhow::anyhow!("Target file does not exist"));
+        }
+
+        let nanopb_dst_dir_path = PathBuf::from(&current_dir).join("../../nanopb");
+        let nanopb_src_dir_path = PathBuf::from(&current_dir).join("../../tools/nanopb");
+        if !Path::new(&nanopb_dst_dir_path).exists() {
+            symlink(nanopb_src_dir_path, nanopb_dst_dir_path)?;
+            println!("Created symlink to nanopb");
+        }
+    } else {
+        let target =
+            PathBuf::from(&current_dir).join("../../projects/sel4test/easy-settings.cmake");
+        if Path::new(&target).exists() {
+            symlink(target, easy_setting_cmake_file)?;
+            println!("Created symlink to sel4test easy-settings.cmake");
+        } else {
+            return Err(anyhow::anyhow!("Target file does not exist"));
+        }
     }
 
     if opts.num_nodes > 1 {
