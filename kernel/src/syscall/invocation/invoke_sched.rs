@@ -74,7 +74,7 @@ pub fn invoke_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
             tcb.sched_enqueue();
         } else {
             get_currenct_thread().tcbYieldTo = sc.get_ptr();
-            sc.scYieldFrom = get_currenct_thread().get_ptr();
+            sc.scYieldFrom = get_currenct_thread().get_ptr().raw();
             tcb.sched_dequeue();
             get_currenct_thread().sched_enqueue();
             tcb.sched_enqueue();
@@ -90,7 +90,7 @@ pub fn invoke_sched_context_yield_to(sc: &mut sched_context) -> exception_t {
             tcb.sched_enqueue();
         } else {
             get_currenct_thread().tcbYieldTo = sc.get_ptr();
-            sc.scYieldFrom = get_currenct_thread().get_ptr();
+            sc.scYieldFrom = get_currenct_thread().get_ptr().raw();
             tcb.sched_dequeue();
             get_currenct_thread().sched_enqueue();
             tcb.sched_enqueue();

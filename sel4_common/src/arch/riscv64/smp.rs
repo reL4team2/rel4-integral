@@ -1,6 +1,5 @@
 use crate::ffi::kernel_stack_alloc;
 use crate::sel4_config::{CONFIG_KERNEL_STACK_BITS, CONFIG_MAX_NUM_NODES};
-use crate::BIT;
 use core::arch::asm;
 
 #[derive(Clone, Copy)]
@@ -28,10 +27,11 @@ pub fn get_current_cpu_index() -> usize {
     unsafe {
         let mut cur_sp: usize;
         asm!(
-        "csrr {}, sscratch",
-        out(reg) cur_sp,
+            "csrr {}, sscratch",
+            out(reg) cur_sp,
         );
-        cur_sp -= unsafe { &kernel_stack_alloc.data[0][0] as *const u8 } as usize + 8;
+        // cur_sp -= unsafe { &kernel_stack_alloc[0][0] as *const u8 } as usize + 8;
+        cur_sp -= kernel_stack_alloc.base_ptr() as usize + 8;
         cur_sp >> CONFIG_KERNEL_STACK_BITS
     }
 }
@@ -39,10 +39,7 @@ pub fn get_current_cpu_index() -> usize {
 #[inline]
 pub fn hart_id_to_core_id(hart_id: usize) -> usize {
     unsafe {
-        match get_core_map_ref().iter().position(|&x| x == hart_id) {
-            Some(core_id) => core_id,
-            _ => 0,
-        }
+        get_core_map_ref().iter().position(|&x| x == hart_id).unwrap_or_default()
     }
 }
 
@@ -51,7 +48,7 @@ pub fn get_sbi_mask_for_all_remote_harts() -> usize {
     let mut mask: usize = 0;
     for i in 0..CONFIG_MAX_NUM_NODES {
         if i != get_current_cpu_index() {
-            mask |= BIT!(cpu_index_to_id(i));
+            mask |= bit!(cpu_index_to_id(i));
         }
     }
     mask

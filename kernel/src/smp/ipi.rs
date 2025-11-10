@@ -132,7 +132,7 @@ pub fn ipi_send_mask(irq: usize, mask: usize, block: bool) {
         } else {
             ipi_send_target(irq, cpu_index_to_id(index));
         }
-        mask2 &= !(crate::BIT!(index));
+        mask2 &= !bit!(index);
     }
 
     if nr_target_cores > 0 {
@@ -146,7 +146,7 @@ pub fn ipi_send_mask(irq: usize, mask: usize, block: bool) {
 #[no_mangle]
 pub fn do_mask_reschedule(mask: usize) {
     let mut mask2 = mask;
-    mask2 &= !(crate::BIT!(cpu_id()));
+    mask2 &= !bit!(cpu_id());
     if mask2 != 0 {
         ipi_send_mask(IRQ_RESCHEDULE_IPI, mask2, false);
     }
@@ -160,7 +160,7 @@ pub fn do_remote_mask_op(
     mask: usize,
 ) {
     let mut mask2 = mask;
-    mask2 &= !(crate::BIT!(cpu_id()));
+    mask2 &= !bit!(cpu_id());
     if mask2 != 0 {
         unsafe {
             ipi_args[0] = arg0;
@@ -177,7 +177,7 @@ pub fn do_remote_mask_op(
 }
 
 pub fn do_remote_op(func: ipi_remote_call, arg0: usize, arg1: usize, arg2: usize, cpu: usize) {
-    do_remote_mask_op(func, arg0, arg1, arg2, crate::BIT!(cpu));
+    do_remote_mask_op(func, arg0, arg1, arg2, bit!(cpu));
 }
 
 pub fn do_remote_stall(cpu: usize) {

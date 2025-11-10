@@ -3,7 +3,6 @@ use crate::ffi::kernel_stack_alloc;
 use super::{sp, CONTEXT_REG_NUM, SSTATUS, SSTATUS_SPIE, SSTATUS_SPP};
 use super::{FAULT_MESSAGES, MSG_REGISTER, NEXT_IP};
 use crate::sel4_config::CONFIG_KERNEL_STACK_BITS;
-use crate::BIT;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone)]
@@ -11,7 +10,7 @@ pub struct FPUState {
     #[cfg(feature = "riscv_ext_d")]
     pub regs: [u64; 32],
     #[cfg(feature = "riscv_ext_f")]
-    pub regs: [u32; 32],
+    pub fregs: [u32; 32],
     pub fcsr: u32,
 }
 /// This is `arch_tcb_t` in the sel4_c_impl.
@@ -29,7 +28,10 @@ impl Default for ArchTCB {
         Self {
             registers,
             fpu: FPUState {
+                #[cfg(feature = "riscv_ext_d")]
                 regs: [0; 32],
+                #[cfg(feature = "riscv_ext_f")]
+                fregs: [0; 32],
                 fcsr: 0,
             },
         }
@@ -41,9 +43,7 @@ impl ArchTCB {
     pub fn config_idle_thread(&mut self, idle_thread: usize, core: usize) {
         self.registers[NEXT_IP] = idle_thread;
         self.registers[SSTATUS] = SSTATUS_SPP | SSTATUS_SPIE;
-        self.registers[sp] = unsafe {
-            &kernel_stack_alloc.data[core][BIT!(CONFIG_KERNEL_STACK_BITS) - 1] as *const u8
-        } as usize;
+        self.registers[sp] = kernel_stack_alloc.get_stack_top(core);
     }
 
     #[inline]

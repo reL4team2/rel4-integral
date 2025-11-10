@@ -3,59 +3,13 @@ use core::slice;
 
 use crate::sel4_config::*;
 
-#[macro_export]
-/// Return fill the given number of bits with 1.
-macro_rules! MASK {
-    ($e:expr) => {
-        {
-             (1usize << $e) - 1usize
-        }
-    }
-}
-
-#[macro_export]
-/// Calculate the floor of the given number.
-macro_rules! ROUND_DOWN {
-    ($n:expr,$b:expr) => {{
-        ((($n) >> ($b)) << ($b))
-    }};
-}
-
-#[macro_export]
-/// Calculate the ceil of the given number.
-macro_rules! ROUND_UP {
-    ($n:expr,$b:expr) => {{
-        ((((($n) - 1usize) >> ($b)) + 1usize) << ($b))
-    }};
-}
-
-#[macro_export]
-/// Judge whether the given number is aligned to the given number of bits.
-macro_rules! IS_ALIGNED {
-    ($n:expr,$b:expr) => {{
-        $n & MASK!($b) == 0
-    }};
-}
-
-#[macro_export]
-/// Calculate 1 << n for given n.
-macro_rules! BIT {
-    ($e:expr) => {
-        {
-            1usize<<$e
-        }
-    }
-}
-
 /// Get the global variable.
 /// WARN: But on smp, need to becareful to use this macro.
 /// TODO: Write macro ffi_set or other functions to set the global variable
-#[cfg(not(feature = "SMP"))]
 pub macro global_read($name: ident) {
     unsafe { $name }
 }
 
-#[cfg(not(feature = "SMP"))]
 pub macro global_ops($expr: expr) {
     unsafe { $expr }
 }
@@ -66,7 +20,7 @@ pub macro unsafe_ops($expr: expr) {
 
 #[inline]
 pub fn max_free_index(bits: usize) -> usize {
-    BIT!(bits - SEL4_MIN_UNTYPED_BITS)
+    bit!(bits - SEL4_MIN_UNTYPED_BITS)
 }
 
 #[inline]
@@ -154,7 +108,6 @@ pub fn cpu_id() -> usize {
 }
 
 #[no_mangle]
-#[inline]
 pub fn pageBitsForSize(page_size: usize) -> usize {
     match page_size {
         RISCV_4K_PAGE => RISCV_PAGE_BITS,

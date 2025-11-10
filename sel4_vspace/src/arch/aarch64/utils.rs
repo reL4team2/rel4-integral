@@ -1,19 +1,15 @@
 use crate::arch::VAddr;
-use sel4_common::BIT;
+use rel4_arch::basic::{PAddr, PPtr};
 use sel4_common::{
-    arch::{
-        config::{KERNEL_ELF_BASE_OFFSET, PPTR_BASE_OFFSET},
-        vm_rights_t,
-    },
+    arch::{config::KERNEL_ELF_BASE_OFFSET, vm_rights_t},
     sel4_config::*,
     utils::convert_to_mut_slice,
-    MASK,
 };
 
 pub const KPT_LEVELS: usize = 4;
 pub const UPT_LEVELS: usize = 4;
 pub const VSPACE_INDEX_BITS: usize = 9;
-pub(self) const PAGE_ADDR_MASK: usize = MASK!(48) & !0xfff;
+pub(self) const PAGE_ADDR_MASK: usize = mask_bits!(48) & !0xfff;
 #[inline]
 pub fn ulvl_frm_arm_pt_lvl(n: usize) -> usize {
     n
@@ -25,23 +21,23 @@ pub fn klvl_frm_arm_pt_lvl(n: usize) -> usize {
 
 #[inline]
 pub fn get_pt_index(addr: usize) -> usize {
-    (addr >> PT_INDEX_OFFSET) & MASK!(PT_INDEX_BITS)
+    (addr >> PT_INDEX_OFFSET) & mask_bits!(PT_INDEX_BITS)
 }
 #[inline]
 pub fn get_pd_index(addr: usize) -> usize {
-    (addr >> PD_INDEX_OFFSET) & MASK!(PD_INDEX_BITS)
+    (addr >> PD_INDEX_OFFSET) & mask_bits!(PD_INDEX_BITS)
 }
 #[inline]
 pub fn get_upud_index(addr: usize) -> usize {
-    (addr >> PUD_INDEX_OFFSET) & MASK!(UPUD_INDEX_BITS)
+    (addr >> PUD_INDEX_OFFSET) & mask_bits!(UPUD_INDEX_BITS)
 }
 #[inline]
 pub fn get_pud_index(addr: usize) -> usize {
-    (addr >> PUD_INDEX_OFFSET) & MASK!(PUD_INDEX_BITS)
+    (addr >> PUD_INDEX_OFFSET) & mask_bits!(PUD_INDEX_BITS)
 }
 #[inline]
 pub fn get_pgd_index(addr: usize) -> usize {
-    (addr >> PGD_INDEX_OFFSET) & MASK!(PGD_INDEX_BITS)
+    (addr >> PGD_INDEX_OFFSET) & mask_bits!(PGD_INDEX_BITS)
 }
 #[inline]
 pub fn kpt_level_shift(n: usize) -> usize {
@@ -57,32 +53,20 @@ pub fn get_ulvl_pgsize_bits(n: usize) -> usize {
 }
 #[inline]
 pub fn get_ulvl_pgsize(n: usize) -> usize {
-    BIT!(upt_level_shift(n))
+    bit!(upt_level_shift(n))
 }
 
 #[inline]
-pub fn kpptr_to_paddr(x: usize) -> usize {
-    x - KERNEL_ELF_BASE_OFFSET
-}
-
-///计算以`PPTR_BASE`作为偏移的指针虚拟地址对应的物理地址
-#[inline]
-pub const fn pptr_to_paddr(x: usize) -> usize {
-    x - PPTR_BASE_OFFSET
-}
-
-///计算物理地址对应的虚拟地址，以`PPTR_BASE`作为偏移
-#[inline]
-pub fn paddr_to_pptr(x: usize) -> usize {
-    x + PPTR_BASE_OFFSET
+pub fn kpptr_to_paddr(x: usize) -> PAddr {
+    paddr!(x - KERNEL_ELF_BASE_OFFSET)
 }
 
 impl VAddr {
     pub(super) fn get_kpt_index(&self, n: usize) -> usize {
-        ((self.0) >> (kpt_level_shift(n))) & MASK!(PT_INDEX_BITS)
+        ((self.0) >> (kpt_level_shift(n))) & mask_bits!(PT_INDEX_BITS)
     }
     pub(super) fn get_upt_index(&self, n: usize) -> usize {
-        ((self.0) >> (upt_level_shift(n))) & MASK!(PT_INDEX_BITS)
+        ((self.0) >> (upt_level_shift(n))) & mask_bits!(PT_INDEX_BITS)
     }
 
     /// Get the index of the pt(last level, bit 12..20)
@@ -109,13 +93,12 @@ impl VAddr {
 /// Get the slice of the page_table items
 ///
 /// Addr should be virtual address.
-pub(super) fn page_slice<T>(addr: usize) -> &'static mut [T] {
-    assert!(addr >= KERNEL_ELF_BASE_OFFSET);
+pub(super) fn page_slice<T>(addr: PPtr) -> &'static mut [T] {
     // The size of the page_table is 4K
     // The size of the item is sizeof::<usize>() bytes
     // 4096 / sizeof::<usize>() == 512
     // So the len is 512
-    convert_to_mut_slice::<T>(addr, 0x200)
+    convert_to_mut_slice::<T>(addr.raw(), 0x200)
 }
 
 pub fn ap_from_vm_rights(rights: vm_rights_t) -> usize {
@@ -144,23 +127,6 @@ pub struct PTE(pub usize);
 #[derive(Debug, Clone)]
 pub struct ASID(usize);
 
-/// Implemente generic function for given Ident
-#[macro_export]
-macro_rules! impl_multi {
-    ($($t:ident),* {$($block:item)*}) => {
-        macro_rules! methods {
-            () => {
-                $($block)*
-            };
-        }
-        $(
-            impl $t {
-                methods!();
-            }
-        )*
-    }
-}
-
 // // Implemente generic function for PGDE PUDE PDE
 // impl_multi!(PGDE, PUDE, PDE {
 //     /// Get the slice of the next level page.
@@ -172,7 +138,7 @@ macro_rules! impl_multi {
 //     }
 // });
 
-impl_multi!( PTE {
+impl PTE {
     #[inline]
     pub fn get_ptr(&self) -> usize {
         self as *const Self as usize
@@ -185,16 +151,16 @@ impl_multi!( PTE {
 
     /// Get the next level paddr
     #[inline]
-    pub const fn next_level_paddr(&self) -> usize {
-        self.0 & PAGE_ADDR_MASK
+    pub const fn next_level_paddr(&self) -> PAddr {
+        paddr!(self.0 & PAGE_ADDR_MASK)
     }
     /// Set the next level paddr
     ///
     /// If It is PT or HUGE_PAGE, it will set the maped physical address
     /// Else it is the page to contains list
     #[inline]
-    pub fn set_next_level_paddr(&mut self, value: usize) {
-        self.0 = (self.0 & !PAGE_ADDR_MASK) | (value & PAGE_ADDR_MASK);
+    pub fn set_next_level_paddr(&mut self, addr: PAddr) {
+        self.0 = (self.0 & !PAGE_ADDR_MASK) | (addr.raw() & PAGE_ADDR_MASK);
     }
     /// Set Page Attribute
     #[inline]
@@ -213,14 +179,14 @@ impl_multi!( PTE {
     }
     /// Create self through addr and attributes.
     #[inline]
-    pub const fn new_page(addr: usize, sign: usize) -> Self {
-        Self((addr & PAGE_ADDR_MASK) | (sign & !PAGE_ADDR_MASK))
+    pub const fn new_page(addr: PAddr, sign: usize) -> Self {
+        Self((addr.raw() & PAGE_ADDR_MASK) | (sign & !PAGE_ADDR_MASK))
     }
 
     /// Get the page's type info
     #[inline]
     pub const fn get_type(&self) -> usize {
-        self.0 & 0x3 | ((self.0 &(1<<58) )>>56)
+        self.0 & 0x3 | ((self.0 & (1 << 58)) >> 56)
     }
 
     #[inline]
@@ -235,9 +201,9 @@ impl_multi!( PTE {
 
     #[inline]
     pub fn next_level_slice<T>(&self) -> &'static mut [T] {
-        page_slice(paddr_to_pptr(self.next_level_paddr()))
+        page_slice(self.next_level_paddr().to_pptr())
     }
-});
+}
 
 impl PTE {
     #[inline]
@@ -251,7 +217,7 @@ impl PTE {
     }
 
     #[inline]
-    pub const fn pte_ptr_get_page_base_address(&self) -> usize {
-        self.0 & 0xfffffffff000
+    pub const fn pte_ptr_get_page_base_address(&self) -> PAddr {
+        paddr!(self.0 & 0xfffffffff000)
     }
 }

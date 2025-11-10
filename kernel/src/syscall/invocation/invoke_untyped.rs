@@ -3,19 +3,17 @@ use super::arch::arch_create_object;
 use crate::syscall::{
     FREE_INDEX_TO_OFFSET, GET_FREE_INDEX, GET_OFFSET_FREE_PTR, OFFSET_TO_FREE_IDNEX,
 };
+use rel4_arch::basic::PPtr;
 use sel4_common::arch::ObjectType;
 use sel4_common::structures_gen::{
     cap, cap_cnode_cap, cap_endpoint_cap, cap_notification_cap, cap_thread_cap, cap_untyped_cap,
 };
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::structures_gen::{cap_reply_cap, cap_sched_context_cap};
-use sel4_common::{
-    sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref, BIT, ROUND_DOWN,
-};
+use sel4_common::{sel4_config::*, structures::exception_t};
 use sel4_cspace::deps::preemption_point;
 use sel4_cspace::interface::{cte_t, insert_new_cap};
 use sel4_task::{get_current_domain, tcb_t};
-use sel4_vspace::pptr_t;
 
 use crate::utils::*;
 
@@ -34,7 +32,7 @@ fn create_new_objects(
     for i in 0..dest_length {
         let capability = create_object(
             obj_type,
-            region_base + (i << object_size),
+            pptr!(region_base + (i << object_size)),
             user_size,
             device_mem,
         );
@@ -77,13 +75,13 @@ fn create_new_objects(
 // }
 fn create_object(
     obj_type: ObjectType,
-    region_base: pptr_t,
+    region_base: PPtr,
     user_size: usize,
     device_mem: usize,
 ) -> cap {
     match obj_type {
         ObjectType::TCBObject => {
-            let tcb = convert_to_mut_type_ref::<tcb_t>(region_base + TCB_OFFSET);
+            let tcb = (region_base + TCB_OFFSET).get_mut_ref::<tcb_t>();
             tcb.init();
             #[cfg(feature = "kernel_mcs")]
             {
@@ -98,27 +96,30 @@ fn create_object(
             {
                 tcb.tcbAffinity = sel4_common::utils::cpu_id();
             }
-            return cap_thread_cap::new(tcb.get_ptr() as u64).unsplay();
+            return cap_thread_cap::new(tcb.get_ptr().raw() as u64).unsplay();
         }
         ObjectType::CapTableObject => {
-            cap_cnode_cap::new(0, 0, user_size as u64, region_base as u64).unsplay()
+            cap_cnode_cap::new(0, 0, user_size as u64, region_base.raw() as u64).unsplay()
         }
         ObjectType::NotificationObject => {
-            cap_notification_cap::new(0, 1, 1, region_base as u64).unsplay()
+            cap_notification_cap::new(0, 1, 1, region_base.raw() as u64).unsplay()
         }
         ObjectType::EndpointObject => {
-            cap_endpoint_cap::new(0, 1, 1, 1, 1, region_base as u64).unsplay()
+            cap_endpoint_cap::new(0, 1, 1, 1, 1, region_base.raw() as u64).unsplay()
         }
-        ObjectType::UnytpedObject => {
-            cap_untyped_cap::new(0, device_mem as u64, user_size as u64, region_base as u64)
-                .unsplay()
-        }
+        ObjectType::UnytpedObject => cap_untyped_cap::new(
+            0,
+            device_mem as u64,
+            user_size as u64,
+            region_base.raw() as u64,
+        )
+        .unsplay(),
         #[cfg(feature = "kernel_mcs")]
         ObjectType::SchedContextObject => {
-            cap_sched_context_cap::new(region_base as u64, user_size as u64).unsplay()
+            cap_sched_context_cap::new(region_base.as_u64(), user_size as u64).unsplay()
         }
         #[cfg(feature = "kernel_mcs")]
-        ObjectType::ReplyObject => cap_reply_cap::new(region_base as u64, 1 as u64).unsplay(),
+        ObjectType::ReplyObject => cap_reply_cap::new(region_base.as_u64(), 1 as u64).unsplay(),
 
         _ => arch_create_object(obj_type, region_base, user_size, device_mem),
     }
@@ -141,8 +142,8 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
         }
         prev_cap.set_capFreeIndex(0);
     } else {
-        let mut offset: isize = ROUND_DOWN!(offset - 1, chunk) as isize;
-        while offset != -(BIT!(chunk) as isize) {
+        let mut offset: isize = round_down!(offset - 1, chunk) as isize;
+        while offset != -(bit!(chunk) as isize) {
             clear_memory(
                 GET_OFFSET_FREE_PTR(region_base, offset as usize) as *mut u8,
                 chunk,
@@ -152,7 +153,7 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
             if status != exception_t::EXCEPTION_NONE {
                 return status;
             }
-            offset -= BIT!(chunk) as isize;
+            offset -= bit!(chunk) as isize;
         }
     }
     exception_t::EXCEPTION_NONE
@@ -161,7 +162,7 @@ pub fn reset_untyped_cap(srcSlot: &mut cte_t) -> exception_t {
 pub fn invoke_untyped_retype(
     src_slot: &mut cte_t,
     reset: bool,
-    retype_base: pptr_t,
+    retype_base: PPtr,
     new_type: ObjectType,
     user_size: usize,
     dest_cnode: &mut cte_t,
@@ -179,14 +180,14 @@ pub fn invoke_untyped_retype(
     let total_object_size = dest_length << new_type.get_object_size(user_size);
     let free_ref = retype_base + total_object_size;
     cap::cap_untyped_cap(&src_slot.capability)
-        .set_capFreeIndex(GET_FREE_INDEX(region_base, free_ref) as u64);
+        .set_capFreeIndex(GET_FREE_INDEX(region_base, free_ref.raw()) as u64);
     create_new_objects(
         new_type,
         src_slot,
         dest_cnode,
         dest_offset,
         dest_length,
-        retype_base,
+        retype_base.raw(),
         user_size,
         device_mem,
     );

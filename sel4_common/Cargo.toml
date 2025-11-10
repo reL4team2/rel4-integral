@@ -4,22 +4,33 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 log = "0.4.21"
-aarch64-cpu = "9.4.0"
 cfg-if = "1.0"
 spin = { version = "0.9", features = ["use_ticket_mutex"] }
-driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", branch = "master"}
+rel4-arch = { path = "../rel4-arch" }
+rel4-utils = { workspace = true }
+
+# Serial Driver
+serial-frame = { git = "https://github.com/reL4team2/serial-frame.git", branch = "master" }
+serial-impl-pl011 = { git = "https://github.com/reL4team2/serial-impl-pl011.git", branch = "master" }
+serial-impl-sbi = { git = "https://github.com/reL4team2/serial-impl-sbi.git", branch = "master" }
 
 [build-dependencies]
-rust_sel4_pbf_parser= { git = "https://github.com/reL4team2/rust_sel4_pbf_parser/", branch = "master" }
+rust_sel4_pbf_parser = { git = "https://github.com/reL4team2/rust_sel4_pbf_parser/", branch = "master" }
 rel4_config = { path = "../rel4_config" }
 
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu = { workspace = true }
+
 [features]
-enable_smp = []
+enable_smp = ["rel4-arch/smp"]
 kernel_mcs = []
-enable_smc = []
+enable_smc = ["rel4-arch/smc"]
 build_binary = []
-have_fpu = []
+have_fpu = ["rel4-arch/fpu"]
+hypervisor = ["rel4-arch/hypervisor"]
 riscv_ext_d = []
 riscv_ext_f = []

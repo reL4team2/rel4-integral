@@ -1,9 +1,8 @@
 //! SBI console driver, for text output
 
+use crate::platform::default_serial;
 use core::fmt::{self, Write};
-
-use driver_collect::default_serial;
-use driver_collect::SerialDriver;
+use serial_frame::SerialDriver;
 
 struct Stdout;
 

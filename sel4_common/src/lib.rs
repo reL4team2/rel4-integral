@@ -7,6 +7,10 @@
 #![allow(non_upper_case_globals)]
 #![allow(clippy::enum_clike_unportable_variant)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+
+#[macro_use]
+extern crate rel4_utils;
+
 pub mod arch;
 pub mod console;
 pub mod fault;

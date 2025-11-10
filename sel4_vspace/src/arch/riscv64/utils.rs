@@ -1,6 +1,6 @@
-use sel4_common::arch::config::{KERNEL_ELF_BASE_OFFSET, PPTR_BASE_OFFSET};
+use rel4_arch::basic::PAddr;
+use sel4_common::arch::config::KERNEL_ELF_BASE_OFFSET;
 use sel4_common::sel4_config::{CONFIG_PT_LEVELS, PT_INDEX_BITS, SEL4_PAGE_BITS};
-use sel4_common::{BIT, MASK};
 
 ///获得虚拟地址`addr`对应的`n`级VPN，
 /// 具体对应关系为:
@@ -12,7 +12,7 @@ use sel4_common::{BIT, MASK};
 #[inline]
 pub fn riscv_get_pt_index(addr: usize, n: usize) -> usize {
     ((addr) >> (((PT_INDEX_BITS) * (((CONFIG_PT_LEVELS) - 1) - (n))) + SEL4_PAGE_BITS))
-        & MASK!(PT_INDEX_BITS)
+        & mask_bits!(PT_INDEX_BITS)
 }
 
 /// 获得第n级页表对应的虚拟地址空间的大小位数
@@ -34,7 +34,7 @@ pub fn riscv_get_lvl_pgsize_bits(n: usize) -> usize {
 /// Get n levels page size
 #[inline]
 pub fn riscv_get_lvl_pgsize(n: usize) -> usize {
-    BIT!(riscv_get_lvl_pgsize_bits(n))
+    bit!(riscv_get_lvl_pgsize_bits(n))
 }
 
 ///在`reL4`内核页表中，内核代码，在内核地址空间中被映射了两次，
@@ -45,20 +45,8 @@ pub fn riscv_get_lvl_pgsize(n: usize) -> usize {
 /// 内核本身的指针类型，采用以`KERNEL_ELF_BASE_OFFSET`
 /// 该函数作用就是计算以`KERNEL_ELF_BASE`开始的内核的虚拟地址的真实物理地址。
 #[inline]
-pub fn kpptr_to_paddr(x: usize) -> usize {
-    x - KERNEL_ELF_BASE_OFFSET
-}
-
-///计算以`PPTR_BASE`作为偏移的指针虚拟地址对应的物理地址
-#[inline]
-pub fn pptr_to_paddr(x: usize) -> usize {
-    x - PPTR_BASE_OFFSET
-}
-
-///计算物理地址对应的虚拟地址，以`PPTR_BASE`作为偏移
-#[inline]
-pub fn paddr_to_pptr(x: usize) -> usize {
-    x + PPTR_BASE_OFFSET
+pub fn kpptr_to_paddr(x: usize) -> PAddr {
+    paddr!(x - KERNEL_ELF_BASE_OFFSET)
 }
 
 #[repr(C)]

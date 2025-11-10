@@ -1,6 +1,5 @@
 use crate::arch::fastpath_restore;
 use crate::syscall::{slowpath, SYS_CALL, SYS_REPLY_RECV};
-use crate::MASK;
 use core::intrinsics::{likely, unlikely};
 #[cfg(feature = "kernel_mcs")]
 use sched_context::sched_context_t;
@@ -25,7 +24,6 @@ use sel4_task::reply::reply_t;
 use sel4_task::*;
 use sel4_vspace::*;
 
-#[inline]
 #[no_mangle]
 pub fn lookup_fp(_cap: &cap, cptr: usize) -> cap {
     let mut capability = _cap.clone();
@@ -64,7 +62,6 @@ pub fn lookup_fp(_cap: &cap, cptr: usize) -> cap {
     return capability;
 }
 
-#[inline]
 #[no_mangle]
 pub fn thread_state_ptr_mset_blockingObject_tsType(
     ptr: &mut thread_state,
@@ -74,7 +71,6 @@ pub fn thread_state_ptr_mset_blockingObject_tsType(
     (*ptr).0.arr[0] = (ep | tsType) as u64;
 }
 
-#[inline]
 #[no_mangle]
 pub fn endpoint_ptr_mset_epQueue_tail_state(ptr: *mut endpoint, tail: usize, state: usize) {
     unsafe {
@@ -82,22 +78,20 @@ pub fn endpoint_ptr_mset_epQueue_tail_state(ptr: *mut endpoint, tail: usize, sta
     }
 }
 
-#[inline]
 #[no_mangle]
 pub fn switch_to_thread_fp(thread: *mut tcb_t, vroot: *mut PTE, stored_hw_asid: PTE) {
     let asid = stored_hw_asid.0;
     unsafe {
         #[cfg(target_arch = "riscv64")]
-        set_vspace_root(pptr_to_paddr(vroot as usize), asid);
+        set_vspace_root(pptr!(vroot).to_paddr(), asid);
         #[cfg(target_arch = "aarch64")]
-        set_current_user_vspace_root(ttbr_new(asid, pptr_to_paddr(vroot as usize)));
+        set_current_user_vspace_root(ttbr_new(asid, pptr!(vroot).to_paddr()));
         // panic!("switch_to_thread_fp");
         // ksCurThread = thread as usize;
         set_current_thread(&*thread);
     }
 }
 
-#[inline]
 #[no_mangle]
 pub fn mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(
     ptr: &mut mdb_node,
@@ -108,7 +102,6 @@ pub fn mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(
     ptr.0.arr[1] = (mdbNext | (mdbRevocable << 1) | mdbFirstBadged) as u64;
 }
 
-#[inline]
 #[no_mangle]
 pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
     // cap_capType_equals(cap, cap_page_table_cap) && cap.get_pt_is_mapped() != 0
@@ -116,20 +109,17 @@ pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
         && cap::cap_page_table_cap(capability).get_capPTIsMapped() != 0
 }
 
-#[inline]
 #[no_mangle]
 pub fn fastpath_mi_check(msgInfo: usize) -> bool {
-    (msgInfo & MASK!(SEL4_MSG_LENGTH_BITS + SEL4_MSG_EXTRA_CAP_BITS)) > 4
+    (msgInfo & mask_bits!(SEL4_MSG_LENGTH_BITS + SEL4_MSG_EXTRA_CAP_BITS)) > 4
 }
 
-#[inline]
 #[no_mangle]
 pub fn fastpath_copy_mrs(length: usize, src: &mut tcb_t, dest: &mut tcb_t) {
     dest.tcbArch
         .copy_range(&src.tcbArch, MSG_REGISTER[0]..MSG_REGISTER[0] + length);
 }
 
-#[inline]
 #[no_mangle]
 pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     // sel4_common::println!("fastpath call");
@@ -216,7 +206,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         convert_to_mut_type_ref::<reply_t>(reply as usize).replyTCB = NODE_STATE!(ksCurThread);
 
         let sc = convert_to_mut_type_ref::<sched_context_t>(current.tcbSchedContext);
-        sc.scTcb = dest.get_ptr();
+        sc.scTcb = dest.get_ptr().raw();
         dest.tcbSchedContext = sc.get_ptr();
         current.tcbSchedContext = 0;
 
@@ -236,7 +226,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
         let reply_can_grant = dest.tcbState.get_blockingIPCCanGrant();
 
         caller_slot.capability =
-            cap_reply_cap::new(current.get_ptr() as u64, reply_can_grant as u64, 0).unsplay();
+            cap_reply_cap::new(current.get_ptr().raw() as u64, reply_can_grant as u64, 0).unsplay();
         caller_slot.cteMDBNode.0.arr[0] = reply_slot.get_ptr() as u64;
         mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(
             &mut reply_slot.cteMDBNode,
@@ -257,7 +247,6 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     fastpath_restore(badge, msgInfo1, get_currenct_thread());
 }
 
-#[inline]
 #[no_mangle]
 #[cfg(not(feature = "kernel_mcs"))]
 pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
@@ -322,7 +311,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     }
     thread_state_ptr_mset_blockingObject_tsType(
         &mut current.tcbState,
-        ep.get_ptr(),
+        ep.get_ptr().raw(),
         ThreadState::ThreadStateBlockedOnReceive as usize,
     );
     current
@@ -332,17 +321,17 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     if let Some(ep_tail_tcb) =
         convert_to_option_mut_type_ref::<tcb_t>(ep.get_epQueue_tail() as usize)
     {
-        ep_tail_tcb.tcbEPNext = current.get_ptr();
-        current.tcbEPPrev = ep_tail_tcb.get_ptr();
+        ep_tail_tcb.tcbEPNext = current.get_ptr().raw();
+        current.tcbEPPrev = ep_tail_tcb.get_ptr().raw();
         current.tcbEPNext = 0;
     } else {
         current.tcbEPPrev = 0;
         current.tcbEPNext = 0;
-        ep.set_epQueue_head(current.get_ptr() as u64);
+        ep.set_epQueue_head(current.get_ptr().raw() as u64);
     }
     endpoint_ptr_mset_epQueue_tail_state(
         ep as *mut endpoint,
-        get_currenct_thread().get_ptr(),
+        get_currenct_thread().get_ptr().raw(),
         EPState_Recv,
     );
 
@@ -443,14 +432,14 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
 
     thread_state_ptr_mset_blockingObject_tsType(
         &mut current.tcbState,
-        ep.get_ptr(),
+        ep.get_ptr().raw(),
         ThreadState::ThreadStateBlockedOnReceive as usize,
     );
     caller.tcbState.set_replyObject(0);
     current
         .tcbState
         .set_replyObject(reply_cap.get_capReplyPtr());
-    reply_ptr.replyTCB = current.get_ptr();
+    reply_ptr.replyTCB = current.get_ptr().raw();
     // #else
     //     thread_state_ptr_set_blockingIPCCanGrant(&NODE_STATE(ksCurThread)->tcbState,
     //                                              cap_endpoint_cap_get_capCanGrant(ep_cap));;
@@ -469,10 +458,10 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize, reply: usize) {
     } else {
         current.tcbEPPrev = 0;
         current.tcbEPNext = 0;
-        ep.set_epQueue_head(current.get_ptr() as u64);
+        ep.set_epQueue_head(current.get_ptr().as_u64());
         endpoint_ptr_mset_epQueue_tail_state(
             ep as *mut endpoint,
-            get_currenct_thread().get_ptr(),
+            get_currenct_thread().get_ptr().raw(),
             EPState_Recv,
         );
     }

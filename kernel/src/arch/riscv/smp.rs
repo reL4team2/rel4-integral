@@ -1,5 +1,4 @@
 use crate::smp::clh_is_ipi_pending;
-use crate::BIT;
 use core::sync::atomic::{fence, Ordering};
 use sel4_common::arch::config::{IRQ_REMOTE_CALL_IPI, IRQ_RESCHEDULE_IPI};
 use sel4_common::arch::{hart_id_to_core_id, sbi_send_ipi};
@@ -23,7 +22,7 @@ pub fn arch_pause() {
 }
 
 pub fn ipi_send_target(irq: usize, target: usize) {
-    let mask = BIT!(target);
+    let mask = bit!(target);
     let core_id = hart_id_to_core_id(target);
     assert!(core_id < CONFIG_MAX_NUM_NODES);
     unsafe {
@@ -47,9 +46,7 @@ pub fn handle_remote_call(
 ) {
     if clh_is_ipi_pending(cpu_id()) {
         match call {
-            ipi_remote_call::IpiRemoteCall_Stall => {
-                crate::smp::ipi::ipi_stall_core_cb(irq_path);
-            }
+            ipi_remote_call::IpiRemoteCall_Stall => crate::smp::ipi::ipi_stall_core_cb(irq_path),
             ipi_remote_call::IpiRemoteCall_switchFpuOwner => unsafe {
                 crate::arch::fpu::switch_local_fpu_owner(arg0);
             },

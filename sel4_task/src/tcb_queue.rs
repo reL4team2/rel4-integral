@@ -17,14 +17,14 @@ impl tcb_queue_t {
     #[cfg(not(feature = "kernel_mcs"))]
     pub fn ep_append(&mut self, tcb: &mut tcb_t) {
         if self.head == 0 {
-            self.head = tcb.get_ptr();
+            self.head = tcb.get_ptr().raw();
         } else {
-            convert_to_mut_type_ref::<tcb_t>(self.tail).tcbEPNext = tcb.get_ptr();
+            convert_to_mut_type_ref::<tcb_t>(self.tail).tcbEPNext = tcb.get_ptr().raw();
         }
 
         tcb.tcbEPPrev = self.tail;
         tcb.tcbEPNext = 0;
-        self.tail = tcb.get_ptr();
+        self.tail = tcb.get_ptr().raw();
     }
     #[cfg(feature = "kernel_mcs")]
     pub fn ep_append(&mut self, tcb: &mut tcb_t) {
@@ -41,15 +41,15 @@ impl tcb_queue_t {
             before_ptr = convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbEPPrev;
         }
         if unlikely(before_ptr == 0) {
-            self.head = tcb.get_ptr();
+            self.head = tcb.get_ptr().raw();
         } else {
-            convert_to_mut_type_ref::<tcb_t>(before_ptr).tcbEPNext = tcb.get_ptr()
+            convert_to_mut_type_ref::<tcb_t>(before_ptr).tcbEPNext = tcb.get_ptr().raw()
         }
 
         if likely(after_ptr == 0) {
-            self.tail = tcb.get_ptr();
+            self.tail = tcb.get_ptr().raw();
         } else {
-            convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbEPPrev = tcb.get_ptr();
+            convert_to_mut_type_ref::<tcb_t>(after_ptr).tcbEPPrev = tcb.get_ptr().raw();
         }
 
         tcb.tcbEPNext = after_ptr;
@@ -79,37 +79,37 @@ impl tcb_queue_t {
     #[inline]
     pub fn prepend(&mut self, tcb: &mut tcb_t) {
         if self.empty() {
-            self.tail = tcb.get_ptr();
+            self.tail = tcb.get_ptr().raw();
         } else {
             tcb.tcbSchedNext = self.head;
-            convert_to_mut_type_ref::<tcb_t>(self.head).tcbSchedPrev = tcb.get_ptr();
+            convert_to_mut_type_ref::<tcb_t>(self.head).tcbSchedPrev = tcb.get_ptr().raw();
         }
-        self.head = tcb.get_ptr();
+        self.head = tcb.get_ptr().raw();
     }
     #[inline]
     pub fn append(&mut self, tcb: &mut tcb_t) {
         if self.empty() {
-            self.head = tcb.get_ptr();
+            self.head = tcb.get_ptr().raw();
         } else {
             tcb.tcbSchedPrev = self.tail;
-            convert_to_mut_type_ref::<tcb_t>(self.tail).tcbSchedNext = tcb.get_ptr();
+            convert_to_mut_type_ref::<tcb_t>(self.tail).tcbSchedNext = tcb.get_ptr().raw();
         }
-        self.tail = tcb.get_ptr();
+        self.tail = tcb.get_ptr().raw();
     }
     #[inline]
     pub fn remove(&mut self, tcb: &mut tcb_t) {
         let before = tcb.tcbSchedPrev;
         let after = tcb.tcbSchedNext;
-        if self.head == tcb.get_ptr() && self.tail == tcb.get_ptr() {
+        if self.head == tcb.get_ptr().raw() && self.tail == tcb.get_ptr().raw() {
             self.head = 0;
             self.tail = 0;
         } else {
-            if self.head == tcb.get_ptr() {
+            if self.head == tcb.get_ptr().raw() {
                 convert_to_mut_type_ref::<tcb_t>(after).tcbSchedPrev = 0;
                 tcb.tcbSchedNext = 0;
                 self.head = after;
             } else {
-                if self.tail == tcb.get_ptr() {
+                if self.tail == tcb.get_ptr().raw() {
                     convert_to_mut_type_ref::<tcb_t>(before).tcbSchedNext = 0;
                     tcb.tcbSchedPrev = 0;
                     self.tail = before;

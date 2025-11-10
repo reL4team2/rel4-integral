@@ -13,7 +13,6 @@ use sel4_common::sel4_config::{
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag, cap_thread_cap, notification};
 use sel4_common::utils::convert_to_mut_type_ref;
-use sel4_common::BIT;
 #[cfg(target_arch = "aarch64")]
 use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::capability::cap_func;
@@ -176,7 +175,7 @@ fn decode_read_registers(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    invoke_tcb_read_registers(thread, flags & BIT!(READ_REGISTERS_SUSPEND), n, 0, call)
+    invoke_tcb_read_registers(thread, flags & bit!(READ_REGISTERS_SUSPEND), n, 0, call)
 }
 
 fn decode_write_registers(
@@ -215,7 +214,7 @@ fn decode_write_registers(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    invoke_tcb_write_registers(thread, flags & BIT!(0), w, 0, buffer)
+    invoke_tcb_write_registers(thread, flags & bit!(0), w, 0, buffer)
 }
 
 fn decode_copy_registers(
@@ -239,10 +238,10 @@ fn decode_copy_registers(
     return invoke_tcb_copy_registers(
         convert_to_mut_type_ref::<tcb_t>(capability.get_capTCBPtr() as usize),
         src_tcb,
-        flags & BIT!(COPY_REGISTERS_SUSPEND_SOURCE),
-        flags & BIT!(COPY_REGISTERS_RESUME_TARGET),
-        flags & BIT!(COPY_REGISTERS_TRANSFER_FRAME),
-        flags & BIT!(COPY_REGISTERS_TRANSFER_INTEGER),
+        flags & bit!(COPY_REGISTERS_SUSPEND_SOURCE),
+        flags & bit!(COPY_REGISTERS_RESUME_TARGET),
+        flags & bit!(COPY_REGISTERS_TRANSFER_FRAME),
+        flags & bit!(COPY_REGISTERS_TRANSFER_INTEGER),
         0,
     );
 }
@@ -626,7 +625,7 @@ fn decode_set_sched_params(
     }
 
     set_thread_state(get_currenct_thread(), ThreadState::ThreadStateRestart);
-    let t_cap = cap_thread_cap::new(tcb.get_ptr() as u64).unsplay();
+    let t_cap = cap_thread_cap::new(tcb.get_ptr().as_u64()).unsplay();
 
     let status = install_tcb_cap(
         tcb,

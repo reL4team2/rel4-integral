@@ -1,26 +1,28 @@
 use super::read_stval;
-use crate::compatibility::lookup_ipc_buffer;
-use crate::halt;
-use crate::object::lookupCapAndSlot;
-use crate::strnlen;
-use crate::syscall::handle_fault;
-use crate::syscall::{
-    SYS_DEBUG_CAP_IDENTIFY, SYS_DEBUG_DUMP_SCHEDULER, SYS_DEBUG_HALT, SYS_DEBUG_NAME_THREAD,
-    SYS_DEBUG_PUT_CHAR, SYS_DEBUG_SNAPSHOT, SYS_GET_CLOCK,
+use crate::{
+    compatibility::lookup_ipc_buffer,
+    halt,
+    object::lookupCapAndSlot,
+    strnlen,
+    syscall::{
+        handle_fault, SYS_DEBUG_CAP_IDENTIFY, SYS_DEBUG_DUMP_SCHEDULER, SYS_DEBUG_HALT,
+        SYS_DEBUG_NAME_THREAD, SYS_DEBUG_PUT_CHAR, SYS_DEBUG_SNAPSHOT, SYS_GET_CLOCK,
+    },
 };
 #[cfg(feature = "kernel_mcs")]
 use core::intrinsics::likely;
 use log::debug;
-use sel4_common::arch::ArchReg::*;
-use sel4_common::ffi::current_fault;
-use sel4_common::platform::read_time;
-use sel4_common::print;
-use sel4_common::sel4_config::*;
-use sel4_common::structures::exception_t;
-use sel4_common::structures_gen::cap_tag;
-use sel4_common::structures_gen::seL4_Fault_UnknownSyscall;
-use sel4_common::structures_gen::seL4_Fault_UserException;
-use sel4_common::structures_gen::seL4_Fault_VMFault;
+use sel4_common::{
+    arch::ArchReg::*,
+    ffi::current_fault,
+    platform::read_time,
+    print,
+    sel4_config::*,
+    structures::exception_t,
+    structures_gen::{
+        cap_tag, seL4_Fault_UnknownSyscall, seL4_Fault_UserException, seL4_Fault_VMFault,
+    },
+};
 use sel4_task::{activateThread, get_currenct_thread, schedule};
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget_restart, update_timestamp};

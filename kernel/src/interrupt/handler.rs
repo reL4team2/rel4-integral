@@ -96,9 +96,7 @@ pub fn handle_interrput(irq: usize) {
             }
         }
         #[cfg(feature = "enable_smp")]
-        IRQState::IRQIPI => {
-            crate::smp::ipi::handle_ipi(irq, true);
-        }
+        IRQState::IRQIPI => crate::smp::ipi::handle_ipi(irq, true),
         IRQState::IRQReserved => {
             debug!("Received unhandled reserved IRQ: {}\n", irq);
         }

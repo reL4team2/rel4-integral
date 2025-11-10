@@ -1,4 +1,5 @@
 use crate::transfer::Transfer;
+use rel4_arch::{basic::PPtr, pptr};
 use sel4_common::arch::ArchReg;
 use sel4_common::structures_gen::endpoint;
 #[cfg(feature = "kernel_mcs")]
@@ -10,7 +11,6 @@ use sel4_task::{
 };
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{reply::reply_t, sched_context::sched_context_t, NODE_STATE};
-use sel4_vspace::pptr_t;
 
 pub const EPState_Idle: usize = EPState::Idle as usize;
 pub const EPState_Send: usize = EPState::Send as usize;
@@ -27,7 +27,7 @@ pub enum EPState {
 use sel4_common::structures_gen::cap_reply_cap;
 
 pub trait endpoint_func {
-    fn get_ptr(&self) -> pptr_t;
+    fn get_ptr(&self) -> PPtr;
     fn get_ep_state(&self) -> EPState;
     fn get_queue(&self) -> tcb_queue_t;
     fn set_queue(&mut self, tcb_queue: &tcb_queue_t);
@@ -70,8 +70,8 @@ pub trait endpoint_func {
 impl endpoint_func for endpoint {
     #[inline]
     /// Get the raw pointer(usize) to the endpoint
-    fn get_ptr(&self) -> pptr_t {
-        self as *const Self as pptr_t
+    fn get_ptr(&self) -> PPtr {
+        pptr!(self as *const Self)
     }
 
     #[inline]
@@ -256,7 +256,7 @@ impl endpoint_func for endpoint {
                         .set_tsType(ThreadState::ThreadStateBlockedOnSend as u64);
                     src_thread
                         .tcbState
-                        .set_blockingObject(self.get_ptr() as u64);
+                        .set_blockingObject(self.get_ptr().raw() as u64);
                     src_thread
                         .tcbState
                         .set_blockingIPCCanGrant(can_grant as u64);
@@ -318,7 +318,7 @@ impl endpoint_func for endpoint {
                         .set_tsType(ThreadState::ThreadStateBlockedOnSend as u64);
                     src_thread
                         .tcbState
-                        .set_blockingObject(self.get_ptr() as u64);
+                        .set_blockingObject(self.get_ptr().as_u64());
                     src_thread
                         .tcbState
                         .set_blockingIPCCanGrant(can_grant as u64);
@@ -404,7 +404,9 @@ impl endpoint_func for endpoint {
         match self.get_ep_state() {
             EPState::Idle | EPState::Recv => {
                 if is_blocking {
-                    thread.tcbState.set_blockingObject(self.get_ptr() as u64);
+                    thread
+                        .tcbState
+                        .set_blockingObject(self.get_ptr().raw() as u64);
                     thread.tcbState.set_blockingIPCCanGrant(grant as u64);
                     set_thread_state(thread, ThreadState::ThreadStateBlockedOnReceive);
                     let mut queue = self.get_queue();
@@ -460,7 +462,7 @@ impl endpoint_func for endpoint {
         if let Some(reply_cap_data) = Option_reply_cap {
             replyptr = reply_cap_data.get_capReplyPtr() as usize;
             let reply = convert_to_mut_type_ref::<reply_t>(replyptr);
-            if unlikely(reply.replyTCB != 0 && reply.replyTCB != thread.get_ptr()) {
+            if unlikely(reply.replyTCB != 0 && reply.replyTCB != thread.get_ptr().raw()) {
                 debug!("Reply object already has unexecuted reply!");
                 convert_to_mut_type_ref::<tcb_t>(reply.replyTCB as usize).cancel_ipc();
             }
@@ -478,11 +480,12 @@ impl endpoint_func for endpoint {
                     thread
                         .tcbState
                         .set_tsType(ThreadState::ThreadStateBlockedOnReceive as u64);
-                    thread.tcbState.set_blockingObject(self.get_ptr() as u64);
+                    thread.tcbState.set_blockingObject(self.get_ptr().as_u64());
                     // MCS
                     thread.tcbState.set_replyObject(replyptr as u64);
                     if replyptr != 0 {
-                        convert_to_mut_type_ref::<reply_t>(replyptr).replyTCB = thread.get_ptr();
+                        convert_to_mut_type_ref::<reply_t>(replyptr).replyTCB =
+                            thread.get_ptr().raw();
                     }
                     schedule_tcb(&thread);
                     let mut queue = self.get_queue();

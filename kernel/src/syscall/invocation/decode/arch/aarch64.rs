@@ -5,6 +5,7 @@ use crate::syscall::ThreadState;
 use crate::syscall::{current_lookup_fault, get_syscall_arg, set_thread_state, unlikely};
 use crate::syscall::{ensure_empty_slot, get_currenct_thread, lookup_slot_for_cnode_op};
 use log::debug;
+use rel4_arch::basic::{PAddr, VPtr};
 use sel4_common::arch::maskVMRights;
 use sel4_common::platform::MAX_IRQ;
 use sel4_common::sel4_bitfield_types::Bitfield;
@@ -28,15 +29,13 @@ use sel4_common::utils::{
 use sel4_common::{
     arch::MessageLabel,
     structures::{exception_t, seL4_IPCBuffer},
-    MASK,
 };
-use sel4_common::{BIT, IS_ALIGNED};
 use sel4_cspace::capability::cap_arch_func;
 use sel4_cspace::interface::{cte_insert, cte_t};
 
 use sel4_vspace::{
     asid_pool_t, asid_t, clean_by_va_pou, do_flush, find_vspace_for_asid, get_asid_pool_by_index,
-    pptr_to_paddr, pte_tag_t, set_asid_pool_by_index, vm_attributes_t, vptr_t, PTE,
+    pte_tag_t, set_asid_pool_by_index, vm_attributes_t, PTE,
 };
 
 #[cfg(feature = "enable_smp")]
@@ -113,7 +112,7 @@ fn decode_page_table_invocation(
         global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if unlikely(length < 2 || global_ops!(current_extra_caps.excaprefs[0] == 0)) {
+    if unlikely(length < 2 || global_ops!(current_extra_caps.excaprefs[0].is_null())) {
         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
@@ -125,7 +124,7 @@ fn decode_page_table_invocation(
 
     let vaddr = get_syscall_arg(0, buffer);
     let vspace_root_cap =
-        convert_to_mut_type_ref::<cap_vspace_cap>(global_ops!(current_extra_caps.excaprefs[0]));
+        global_ops!(current_extra_caps.excaprefs[0].get_mut_ref::<cap_vspace_cap>());
 
     if unlikely(!vspace_root_cap.clone().unsplay().is_valid_native_root()) {
         global_ops!(current_syscall_error._type = SEL4_INVALID_CAPABILITY);
@@ -155,7 +154,7 @@ fn decode_page_table_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let pd_slot = PTE(vspace_root).lookup_pt_slot(vaddr);
+    let pd_slot = PTE(vspace_root).lookup_pt_slot(vptr!(vaddr));
 
     if unlikely(
         pd_slot.ptBitsLeft == SEL4_PAGE_BITS
@@ -164,20 +163,20 @@ fn decode_page_table_invocation(
         global_ops!(current_syscall_error._type = SEL4_DELETE_FIRST);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let pte = PTE::pte_new_table(pptr_to_paddr(
-        cap::cap_page_table_cap(&cte.capability).get_capPTBasePtr() as usize,
-    ));
+    let pte = PTE::pte_new_table(
+        pptr!(cap::cap_page_table_cap(&cte.capability).get_capPTBasePtr()).to_paddr(),
+    );
     cap::cap_page_table_cap(&cte.capability).set_capPTIsMapped(1);
     cap::cap_page_table_cap(&cte.capability).set_capPTMappedASID(asid as u64);
     cap::cap_page_table_cap(&cte.capability)
-        .set_capPTMappedAddress((vaddr & !(MASK!(pd_slot.ptBitsLeft))) as u64);
+        .set_capPTMappedAddress((vaddr & !(mask_bits!(pd_slot.ptBitsLeft))) as u64);
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
 
     *ptr_to_mut(pd_slot.ptSlot) = pte;
     // log::warn!("Need to clean D-Cache using cleanByVA_PoU");
     clean_by_va_pou(
         convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot)),
-        pptr_to_paddr(convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot))),
+        pptr!(convert_ref_type_to_usize(ptr_to_mut(pd_slot.ptSlot))).to_paddr(),
     );
     exception_t::EXCEPTION_NONE
 }
@@ -221,7 +220,7 @@ fn decode_page_clean_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let page_size = BIT!(pageBitsForSize(
+    let page_size = bit!(pageBitsForSize(
         cap::cap_frame_cap(&cte.capability).get_capFSize() as usize
     ));
     if start >= page_size || end > page_size {
@@ -230,8 +229,7 @@ fn decode_page_clean_invocation(
         global_ops!(current_syscall_error.invalidArgumentNumber = 0);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    let pstart =
-        pptr_to_paddr(cap::cap_frame_cap(&cte.capability).get_capFBasePtr() as usize + start);
+    let pstart = (pptr!(cap::cap_frame_cap(&cte.capability).get_capFBasePtr()) + start).to_paddr();
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
 
     if start < end {
@@ -315,19 +313,17 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
     }
     if unlikely(
         length < 2
-            || global_ops!(current_extra_caps.excaprefs[0] == 0)
-            || global_ops!(current_extra_caps.excaprefs[1] == 0),
+            || global_ops!(current_extra_caps.excaprefs[0].is_null())
+            || global_ops!(current_extra_caps.excaprefs[1].is_null()),
     ) {
         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
     let index = get_syscall_arg(0, buffer);
     let depth = get_syscall_arg(1, buffer);
-    let parent_slot =
-        convert_to_mut_type_ref::<cte_t>(global_ops!(current_extra_caps.excaprefs[0]));
+    let parent_slot = global_ops!(current_extra_caps.excaprefs[0].get_mut_ref::<cte_t>());
     let untyped = cap::cap_untyped_cap(&parent_slot.capability);
-    let root =
-        &convert_to_mut_type_ref::<cte_t>(global_ops!(current_extra_caps.excaprefs[1])).capability;
+    let root = &global_ops!(current_extra_caps.excaprefs[1].get_ref::<cte_t>()).capability;
 
     let mut i = 0;
     loop {
@@ -370,14 +366,14 @@ fn decode_asid_control(label: MessageLabel, length: usize, buffer: &seL4_IPCBuff
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
     unsafe {
-        core::slice::from_raw_parts_mut(frame as *mut u8, BIT!(SEL4_ASID_POOL_BITS)).fill(0);
+        core::slice::from_raw_parts_mut(frame as *mut u8, bit!(SEL4_ASID_POOL_BITS)).fill(0);
     }
     cte_insert(
         &cap_asid_pool_cap::new(asid_base as u64, frame as u64).unsplay(),
         parent_slot,
         dest_slot,
     );
-    assert!(asid_base & MASK!(ASID_LOW_BITS) == 0);
+    assert!(asid_base & mask_bits!(ASID_LOW_BITS) == 0);
     set_asid_pool_by_index(asid_base >> ASID_LOW_BITS, frame);
     exception_t::EXCEPTION_NONE
 }
@@ -387,14 +383,13 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
         global_ops!(current_syscall_error._type = SEL4_ILLEGAL_OPERATION);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if unlikely(global_ops!(current_extra_caps.excaprefs[0] == 0)) {
+    if unlikely(global_ops!(current_extra_caps.excaprefs[0].is_null())) {
         global_ops!(current_syscall_error._type = SEL4_TRUNCATED_MESSAGE);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
     let vspace_cap_slot = global_ops!(current_extra_caps.excaprefs[0]);
-    let vspace_cap = convert_to_mut_type_ref::<cap_vspace_cap>(vspace_cap_slot);
-
+    let vspace_cap = vspace_cap_slot.get_mut_ref::<cap_vspace_cap>();
     if unlikely(
         !vspace_cap.clone().unsplay().is_vtable_root() || vspace_cap.get_capVSIsMapped() == 1,
     ) {
@@ -427,11 +422,11 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     let mut i = 0;
 
     // TODO: Make pool judge more efficient and pretty.
-    while i < BIT!(ASID_LOW_BITS) && (asid + i == 0 || pool[i].0.arr[0] != 0) {
+    while i < bit!(ASID_LOW_BITS) && (asid + i == 0 || pool[i].0.arr[0] != 0) {
         i += 1;
     }
 
-    if i == BIT!(ASID_LOW_BITS) {
+    if i == bit!(ASID_LOW_BITS) {
         unsafe {
             current_syscall_error._type = SEL4_DELETE_FIRST;
         }
@@ -444,7 +439,7 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     vspace_cap.set_capVSMappedASID(asid as u64);
     vspace_cap.set_capVSIsMapped(1);
     let asidmap = asid_map_asid_map_vspace::new(vspace_cap.get_capVSBasePtr() as u64).unsplay();
-    pool[asid & MASK!(ASID_LOW_BITS)] = asidmap;
+    pool[asid & mask_bits!(ASID_LOW_BITS)] = asidmap;
     exception_t::EXCEPTION_NONE
 }
 
@@ -485,7 +480,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
         global_ops!(current_syscall_error.invalidCapNumber = 1);
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
-    if unlikely(!IS_ALIGNED!(vaddr, pageBitsForSize(frame_size))) {
+    if unlikely(!is_aligned!(vaddr, pageBitsForSize(frame_size))) {
         // global_var!(current_syscall_error)._type = SEL4_ALIGNMENT_ERROR;
         // Use unsafe here will cause the _type error.
         global_ops!(current_syscall_error._type = SEL4_ALIGNMENT_ERROR);
@@ -507,15 +502,15 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
     } else {
-        if unlikely(vaddr + BIT!(pageBitsForSize(frame_size)) - 1 > USER_TOP) {
+        if unlikely(vaddr + bit!(pageBitsForSize(frame_size)) - 1 > USER_TOP) {
             global_ops!(current_syscall_error._type = SEL4_INVALID_ARGUMENT);
             global_ops!(current_syscall_error.invalidArgumentNumber = 0);
             return exception_t::EXCEPTION_SYSCALL_ERROR;
         }
     }
     let mut vspace_root_pte = PTE::new_from_pte(vspace_root);
-    let base = pptr_to_paddr(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize);
-    let lu_ret = vspace_root_pte.lookup_pt_slot(vaddr);
+    let base = pptr!(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr()).to_paddr();
+    let lu_ret = vspace_root_pte.lookup_pt_slot(vptr!(vaddr));
     if unlikely(lu_ret.ptBitsLeft != pageBitsForSize(frame_size)) {
         unsafe {
             current_lookup_fault =
@@ -642,7 +637,7 @@ fn decode_frame_map(length: usize, frame_slot: &mut cte_t, buffer: &seL4_IPCBuff
     //         return exception_t::EXCEPTION_SYSCALL_ERROR;
     //     }
     // } else {
-    //     let vtop = vaddr + BIT!(pageBitsForSize(frame_size)) - 1;
+    //     let vtop = vaddr + bit!(pageBitsForSize(frame_size)) - 1;
     //     if unlikely(vtop >= USER_TOP) {
     //         unsafe {
     //             current_syscall_error._type = SEL4_INVALID_ARGUMENT;
@@ -815,33 +810,33 @@ fn decode_vspace_root_invocation(
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let resolve_ret = ptr_to_mut(vspace_root).lookup_pt_slot(start);
+            let resolve_ret = ptr_to_mut(vspace_root).lookup_pt_slot(vptr!(start));
             let pte = resolve_ret.ptSlot;
             if ptr_to_ref(pte).get_type() != (pte_tag_t::pte_page) as usize {
                 get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
                 return exception_t::EXCEPTION_NONE;
             }
-            let page_base_start = start & !MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
-            let page_base_end = (end - 1) & !MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let page_base_start = start & !mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let page_base_end = (end - 1) & !mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
             if page_base_start != page_base_end {
                 unsafe {
                     current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = start;
                     current_syscall_error.rangeErrorMax =
-                        page_base_start + MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
+                        page_base_start + mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let pstart = ptr_to_ref(pte).get_page_base_address() + start
-                & MASK!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let pstart = ptr_to_ref(pte).get_page_base_address().raw() + start
+                & mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
             get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
             return decode_vspace_flush_invocation(
                 label,
                 find_ret.vspace_root.unwrap() as usize,
                 asid,
-                start,
-                end,
-                pstart,
+                vptr!(start),
+                vptr!(end),
+                paddr!(pstart),
             );
         }
         _ => {
@@ -855,13 +850,13 @@ fn decode_vspace_flush_invocation(
     label: MessageLabel,
     vspace: usize,
     asid: asid_t,
-    start: vptr_t,
-    end: vptr_t,
-    pstart: usize,
+    start: VPtr,
+    end: VPtr,
+    pstart: PAddr,
 ) -> exception_t {
     if start < end {
         let root_switched = set_vm_root_for_flush(vspace, asid);
-        do_flush(label, start, end, pstart);
+        do_flush(label, start.raw(), end.raw(), pstart);
         if root_switched {
             let _ = get_currenct_thread().set_vm_root();
         }

@@ -95,10 +95,8 @@ pub fn invoke_tcb_write_registers(
         i += 1;
     }
 
-    dest.tcbArch.set_register(
-        ArchReg::NEXT_IP,
-        dest.tcbArch.get_register(ArchReg::FAULT_IP),
-    );
+    dest.tcbArch
+        .set_register(ArchReg::NextIP, dest.tcbArch.get_register(ArchReg::FaultIP));
 
     if resumeTarget != 0 {
         // cancel_ipc(dest);
@@ -183,7 +181,7 @@ pub fn invoke_tcb_set_space(
     vroot_new_cap: &cap,
     vroot_src_slot: &mut cte_t,
 ) -> exception_t {
-    let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
+    let target_cap = cap_thread_cap::new(target.get_ptr().raw() as u64).unsplay();
     target.TCB_FAULT_HANDLER = fault_ep;
     let root_slot = target.get_cspace_mut_ref(TCB_CTABLE);
     let status = root_slot.delete_all(true);
@@ -246,7 +244,7 @@ pub fn invoke_tcb_thread_control_caps(
         TCB_FAULT_HANDLER, TCB_TIMEOUT_HANDLER, THREAD_CONTROL_CAPS_UPDATE_FAULT,
         THREAD_CONTROL_CAPS_UPDATE_SPACE, THREAD_CONTROL_CAPS_UPDATE_TIMEOUT,
     };
-    let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
+    let target_cap = cap_thread_cap::new(target.get_ptr().as_u64()).unsplay();
     if updateFlags & THREAD_CONTROL_CAPS_UPDATE_FAULT != 0 {
         if let Some(fh_slot) = fh_srcSlot {
             let e = install_tcb_cap(
@@ -338,13 +336,13 @@ pub fn invoke_tcb_set_ipc_buffer(
     buffer_cap: cap,
     buffer_src_slot: Option<&mut cte_t>,
 ) -> exception_t {
-    let target_cap = cap_thread_cap::new(target.get_ptr() as u64).unsplay();
+    let target_cap = cap_thread_cap::new(target.get_ptr().raw() as u64).unsplay();
     let buffer_slot = target.get_cspace_mut_ref(TCB_BUFFER);
     let status = buffer_slot.delete_all(true);
     if status != exception_t::EXCEPTION_NONE {
         return status;
     }
-    target.tcbIPCBuffer = buffer_addr;
+    target.tcbIPCBuffer = vptr!(buffer_addr);
     if let Some(mut buffer_src_slot) = buffer_src_slot {
         if same_object_as(&buffer_cap, &buffer_src_slot.capability)
             && same_object_as(&target_cap, &slot.capability)

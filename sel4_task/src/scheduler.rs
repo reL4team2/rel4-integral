@@ -5,10 +5,17 @@
 //! new threads to run, managing ready queues, and handling domain scheduling.
 //!
 #![allow(unused_unsafe)]
-#![allow(static_mut_ref)]
 
 #[cfg(feature = "enable_smp")]
 use crate::deps::do_mask_reschedule;
+use crate::deps::ksIdleThreadTCB;
+#[cfg(feature = "kernel_mcs")]
+use crate::sched_context::{sched_context_t, MIN_REFILLS};
+use crate::tcb::{set_thread_state, tcb_t};
+use crate::tcb_queue::tcb_queue_t;
+use crate::thread_state::ThreadState;
+#[cfg(feature = "kernel_mcs")]
+use crate::{deps::ksIdleThreadSC, sched_context::refill_budget_check, tcb_release_dequeue};
 use core::arch::asm;
 use core::intrinsics::{likely, unlikely};
 use sel4_common::arch::ArchReg;
@@ -21,16 +28,6 @@ use sel4_common::sel4_config::{
 #[cfg(feature = "enable_smp")]
 use sel4_common::utils::cpu_id;
 use sel4_common::utils::{convert_to_mut_type_ref, ptr_to_usize_add};
-use sel4_common::{BIT, MASK};
-
-use crate::deps::ksIdleThreadTCB;
-#[cfg(feature = "kernel_mcs")]
-use crate::sched_context::{sched_context_t, MIN_REFILLS};
-use crate::tcb::{set_thread_state, tcb_t};
-use crate::tcb_queue::tcb_queue_t;
-use crate::thread_state::ThreadState;
-#[cfg(feature = "kernel_mcs")]
-use crate::{deps::ksIdleThreadSC, sched_context::refill_budget_check, tcb_release_dequeue};
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::{
     arch::us_to_ticks,
@@ -305,7 +302,7 @@ pub fn get_current_thread_on_node(_node: usize) -> &'static mut tcb_t {
 #[inline]
 /// Set the current thread.
 pub fn set_current_thread(thread: &tcb_t) {
-    SET_NODE_STATE!(ksCurThread = thread.get_ptr());
+    SET_NODE_STATE!(ksCurThread = thread.get_ptr().raw());
 }
 
 #[inline]
@@ -395,14 +392,14 @@ pub fn add_to_bitmap(_cpu: usize, dom: usize, prio: usize) {
         let l1index_inverted = invert_l1index(l1index);
         #[cfg(feature = "enable_smp")]
         {
-            ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] |= BIT!(l1index);
+            ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] |= bit!(l1index);
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] |=
-                BIT!(prio & MASK!(WORD_RADIX));
+                bit!(prio & mask_bits!(WORD_RADIX));
         }
         #[cfg(not(feature = "enable_smp"))]
         {
-            ksReadyQueuesL1Bitmap[dom] |= BIT!(l1index);
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= BIT!(prio & MASK!(WORD_RADIX));
+            ksReadyQueuesL1Bitmap[dom] |= bit!(l1index);
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] |= bit!(prio & mask_bits!(WORD_RADIX));
         }
     }
 }
@@ -416,16 +413,16 @@ pub fn remove_from_bigmap(_cpu: usize, dom: usize, prio: usize) {
         #[cfg(feature = "enable_smp")]
         {
             ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] &=
-                !BIT!(prio & MASK!(WORD_RADIX));
+                !bit!(prio & mask_bits!(WORD_RADIX));
             if unlikely(ksSMP[_cpu].ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
-                ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] &= !(BIT!((l1index)));
+                ksSMP[_cpu].ksReadyQueuesL1Bitmap[dom] &= !(bit!((l1index)));
             }
         }
         #[cfg(not(feature = "enable_smp"))]
         {
-            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !BIT!(prio & MASK!(WORD_RADIX));
+            ksReadyQueuesL2Bitmap[dom][l1index_inverted] &= !bit!(prio & mask_bits!(WORD_RADIX));
             if unlikely(ksReadyQueuesL2Bitmap[dom][l1index_inverted] == 0) {
-                ksReadyQueuesL1Bitmap[dom] &= !(BIT!((l1index)));
+                ksReadyQueuesL1Bitmap[dom] &= !(bit!((l1index)));
             }
         }
     }
@@ -566,7 +563,7 @@ pub fn awaken() {
         let awakened = tcb_release_dequeue();
         /* the currently running thread cannot have just woken up */
         unsafe {
-            assert!((*awakened).get_ptr() != NODE_STATE!(ksCurThread));
+            assert!((*awakened).get_ptr().raw() != NODE_STATE!(ksCurThread));
             /* round robin threads should not be in the release queue */
             assert!(
                 !convert_to_mut_type_ref::<sched_context_t>((*awakened).tcbSchedContext)
@@ -823,7 +820,7 @@ pub fn schedule() {
 #[inline]
 /// Schedule the given tcb.
 pub fn schedule_tcb(tcb_ref: &tcb_t) {
-    if tcb_ref.get_ptr() == NODE_STATE!(ksCurThread)
+    if tcb_ref.get_ptr().raw() == NODE_STATE!(ksCurThread)
         && NODE_STATE!(ksSchedulerAction) == SCHEDULER_ACTION_RESUME_CURRENT_THREAD
         && !tcb_ref.is_schedulable()
     {
@@ -843,7 +840,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
             reschedule_required();
             target.sched_enqueue();
         } else {
-            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
         }
     }
     #[cfg(feature = "kernel_mcs")]
@@ -855,7 +852,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
                 reschedule_required();
                 target.sched_enqueue();
             } else {
-                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
             }
         }
     }
@@ -873,7 +870,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
             reschedule_required();
             target.sched_enqueue();
         } else {
-            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+            SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
         }
     }
     #[cfg(feature = "kernel_mcs")]
@@ -885,7 +882,7 @@ pub fn possible_switch_to(target: &mut tcb_t) {
                 reschedule_required();
                 target.sched_enqueue();
             } else {
-                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr());
+                SET_NODE_STATE!(ksSchedulerAction = target.get_ptr().raw());
             }
         }
     }
@@ -938,19 +935,15 @@ pub fn activateThread() {
         }
     }
     match thread.get_state() {
-        ThreadState::ThreadStateRunning => {
-            return;
-        }
+        ThreadState::ThreadStateRunning | ThreadState::ThreadStateIdleThreadState => return,
         ThreadState::ThreadStateRestart => {
-            let pc = thread.tcbArch.get_register(ArchReg::FAULT_IP);
+            let pc = thread.tcbArch.get_register(ArchReg::FaultIP);
             // setNextPC(thread, pc);
             // sel4_common::println!("restart pc is {:x}",pc);
-            thread.tcbArch.set_register(ArchReg::NEXT_IP, pc);
+            thread.tcbArch.set_register(ArchReg::NextIP, pc);
             // set_thread_state(thread, ThreadStateRunning);
             set_thread_state(thread, ThreadState::ThreadStateRunning);
         }
-        // 诡异的语法...
-        ThreadState::ThreadStateIdleThreadState => return {},
         #[cfg(not(feature = "enable_smp"))]
         _ => panic!(
             "current thread is blocked , state id :{}",
@@ -968,7 +961,7 @@ pub fn activateThread() {
 pub fn configure_sched_context(tcb: &mut tcb_t, sc_pptr: &mut sched_context_t, timeslice: ticks_t) {
     tcb.tcbSchedContext = sc_pptr.get_ptr();
     sc_pptr.refill_new(MIN_REFILLS, timeslice, 0);
-    sc_pptr.scTcb = tcb.get_ptr();
+    sc_pptr.scTcb = tcb.get_ptr().raw();
 }
 
 #[cfg(not(feature = "enable_smp"))]
@@ -1026,10 +1019,7 @@ pub fn create_idle_thread() {
 }
 
 pub fn idle_thread() {
-    unsafe {
-        loop {
-            // debug!("hello idle_thread");
-            asm!("wfi");
-        }
+    loop {
+        unsafe { asm!("wfi") };
     }
 }

@@ -27,6 +27,7 @@
 #define CR_L1_DCACHE_SET   BIT(CONTROL_C)
 #define CR_L1_DCACHE_CLEAR 0
 
+// TODO Set CR_USER_CACHE_OPS_SET
 #define CR_BITS_SET    (CR_ALIGN_SET | \
                         CR_L1_ICACHE_SET | \
                         CR_L1_DCACHE_SET | \
@@ -47,7 +48,11 @@
  * the logical core ID.
  */
 
+#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+#define SCTLR   sctlr_el2
+#else
 #define SCTLR   sctlr_el1
+#endif
 
 .section .boot.text, "ax"
 BEGIN_FUNC(_start)
@@ -79,7 +84,12 @@ BEGIN_FUNC(_start)
         /* the kernel stack must be 4-KiB aligned since we use the
         lowest 12 bits to store the logical core ID. */
         orr     x6, x6, x4
+    #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+        msr     tpidr_el2, x6
+    #else
         msr     tpidr_el1, x6
+    #endif    
+
     #else
         ldr    x4, =kernel_stack_alloc + BIT(CONFIG_KERNEL_STACK_BITS)
         mov    sp, x4

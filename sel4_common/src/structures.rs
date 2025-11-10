@@ -1,6 +1,8 @@
 //! This module contains the structures used in the seL4 microkernel.
 //! For example, the `seL4_IPCBuffer` struct represents the IPC buffer used for inter-process communication in seL4.
 //! The `exception_t` enum represents the different types of exceptions in the system.
+use rel4_arch::basic::{PAddr, PPtr};
+
 use super::sel4_config::*;
 
 const PADDING_VALUE: isize = isize::MAX - 1;
@@ -42,13 +44,6 @@ impl seL4_IPCBuffer {
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct p_region_t {
-    pub start: usize,
-    pub end: usize,
-}
-
 use crate::arch::config::PPTR_BASE;
 use core::{
     ffi::CStr,
@@ -58,8 +53,8 @@ pub type pptr_t = usize;
 
 #[derive(Copy, Clone)]
 pub struct kernel_frame_t {
-    pub paddr: paddr_t,
-    pub pptr: pptr_t,
+    pub paddr: PAddr,
+    pub pptr: PPtr,
     pub armExecuteNever: isize,
     pub userAvailable: isize,
 }

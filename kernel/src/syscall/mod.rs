@@ -480,7 +480,8 @@ fn handle_recv(block: bool, canReply: bool) {
             let bound_tcb_ptr = ntfn.get_ntfnBoundTCB();
             if unlikely(
                 data.get_capNtfnCanReceive() == 0
-                    || (bound_tcb_ptr != 0 && bound_tcb_ptr != current_thread.get_ptr() as u64),
+                    || (bound_tcb_ptr != 0
+                        && bound_tcb_ptr != current_thread.get_ptr().raw() as u64),
             ) {
                 unsafe {
                     current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();
@@ -534,7 +535,8 @@ fn handle_recv(block: bool) {
             let bound_tcb_ptr = ntfn.get_ntfnBoundTCB();
             if unlikely(
                 data.get_capNtfnCanReceive() == 0
-                    || (bound_tcb_ptr != 0 && bound_tcb_ptr != current_thread.get_ptr() as u64),
+                    || (bound_tcb_ptr != 0
+                        && bound_tcb_ptr != current_thread.get_ptr().raw() as u64),
             ) {
                 unsafe {
                     current_lookup_fault = lookup_fault_missing_capability::new(0).unsplay();

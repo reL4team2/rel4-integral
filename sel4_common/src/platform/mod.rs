@@ -8,10 +8,10 @@ pub use qemu_arm_virt::*;
 
 #[cfg(target_arch = "riscv64")]
 pub mod spike;
-// pub mod qemu_riscv_virt;
-
 #[cfg(target_arch = "riscv64")]
 pub use spike::*;
+
+use serial_frame::SerialDriver;
 use time_def::ticks_t;
 
 include!(concat!(env!("OUT_DIR"), "/platform_gen.rs"));
@@ -22,4 +22,8 @@ pub trait Timer_func {
     fn set_deadline(self, deadline: ticks_t);
     fn reset_timer(self);
     fn ack_deadline_irq(self);
+}
+
+pub fn drivers_init() {
+    default_serial().init();
 }

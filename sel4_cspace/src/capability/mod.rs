@@ -13,8 +13,8 @@
 
 pub mod zombie;
 
+use sel4_common::sel4_config::*;
 use sel4_common::structures_gen::{cap, cap_null_cap, cap_tag};
-use sel4_common::{sel4_config::*, MASK};
 
 use crate::arch::{arch_same_object_as, arch_same_region_as};
 
@@ -88,7 +88,7 @@ impl cap_func for cap {
                 if guard_size + cap::cap_cnode_cap(self).get_capCNodeRadix() as usize > WORD_BITS {
                     return cap_null_cap::new().unsplay();
                 }
-                let guard = w.get_guard() & MASK!(guard_size);
+                let guard = w.get_guard() & mask_bits!(guard_size);
                 let mut new_cap = cap::cap_cnode_cap(self).clone();
                 new_cap.set_capCNodeGuard(guard as u64);
                 new_cap.set_capCNodeGuardSize(guard_size as u64);
@@ -171,8 +171,8 @@ pub fn same_region_as(cap1: &cap, cap2: &cap) -> bool {
                 let aBase = cap::cap_untyped_cap(cap1).get_capPtr() as usize;
                 let bBase = cap2.get_cap_ptr();
 
-                let aTop = aBase + MASK!(cap::cap_untyped_cap(cap1).get_capBlockSize());
-                let bTop = bBase + MASK!(cap2.get_cap_size_bits());
+                let aTop = aBase + mask_bits!(cap::cap_untyped_cap(cap1).get_capBlockSize());
+                let bTop = bBase + mask_bits!(cap2.get_cap_size_bits());
                 return (aBase <= bBase) && (bTop <= aTop) && (bBase <= bTop);
             }
 

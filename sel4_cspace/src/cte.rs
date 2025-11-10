@@ -10,16 +10,17 @@ use crate::capability::{
 };
 use core::intrinsics::{likely, unlikely};
 use core::ptr;
-use sel4_common::utils::{convert_to_option_mut_type_ref, max_free_index};
 use sel4_common::{
     sel4_bitfield_types::Bitfield,
     structures_gen::{cap, cap_null_cap, cap_tag, mdb_node},
 };
 use sel4_common::{
     sel4_config::WORD_RADIX,
+    utils::{convert_to_option_mut_type_ref, max_free_index},
+};
+use sel4_common::{
     structures::exception_t,
     utils::{convert_to_mut_type_ref, convert_to_type_ref},
-    MASK,
 };
 
 #[repr(C)]
@@ -307,7 +308,7 @@ impl cte_t {
     fn get_volatile_value(&self) -> usize {
         unsafe {
             let raw_value = ptr::read_volatile((self.get_ptr() + 24) as *const usize);
-            let mut value = ((raw_value >> 2) & MASK!(37)) << 2;
+            let mut value = ((raw_value >> 2) & mask_bits!(37)) << 2;
             if (value & (1usize << 38)) != 0 {
                 value |= 0xffffff8000000000;
             }
@@ -320,9 +321,16 @@ impl cte_t {
     fn get_volatile_value(&self) -> usize {
         unsafe {
             let raw_value = ptr::read_volatile((self.get_ptr() + 24) as *const usize);
-            let mut value = ((raw_value >> 2) & MASK!(46)) << 2;
+            let mut value = ((raw_value >> 2) & mask_bits!(46)) << 2;
             if (value & (1usize << 46)) != 0 {
-                value |= 0xffffff8000000000;
+                #[cfg(not(feature = "hypervisor"))]
+                {
+                    value |= 0xffffff8000000000;
+                }
+                #[cfg(feature = "hypervisor")]
+                {
+                    value |= 0x8000000000;
+                }
             }
             value
         }
@@ -527,7 +535,8 @@ pub fn resolve_address_bits(
         let levelBits = radixBits + guardBits;
         assert_ne!(levelBits, 0);
         let capGuard = cnode_cap.get_capCNodeGuard() as usize;
-        let guard = (cap_ptr >> ((n_bits - guardBits) & MASK!(WORD_RADIX))) & MASK!(guardBits);
+        let guard =
+            (cap_ptr >> ((n_bits - guardBits) & mask_bits!(WORD_RADIX))) & mask_bits!(guardBits);
         if unlikely(guardBits > n_bits || guard != capGuard) {
             ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
             return ret;
@@ -536,7 +545,7 @@ pub fn resolve_address_bits(
             ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
             return ret;
         }
-        let offset = (cap_ptr >> (n_bits - levelBits)) & MASK!(radixBits);
+        let offset = (cap_ptr >> (n_bits - levelBits)) & mask_bits!(radixBits);
         let slot = unsafe { (cnode_cap.get_capCNodePtr() as *mut cte_t).add(offset) };
 
         if likely(n_bits == levelBits) {
