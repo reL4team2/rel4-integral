@@ -2,15 +2,6 @@ use clap::Parser;
 use rel4_config::utils::vec_rustflags;
 use std::{path::PathBuf, process::Command};
 
-fn parse_bool(s: &str) -> Result<bool, String> {
-    match s.to_lowercase().as_str() {
-        "true" | "yes" | "1" | "on" => Ok(true),
-        "false" | "no" | "0" | "off" => Ok(false),
-        _ => Err(format!("Invalid boolean value: {}", s)),
-    }
-}
-
-#[derive(Debug, Parser, Clone)]
 /// Options for building the kernel.
 ///
 /// # Fields
@@ -23,6 +14,7 @@ fn parse_bool(s: &str) -> Result<bool, String> {
 /// * `arm_ptmr` - Enables ARM physical timer support.
 /// * `rust_only` - Builds the kernel using only Rust code, excluding any external dependencies.
 /// * `bin` - Generates a binary output for the kernel. Can be specified with `-B` or `--bin`.
+#[derive(Debug, Parser, Clone)]
 pub struct BuildOptions {
     #[clap(
         default_value = "spike",
@@ -31,18 +23,28 @@ pub struct BuildOptions {
         help = "support spike and qemu-arm-virt"
     )]
     pub platform: String,
-    #[clap(short, long, value_parser = parse_bool, default_value = "false", help = "Enable MCS support if set to true or on")]
-    pub mcs: Option<bool>,
-    #[clap(short, long, value_parser = parse_bool, default_value = "false", help = "Enable SMC support if set to true or on")]
-    pub smc: Option<bool>,
+    #[clap(
+        short,
+        long,
+        default_value_t = false,
+        help = "Enable MCS support if set to true or on"
+    )]
+    pub mcs: bool,
+    #[clap(
+        short,
+        long,
+        default_value_t = false,
+        help = "Enable SMC support if set to true or on"
+    )]
+    pub smc: bool,
     #[clap(long)]
     pub nofastpath: bool,
-    #[clap(long)]
+    #[clap(long, default_value_t = false)]
     pub arm_pcnt: bool,
-    #[clap(long)]
+    #[clap(long, default_value_t = false)]
     pub arm_ptmr: bool,
-    #[clap(long, default_value = "false")]
-    arm_hypervisor: bool,
+    #[clap(long, default_value_t = false)]
+    pub arm_hypervisor: bool,
     #[clap(long, help = "Only build the reL4 rust kernel")]
     pub rust_only: bool,
     #[clap(
@@ -63,15 +65,49 @@ pub struct BuildOptions {
     pub log: String,
 }
 
-fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
-    let dir = PathBuf::from(dir);
-    let target: String = match opts.platform.as_str() {
-        "spike" => "--target=riscv64gc-unknown-none-elf".to_string(),
-        "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat".to_string(),
+/// Parse CMAKE DEFINES from build options
+pub fn parse_cmake_defines(opts: &BuildOptions) -> Result<Vec<String>, anyhow::Error> {
+    let mut define: Vec<String> = vec![];
+    // define.push("-DCMAKE_INSTALL_PREFIX=install".to_string());
+    if opts.bin {
+        define.push("-DREL4_KERNEL=TRUE".to_string());
+    }
+    if opts.mcs {
+        define.push("-DMCS=TRUE".to_string());
+    }
+    if opts.smc {
+        define.push("-DKernelAllowSMCCalls=ON".to_string());
+    }
+    if opts.arm_pcnt {
+        define.push("-DKernelArmExportPCNTUser=ON".to_string());
+    }
+    if opts.arm_ptmr {
+        define.push("-DKernelArmExportPTMRUser=ON".to_string());
+    }
+    if opts.arm_hypervisor {
+        define.push("-DKernelArmHypervisorSupport=ON".to_string());
+    }
+    if opts.num_nodes > 1 {
+        define.push(format!("-DSMP=TRUE"));
+        define.push(format!("-DNUM_NODES={}", opts.num_nodes));
+    }
+    match opts.platform.as_str() {
+        "spike" => define.push("-DKernelRiscvExtD=ON".to_string()),
+        "qemu-arm-virt" => {}
+        _ => return Err(anyhow::anyhow!("Unsupported platform")),
+    };
+    Ok(define)
+}
+
+pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Error> {
+    let dir: PathBuf = PathBuf::from(dir);
+    let target = match opts.platform.as_str() {
+        "spike" => "--target=riscv64gc-unknown-none-elf",
+        "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat",
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
 
-    let mut args = vec![command.to_string(), target.clone(), "--release".into()];
+    let mut args = vec![command.to_string(), target.to_string(), "--release".into()];
 
     if opts.bin {
         args.push("--bin".into());
@@ -95,12 +131,12 @@ fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow::Er
         marcos.push("FASTPATH=true".to_string());
     }
 
-    if opts.mcs.unwrap_or(false) {
+    if opts.mcs {
         append_features(&mut args, "kernel_mcs".to_string());
         marcos.push("KERNEL_MCS=true".to_string());
     }
 
-    if opts.smc.unwrap_or(false) && target.contains("aarch64") {
+    if opts.smc && target.contains("aarch64") {
         append_features(&mut args, "enable_smc".to_string());
         marcos.push("ALLOW_SMC_CALLS=true".to_string());
     }
@@ -161,38 +197,8 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
     cargo("build", kernel.to_str().unwrap(), opts)?;
 
     if !opts.rust_only {
-        // TODO: add more defines and support lib mode
-        let mut define: Vec<String> = vec![];
-        if opts.bin {
-            define.push("-DREL4_KERNEL=TRUE".to_string());
-        }
-        if opts.mcs.unwrap_or(false) {
-            define.push("-DMCS=TRUE".to_string());
-        }
-        if opts.smc.unwrap_or(false) {
-            define.push("-DKernelAllowSMCCalls=ON".to_string());
-        }
-        if opts.arm_pcnt {
-            define.push("-DKernelArmExportPCNTUser=ON".to_string());
-        }
-        if opts.arm_ptmr {
-            define.push("-DKernelArmExportPTMRUser=ON".to_string());
-        }
-        if opts.arm_hypervisor {
-            define.push("-DKernelArmHypervisorSupport=ON".to_string());
-        }
-        if opts.num_nodes > 1 {
-            define.push(format!("-DSMP=TRUE"));
-            define.push(format!("-DNUM_NODES={}", opts.num_nodes));
-        }
-        match opts.platform.as_str() {
-            "spike" => {
-                define.push("-DKernelRiscvExtD=ON".to_string());
-            }
-            "qemu-arm-virt" => {}
-            _ => return Err(anyhow::anyhow!("Unsupported platform")),
-        };
-        crate::cmake::sel4test_build(&opts.platform, &define.join(" "))?;
+        let defines = parse_cmake_defines(opts)?;
+        crate::cmake::sel4test_build(&opts.platform, &defines)?;
     }
     println!("Building complete, enjoy rel4!");
     Ok(())
