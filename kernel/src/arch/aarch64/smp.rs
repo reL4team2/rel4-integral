@@ -66,7 +66,7 @@ pub fn arch_pause() {
 /// doRemoteInvalidateTranslationASID in seL4
 #[no_mangle]
 pub fn remote_invalidate_tlb_asid(asid: sel4_vspace::asid_t) {
-    let mask = crate::BIT!(CONFIG_MAX_NUM_NODES) - 1;
+    let mask = bit!(CONFIG_MAX_NUM_NODES) - 1;
     do_remote_mask_op(
         ipi_remote_call::IpiRemoteCall_InvalidateTranslationASID,
         asid as usize,
@@ -79,7 +79,7 @@ pub fn remote_invalidate_tlb_asid(asid: sel4_vspace::asid_t) {
 /// doRemoteInvalidateTranslationSingle in seL4
 #[no_mangle]
 pub fn remote_invalidate_translation_single(vptr: usize) {
-    let mask = crate::BIT!(CONFIG_MAX_NUM_NODES) - 1;
+    let mask = bit!(CONFIG_MAX_NUM_NODES) - 1;
     do_remote_mask_op(
         ipi_remote_call::IpiRemoteCall_InvalidateTranslationSingle,
         vptr,

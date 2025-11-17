@@ -1,0 +1,21 @@
+[package]
+name = "rel4-arch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cfg-if = "1.0"
+log = "0.4"
+static_assertions = "1.1.0"
+bitflags = "2.9.4"
+rel4-utils = { workspace = true }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu = { workspace = true }
+
+[features]
+smp = []
+hypervisor = []
+fpu = []
+smc = []
+mcs = []

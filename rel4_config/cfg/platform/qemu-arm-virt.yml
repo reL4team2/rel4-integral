@@ -27,7 +27,9 @@ device:
 
 # memory layout
 memory:
+  # FIXME: change vmem_offset when using hypervisor or not
   vmem_offset: 0xffffff8000000000
+  # vmem_offset: 0x8000000000
   pmem_start: 0x40000000
   kernel_start: 0x40000000
   avail_mem_zone:

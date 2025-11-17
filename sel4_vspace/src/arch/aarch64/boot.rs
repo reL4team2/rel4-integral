@@ -1,3 +1,4 @@
+use rel4_arch::basic::{PPtr, VPtr};
 use sel4_common::{
     arch::{
         config::{PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_TOP},
@@ -6,15 +7,13 @@ use sel4_common::{
     sel4_config::{ARM_LARGE_PAGE, ARM_SMALL_PAGE, PUD_INDEX_BITS, SEL4_LARGE_PAGE_BITS},
     structures_gen::{cap, cap_frame_cap, cap_page_table_cap, cap_vspace_cap},
     utils::convert_to_mut_type_ref,
-    BIT,
 };
 
 use crate::{
     arch::VAddr, asid_t, get_kernel_page_directory_base_by_index, get_kernel_page_table_base,
-    get_kernel_page_upper_directory_base, kpptr_to_paddr, mair_types, pptr_t, pptr_to_paddr,
+    get_kernel_page_upper_directory_base, kpptr_to_paddr, mair_types,
     set_kernel_page_directory_by_index, set_kernel_page_global_directory_by_index,
-    set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t,
-    vptr_t, PTE,
+    set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t, PTE,
 };
 
 use super::{map_kernel_devices, page_slice};
@@ -26,56 +25,9 @@ enum find_type {
     PTE,
 }
 
-pub const RESERVED: usize = 3;
-
-// BOOT_CODE void map_kernel_window(void)
-// {
-
-//     paddr_t paddr;
-//     pptr_t vaddr;
-//     word_t idx;
-
-//     /* place the PUD into the PGD */
-//     armKSGlobalKernelPGD[get_pgd_index(PPTR_BASE)] = pgde_pgde_pud_new(
-//                                                          addrFromKPPtr(armKSGlobalKernelPUD));
-
-//     /* place all PDs except the last one in PUD */
-//     for (idx = get_pud_index(PPTR_BASE); idx < get_pud_index(PPTR_TOP); idx++) {
-//         armKSGlobalKernelPUD[idx] = pude_pude_pd_new(
-//                                         addrFromKPPtr(&armKSGlobalKernelPDs[idx][0])
-//                                     );
-//     }
-
-//     /* map the kernel window using large pages */
-//     vaddr = PPTR_BASE;
-//     for (paddr = PADDR_BASE; paddr < PADDR_TOP; paddr += BIT(SEL4_LARGE_PAGE_BITS)) {
-//         armKSGlobalKernelPDs[get_pud_index(vaddr)][get_pd_index(vaddr)] = pde_pde_large_new(
-//                                                                               1, // UXN
-//                                                                               paddr,
-//                                                                               0,                        /* global */
-//                                                                               1,                        /* access flag */
-//                                                                               SMP_TERNARY(SMP_SHARE, 0),        /* Inner-shareable if SMP enabled, otherwise unshared */
-//                                                                               0,                        /* VMKernelOnly */
-//                                                                               NORMAL
-//                                                                           );
-//         vaddr += BIT(SEL4_LARGE_PAGE_BITS);
-//     }
-
-//     /* put the PD into the PUD for device window */
-//     armKSGlobalKernelPUD[get_pud_index(PPTR_TOP)] = pude_pude_pd_new(
-//                                                         addrFromKPPtr(&armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][0])
-//                                                     );
-
-//     /* put the PT into the PD for device window */
-//     armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][BIT(PD_INDEX_BITS) - 1] = pde_pde_small_new(
-//                                                                                 addrFromKPPtr(armKSGlobalKernelPT)
-//                                                                             );
-// }
-
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn rust_map_kernel_window() {
-    // println!("go into rusta map kernel window");
     set_kernel_page_global_directory_by_index(
         (VAddr(PPTR_BASE)).get_kpt_index(0),
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_upper_directory_base())),
@@ -95,35 +47,48 @@ pub fn rust_map_kernel_window() {
     let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
 
     while paddr < PADDR_TOP {
+        #[cfg(feature = "hypervisor")]
         set_kernel_page_directory_by_index(
             VAddr(vaddr).get_kpt_index(1),
             VAddr(vaddr).get_kpt_index(2),
-            PTE::pte_new_page(1, paddr, 0, 1, shareable, 0, mair_types::NORMAL as usize),
+            PTE::pte_new_page(
+                0,
+                paddr!(paddr),
+                0,
+                1,
+                shareable,
+                0,
+                mair_types::NORMAL as usize,
+            ),
+        );
+        #[cfg(not(feature = "hypervisor"))]
+        set_kernel_page_directory_by_index(
+            VAddr(vaddr).get_kpt_index(1),
+            VAddr(vaddr).get_kpt_index(2),
+            PTE::pte_new_page(
+                1,
+                paddr!(paddr),
+                0,
+                1,
+                shareable,
+                0,
+                mair_types::NORMAL as usize,
+            ),
         );
 
-        vaddr += BIT!(SEL4_LARGE_PAGE_BITS);
-        paddr += BIT!(SEL4_LARGE_PAGE_BITS)
+        vaddr += bit!(SEL4_LARGE_PAGE_BITS);
+        paddr += bit!(SEL4_LARGE_PAGE_BITS)
     }
-
-    //     /* put the PD into the PUD for device window */
-    //     armKSGlobalKernelPUD[get_pud_index(PPTR_TOP)] = pude_pude_pd_new(
-    //                                                         addrFromKPPtr(&armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][0])
-    //                                                     );
-
-    //     /* put the PT into the PD for device window */
-    //     armKSGlobalKernelPDs[BIT(PUD_INDEX_BITS) - 1][BIT(PD_INDEX_BITS) - 1] = pde_pde_small_new(
-    //                                                                                 addrFromKPPtr(armKSGlobalKernelPT)
-    //
 
     set_kernel_page_upper_directory_by_index(
         VAddr(PPTR_TOP).get_kpt_index(1),
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_directory_base_by_index(
-            BIT!(PUD_INDEX_BITS) - 1,
+            bit!(PUD_INDEX_BITS) - 1,
         ))),
     );
     set_kernel_page_directory_by_index(
-        BIT!(PUD_INDEX_BITS) - 1,
-        BIT!(PUD_INDEX_BITS) - 1,
+        bit!(PUD_INDEX_BITS) - 1,
+        bit!(PUD_INDEX_BITS) - 1,
         PTE::pte_new_table(kpptr_to_paddr(get_kernel_page_table_base())),
     );
     map_kernel_devices();
@@ -151,7 +116,7 @@ pub fn map_kernel_frame(
         VAddr(vaddr).get_kpt_index(3),
         PTE::pte_new_4k_page(
             uxn,
-            paddr,
+            paddr!(paddr),
             0,
             1,
             shareable,
@@ -169,7 +134,7 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
     let pt = pt_cap.get_capPTBasePtr() as usize;
     let target_pte =
         convert_to_mut_type_ref::<PTE>(find_pt(vspace_root, vptr.into(), find_type::PDE));
-    target_pte.set_next_level_paddr(pptr_to_paddr(pt));
+    target_pte.set_next_level_paddr(pptr!(pt).to_paddr());
     // TODO: move 0x3 into a proper position.
     target_pte.set_attr(3);
 }
@@ -178,25 +143,25 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn map_it_pd_cap(vspace_cap: &cap_vspace_cap, pd_cap: &cap_page_table_cap) {
-    let pgd = page_slice::<PTE>(vspace_cap.get_capVSBasePtr() as usize);
+    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
     let pd_addr = pd_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pd_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pd_cap.get_capPTIsMapped(), 1);
     // TODO: move 0x3 into a proper position.
     assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
     let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
-    pud[vptr.pud_index()] = PTE::new_page(pptr_to_paddr(pd_addr), 0x3);
+    pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
 }
 
 /// TODO: Write the comments.
 pub fn map_it_pud_cap(vspace_cap: &cap_vspace_cap, pud_cap: &cap_page_table_cap) {
-    let pgd = page_slice::<PTE>(vspace_cap.get_capVSBasePtr() as usize);
+    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
     let pud_addr = pud_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pud_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pud_cap.get_capPTIsMapped(), 1);
 
     // TODO: move 0x3 into a proper position.
-    pgd[vptr.pgd_index()] = PTE::new_page(pptr_to_paddr(pud_addr), 0x3);
+    pgd[vptr.pgd_index()] = PTE::new_page(pptr!(pud_addr).to_paddr(), 0x3);
 }
 
 /// TODO: Write the comments.
@@ -211,15 +176,18 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     // TODO: Make set_attr usage more efficient.
     // TIPS: exec true will be cast to 1 and false to 0.
     let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
-
-    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, 0, 1, 1, shareable, 1, 0).0);
-    pte.set_next_level_paddr(pptr_to_paddr(frame_cap.get_capFBasePtr() as usize));
+    #[cfg(not(feature = "hypervisor"))]
+    let (ng, attr) = (1, 0);
+    #[cfg(feature = "hypervisor")]
+    let (ng, attr) = (1, 0);
+    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, paddr!(0), ng, 1, shareable, 1, attr).0);
+    pte.set_next_level_paddr(pptr!(frame_cap.get_capFBasePtr()).to_paddr());
 }
 
 /// TODO: Write the comments.
 #[link_section = ".boot.text"]
 fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
-    let pgd = page_slice::<PTE>(vspace_root);
+    let pgd = page_slice::<PTE>(pptr!(vspace_root));
     let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
     if ftype == find_type::PUDE {
         return pud[vptr.pud_index()].self_addr();
@@ -233,28 +201,40 @@ fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
     pt[vptr.pt_index()].self_addr()
 }
 
+/// Create a new pud cap in the vspace.
+///
+/// vptr is the virtual address of the pud cap will be created
+/// pptr is the address to the physical address will be mapped
 #[no_mangle]
 #[link_section = ".boot.text"]
-pub fn create_it_pd_cap(vspace_cap: &cap_vspace_cap, pptr: usize, vptr: usize, asid: usize) -> cap {
-    let capability = cap_page_table_cap::new(asid as u64, pptr as u64, 1, vptr as u64);
+pub fn create_it_pud_cap(
+    vspace_cap: &cap_vspace_cap,
+    pptr: PPtr,
+    vptr: VPtr,
+    asid: usize,
+) -> cap_page_table_cap {
+    let capability = cap_page_table_cap::new(asid as u64, pptr.raw() as u64, 1, vptr.raw() as u64);
+    map_it_pud_cap(vspace_cap, &capability);
+    return capability;
+}
+
+#[no_mangle]
+#[link_section = ".boot.text"]
+pub fn create_it_pd_cap(vspace_cap: &cap_vspace_cap, pptr: PPtr, vptr: VPtr, asid: usize) -> cap {
+    let capability = cap_page_table_cap::new(asid as u64, pptr.raw() as u64, 1, vptr.raw() as u64);
     map_it_pd_cap(vspace_cap, &capability);
-    return capability.unsplay();
+    capability.unsplay()
 }
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-pub fn create_unmapped_it_frame_cap(pptr: pptr_t, use_large: bool) -> cap_frame_cap {
-    return create_it_frame_cap(pptr, 0, 0, use_large);
+pub fn create_unmapped_it_frame_cap(pptr: PPtr, use_large: bool) -> cap_frame_cap {
+    create_it_frame_cap(pptr, vptr!(0), 0, use_large)
 }
 
 #[no_mangle]
 #[link_section = ".boot.text"]
-pub fn create_it_frame_cap(
-    pptr: pptr_t,
-    vptr: vptr_t,
-    asid: asid_t,
-    use_large: bool,
-) -> cap_frame_cap {
+pub fn create_it_frame_cap(pptr: PPtr, vptr: VPtr, asid: asid_t, use_large: bool) -> cap_frame_cap {
     let frame_size;
     if use_large {
         frame_size = ARM_LARGE_PAGE;
@@ -263,9 +243,9 @@ pub fn create_it_frame_cap(
     }
     cap_frame_cap::new(
         asid as u64,
-        pptr as u64,
+        pptr.raw() as u64,
         frame_size as u64,
-        vptr as u64,
+        vptr.raw() as u64,
         vm_rights_t::VMReadWrite as u64,
         0,
     )
@@ -274,8 +254,8 @@ pub fn create_it_frame_cap(
 #[no_mangle]
 pub fn create_mapped_it_frame_cap(
     pd_cap: &cap_vspace_cap,
-    pptr: usize,
-    vptr: usize,
+    pptr: PPtr,
+    vptr: VPtr,
     asid: usize,
     use_large: bool,
     exec: bool,

@@ -7,6 +7,7 @@
 # Match the rust toolchain with that in the rust-sel4 repository for best results.
 
 [toolchain]
-channel = "nightly-2024-02-01"
-components = ["rustfmt", "rust-src"]
+# channel = "nightly"
+channel = "nightly-2024-11-18"
+components = ["rustfmt", "rust-src","rust-analyzer"]
 targets = ["riscv64gc-unknown-none-elf", "aarch64-unknown-none-softfloat"]

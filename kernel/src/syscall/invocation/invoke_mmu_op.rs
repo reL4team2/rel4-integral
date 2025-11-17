@@ -1,7 +1,5 @@
 #[cfg(target_arch = "aarch64")]
 use core::intrinsics::unlikely;
-#[cfg(target_arch = "aarch64")]
-use sel4_common::BIT;
 use sel4_common::{
     arch::ArchReg,
     message_info::seL4_MessageInfo_func,
@@ -18,7 +16,6 @@ use sel4_common::{
     sel4_bitfield_types::Bitfield,
     shared_types_bf_gen::seL4_CapRights,
     utils::{max_free_index, pageBitsForSize},
-    MASK,
 };
 use sel4_common::{sel4_config::*, structures::exception_t, utils::convert_to_mut_type_ref};
 
@@ -28,12 +25,11 @@ use sel4_cspace::interface::cte_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 #[cfg(target_arch = "riscv64")]
 use sel4_vspace::{
-    asid_pool_t, copyGlobalMappings, pptr_t, set_asid_pool_by_index, sfence, vm_attributes_t,
-    PTEFlags,
+    asid_pool_t, copyGlobalMappings, set_asid_pool_by_index, sfence, vm_attributes_t, PTEFlags,
 };
 #[cfg(target_arch = "aarch64")]
 use sel4_vspace::{clean_by_va_pou, invalidate_tlb_by_asid_va, pte_tag_t};
-use sel4_vspace::{pptr_to_paddr, unmap_page, unmap_page_table, PTE};
+use sel4_vspace::{unmap_page, unmap_page_table, PTE};
 
 use crate::{kernel::boot::current_lookup_fault, utils::clear_memory};
 
@@ -42,7 +38,7 @@ pub fn invoke_page_table_unmap(capability: &mut cap_page_table_cap) -> exception
         let pt = convert_to_mut_type_ref::<PTE>(capability.get_capPTBasePtr() as usize);
         unmap_page_table(
             capability.get_capPTMappedASID() as usize,
-            capability.get_capPTMappedAddress() as usize,
+            vptr!(capability.get_capPTMappedAddress()),
             pt,
         );
         clear_memory(pt.get_mut_ptr() as *mut u8, SEL4_PAGE_TABLE_BITS)
@@ -57,8 +53,8 @@ pub fn invoke_page_table_map(
     asid: usize,
     vaddr: usize,
 ) -> exception_t {
-    let paddr = pptr_to_paddr(pt_cap.get_capPTBasePtr() as usize);
-    let pte = PTE::new(paddr >> SEL4_PAGE_BITS, PTEFlags::V);
+    let paddr = pptr!(pt_cap.get_capPTBasePtr()).to_paddr();
+    let pte = PTE::new(paddr.raw() >> SEL4_PAGE_BITS, PTEFlags::V);
     *pt_slot = pte;
     pt_cap.set_capPTIsMapped(1);
     pt_cap.set_capPTMappedASID(asid as u64);
@@ -94,7 +90,7 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
     let thread = get_currenct_thread();
     if call {
         thread.tcbArch.set_register(ArchReg::Badge, 0);
-        let length = thread.set_mr(0, pptr_to_paddr(vbase_ptr)) as u64;
+        let length = thread.set_mr(0, pptr!(vbase_ptr).to_paddr().raw()) as u64;
         thread.tcbArch.set_register(
             ArchReg::MsgInfo,
             seL4_MessageInfo::new(0, 0, 0, length).to_word(),
@@ -105,13 +101,14 @@ pub fn invoke_page_get_address(vbase_ptr: usize, call: bool) -> exception_t {
 }
 
 pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
-    if cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize != ASID_INVALID {
+    let page_cap = cap::cap_frame_cap(&frame_slot.capability);
+    if page_cap.get_capFMappedASID() as usize != ASID_INVALID {
         match unmap_page(
-            cap::cap_frame_cap(&frame_slot.capability).get_capFSize() as usize,
-            cap::cap_frame_cap(&frame_slot.capability).get_capFMappedASID() as usize,
+            page_cap.get_capFSize() as usize,
+            page_cap.get_capFMappedASID() as usize,
             // FIXME: here should be frame_mapped_address.
-            cap::cap_frame_cap(&frame_slot.capability).get_capFMappedAddress() as usize,
-            cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize,
+            vptr!(page_cap.get_capFMappedAddress()),
+            pptr!(page_cap.get_capFBasePtr() as usize),
         ) {
             Err(lookup_fault) => unsafe {
                 current_lookup_fault = lookup_fault;
@@ -119,8 +116,8 @@ pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
             _ => {}
         }
     }
-    cap::cap_frame_cap(&frame_slot.capability).set_capFMappedAddress(0);
-    cap::cap_frame_cap(&frame_slot.capability).set_capFMappedASID(ASID_INVALID as u64);
+    page_cap.set_capFMappedAddress(0);
+    page_cap.set_capFMappedASID(ASID_INVALID as u64);
     exception_t::EXCEPTION_NONE
 }
 
@@ -143,8 +140,9 @@ pub fn invoke_page_map(
             arr: [w_rights_mask as u64; 1],
         }),
     );
-    let frame_addr =
-        pptr_to_paddr(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize);
+    let frame_addr = pptr!(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr()).to_paddr();
+    // let frame_addr =
+    //     pptr_to_paddr(cap::cap_frame_cap(&frame_slot.capability).get_capFBasePtr() as usize);
     cap::cap_frame_cap(&frame_slot.capability).set_capFMappedAddress(vaddr as u64);
     cap::cap_frame_cap(&frame_slot.capability).set_capFMappedASID(asid as u64);
     #[cfg(target_arch = "riscv64")]
@@ -169,11 +167,11 @@ pub fn invoke_page_map(
 
     clean_by_va_pou(
         convert_ref_type_to_usize(pt_slot),
-        pptr_to_paddr(convert_ref_type_to_usize(pt_slot)),
+        pptr!(convert_ref_type_to_usize(pt_slot)).to_paddr(),
     );
     if unlikely(tlbflush_required) {
-        assert!(asid < BIT!(16));
-        invalidate_tlb_by_asid_va(asid, capability.get_capFMappedAddress() as usize);
+        assert!(asid < bit!(16));
+        invalidate_tlb_by_asid_va(asid, vptr!(capability.get_capFMappedAddress()));
     }
     exception_t::EXCEPTION_NONE
 }
@@ -197,7 +195,7 @@ pub fn invoke_page_map(
 //     }
 //     let tlbflush_required = pudSlot.get_pude_type() == 1;
 //     if tlbflush_required {
-//         assert!(asid < BIT!(16));
+//         assert!(asid < bit!(16));
 //         invalidate_tlb_by_asid_va(asid, vaddr);
 //     }
 //     exception_t::EXCEPTION_NONE
@@ -223,7 +221,7 @@ pub fn invoke_page_map(
 //     }
 //     let tlbflush_required = pdSlot.get_pde_type() == 1;
 //     if tlbflush_required {
-//         assert!(asid < BIT!(16));
+//         assert!(asid < bit!(16));
 //         invalidate_tlb_by_asid_va(asid, vaddr);
 //     }
 //     exception_t::EXCEPTION_NONE
@@ -249,7 +247,7 @@ pub fn invoke_page_map(
 //     }
 //     let tlbflush_required = ptSlot.is_present();
 //     if tlbflush_required {
-//         assert!(asid < BIT!(16));
+//         assert!(asid < bit!(16));
 //         invalidate_tlb_by_asid_va(asid, vaddr);
 //     }
 //     exception_t::EXCEPTION_NONE
@@ -257,7 +255,7 @@ pub fn invoke_page_map(
 
 #[cfg(target_arch = "riscv64")]
 pub fn invoke_asid_control(
-    frame_ptr: pptr_t,
+    frame_ptr: rel4_arch::basic::PPtr,
     slot: &mut cte_t,
     parent_slot: &mut cte_t,
     asid_base: usize,
@@ -267,13 +265,13 @@ pub fn invoke_asid_control(
     cap::cap_untyped_cap(&parent_slot.capability).set_capFreeIndex(max_free_index(
         cap::cap_untyped_cap(&parent_slot.capability).get_capBlockSize() as usize,
     ) as u64);
-    clear_memory(frame_ptr as *mut u8, pageBitsForSize(RISCV_4K_PAGE));
+    clear_memory(frame_ptr.get_mut_ptr(), pageBitsForSize(RISCV_4K_PAGE));
     cte_insert(
-        &cap_asid_pool_cap::new(asid_base as u64, frame_ptr as u64).unsplay(),
+        &cap_asid_pool_cap::new(asid_base as u64, frame_ptr.as_u64()).unsplay(),
         parent_slot,
         slot,
     );
-    assert_eq!(asid_base & MASK!(ASID_LOW_BITS), 0);
+    assert_eq!(asid_base & mask_bits!(ASID_LOW_BITS), 0);
     set_asid_pool_by_index(asid_base >> ASID_LOW_BITS, frame_ptr);
     exception_t::EXCEPTION_NONE
 }
@@ -284,12 +282,12 @@ pub fn invoke_asid_pool(
     pool: &mut asid_pool_t,
     vspace_slot: &mut cte_t,
 ) -> exception_t {
-    let region_base = cap::cap_page_table_cap(&vspace_slot.capability).get_capPTBasePtr() as usize;
+    let region_base = pptr!(cap::cap_page_table_cap(&vspace_slot.capability).get_capPTBasePtr());
     cap::cap_page_table_cap(&vspace_slot.capability).set_capPTIsMapped(1);
     cap::cap_page_table_cap(&vspace_slot.capability).set_capPTMappedAddress(0);
     cap::cap_page_table_cap(&vspace_slot.capability).set_capPTMappedASID(asid as u64);
 
     copyGlobalMappings(region_base);
-    pool.set_vspace_by_index(asid & MASK!(ASID_LOW_BITS), region_base);
+    pool.set_vspace_by_index(asid & mask_bits!(ASID_LOW_BITS), region_base);
     exception_t::EXCEPTION_NONE
 }

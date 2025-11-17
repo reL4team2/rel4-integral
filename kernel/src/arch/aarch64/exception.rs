@@ -14,10 +14,9 @@ use crate::syscall::{
     SYS_DEBUG_PUT_CHAR, SYS_DEBUG_SNAPSHOT, SYS_GET_CLOCK,
 };
 
-use aarch64_cpu::registers::Readable;
-use aarch64_cpu::registers::TTBR0_EL1;
+use aarch64_cpu::registers::{self, Readable};
 use log::debug;
-use sel4_common::arch::ArchReg::*;
+use sel4_common::arch::ArchReg::{self, *};
 use sel4_common::ffi::current_fault;
 use sel4_common::platform::timer;
 use sel4_common::platform::Timer_func;
@@ -36,9 +35,9 @@ use sel4_task::{check_budget_restart, update_timestamp};
 use super::instruction::*;
 #[cfg(feature = "build_binary")]
 use super::restore_user_context;
-#[cfg(feature = "enable_smp")]
+#[cfg(all(feature = "enable_smp", feature = "build_binary"))]
 use crate::smp::clh_lock_acquire;
-#[cfg(feature = "enable_smp")]
+#[cfg(all(feature = "enable_smp", feature = "build_binary"))]
 use sel4_common::utils::cpu_id;
 
 #[no_mangle]
@@ -223,14 +222,16 @@ pub fn handle_vm_fault(type_: usize) -> exception_t {
             exception_t::EXCEPTION_FAULT
         }
         ARM_PREFETCH_ABORT => {
-            let pc = get_currenct_thread().tcbArch.get_register(FAULT_IP);
+            let pc = get_currenct_thread().tcbArch.get_register(ArchReg::FaultIP);
             let fault = get_esr();
             unsafe {
                 current_fault = seL4_Fault_VMFault::new(pc as u64, fault as u64, 1).unsplay();
             }
 
-            log::debug!("ttbr0_el1: {:#x?}", TTBR0_EL1.get());
-
+            #[cfg(not(feature = "hypervisor"))]
+            log::debug!("ttbr0_el1: {:#x?}", registers::TTBR0_EL1.get());
+            #[cfg(feature = "hypervisor")]
+            log::debug!("ttbr0_el1: {:#x?}", registers::VTTBR_EL2.get());
             log::debug!("fault pc: {:#x}  fault: {:#x}", pc, fault);
             exception_t::EXCEPTION_FAULT
         }
@@ -259,4 +260,10 @@ pub fn c_handle_data_fault() -> ! {
 #[cfg(feature = "build_binary")]
 pub fn c_handle_instruction_fault() -> ! {
     c_handle_vm_fault(INSTRUCTION_FAULT)
+}
+
+#[no_mangle]
+pub fn c_handle_vcpu_fault(hsr: usize) {
+    log::debug!("handle vcpu fault hsr: {:#x}", hsr);
+    loop {}
 }

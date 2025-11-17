@@ -1,6 +1,4 @@
 //! This module contains the configuration settings for sel4_common.
-use crate::BIT;
-
 // include generated config constants
 include!(concat!(env!("OUT_DIR"), "/config.rs"));
 
@@ -9,7 +7,7 @@ pub const UINT64_MAX: usize = 0xFFFFFFFFFFFFFFFF;
 
 /// kernel/include/arch/{arch}/arch/64/mode/types.h
 pub const WORD_RADIX: usize = 6;
-pub const WORD_BITS: usize = BIT!(WORD_RADIX);
+pub const WORD_BITS: usize = bit!(WORD_RADIX);
 
 /// kernel/include/arch/riscv/arch/object/structures.h
 pub const PT_SIZE_BITS: usize = 12;
@@ -59,7 +57,7 @@ pub const PT_INDEX_OFFSET: usize = SEL4_PAGE_BITS;
 pub const PD_INDEX_OFFSET: usize = PT_INDEX_OFFSET + PT_INDEX_BITS;
 pub const PUD_INDEX_OFFSET: usize = PD_INDEX_OFFSET + PD_INDEX_BITS;
 pub const PGD_INDEX_OFFSET: usize = PUD_INDEX_OFFSET + PUD_INDEX_BITS;
-pub const N_ASID_POOLS: usize = BIT!(ASID_HIGH_BITS);
+pub const N_ASID_POOLS: usize = bit!(ASID_HIGH_BITS);
 pub const ASID_BITS: usize = ASID_HIGH_BITS + ASID_LOW_BITS;
 
 /// kernel/include/arch/{arch}/arch/api/types.h
@@ -69,12 +67,13 @@ pub const ASID_INVALID: usize = 0;
 pub const IT_ASID: usize = 1;
 
 /// kernel/include/model
-pub const L2_BITMAP_SIZE: usize = (CONFIG_NUM_PRIORITIES + WORD_BITS - 1) / WORD_BITS;
+// pub const L2_BITMAP_SIZE: usize = (CONFIG_NUM_PRIORITIES + WORD_BITS - 1) / WORD_BITS;
+pub const L2_BITMAP_SIZE: usize = CONFIG_NUM_PRIORITIES.div_ceil(WORD_BITS);
 pub const NUM_READY_QUEUES: usize = CONFIG_NUM_DOMAINS * CONFIG_NUM_PRIORITIES;
 
 /// kernel/include/object/structures.h
 pub const TCB_SIZE_BITS: usize = SEL4_TCB_BITS - 1;
-pub const TCB_OFFSET: usize = BIT!(TCB_SIZE_BITS);
+pub const TCB_OFFSET: usize = bit!(TCB_SIZE_BITS);
 pub const TCB_CTABLE: usize = 0;
 pub const TCB_VTABLE: usize = 1;
 #[cfg(feature = "kernel_mcs")]
@@ -116,7 +115,7 @@ pub const SEL4_NUM_ERRORS: usize = 11;
 pub const SEL4_MSG_LENGTH_BITS: usize = 7;
 pub const SEL4_MSG_MAX_LENGTH: usize = 120;
 pub const SEL4_MSG_EXTRA_CAP_BITS: usize = 2;
-pub const SEL4_MSG_MAX_EXTRA_CAPS: usize = BIT!(SEL4_MSG_EXTRA_CAP_BITS) - 1;
+pub const SEL4_MSG_MAX_EXTRA_CAPS: usize = bit!(SEL4_MSG_EXTRA_CAP_BITS) - 1;
 #[cfg(feature = "kernel_mcs")]
 pub const SEL4_MIN_SCHED_CONTEXT_BITS: usize = 7;
 pub const SEL4_MAX_PRIO: usize = CONFIG_NUM_PRIORITIES - 1;

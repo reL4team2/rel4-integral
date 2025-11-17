@@ -9,7 +9,7 @@ const SBI_CONSOLE_PUTCHAR: usize = 1;
 /// SBI getchar
 const SBI_CONSOLE_GETCHAR: usize = 2;
 
-/// Call sbi interface.
+/// Call sbi interface.         
 pub fn sbi_call(which: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {
     let mut ret;
     unsafe {

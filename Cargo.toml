@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "kernel",
-    "driver-collect",
     "sel4_common",
     "sel4_cspace",
     "sel4_ipc",
@@ -11,14 +10,20 @@ members = [
     "serial-frame",
     "serial-impl/pl011",
     "serial-impl/sbi",
-    "xtask", 
-    "rel4_config",
+    "rel4-arch",
+    "rel4-utils",
 ]
+
+exclude = ["rel4_config", "xtask"]
+
 [profile.release]
 lto = true
 
-[patch.'https://github.com/reL4team2/driver-collect.git']
-driver-collect = { path = "driver-collect" }
+[workspace.dependencies]
+aarch64-cpu = "9.4.0"
+rel4-utils = { path = "rel4-utils" }
+rel4-arch = { path = "rel4-arch" }
+
 [patch.'https://github.com/reL4team2/serial-frame.git']
 serial-frame = { path = "serial-frame" }
 [patch.'https://github.com/reL4team2/serial-impl-pl011.git']

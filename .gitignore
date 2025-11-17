@@ -33,3 +33,6 @@ dev_gen.rs
 linker_gen.ld
 kernel/src/arch/riscv/gen/
 kernel/src/arch/aarch64/gen/
+
+Makefile
+*.log

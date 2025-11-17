@@ -5,10 +5,15 @@
 #![allow(non_upper_case_globals)]
 #![feature(decl_macro)]
 #![feature(core_intrinsics)]
+
+#[macro_use]
+extern crate rel4_utils;
+#[macro_use]
+extern crate rel4_arch;
+
 pub mod arch;
 mod asid;
 mod boot;
-mod pagetable;
 // mod pte;
 mod structures;
 mod utils;
@@ -20,7 +25,6 @@ pub use arch::riscv64::*;
 pub use arch::unmap_page;
 pub use asid::*;
 pub use boot::*;
-pub use pagetable::PageTable;
 // pub use pte::PTE;
 pub use structures::*;
 pub use utils::check_vp_alignment;

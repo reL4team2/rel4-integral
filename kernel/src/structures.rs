@@ -1,8 +1,8 @@
+use rel4_arch::basic::{PAddr, PPtr, PRegion, Region};
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_common::structures_gen::{cap, cap_null_cap};
 use sel4_cspace::interface::cte_t;
-use sel4_vspace::pptr_t;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -11,27 +11,11 @@ pub struct BootInfoHeader {
     pub len: usize,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct region_t {
-    pub start: usize,
-    pub end: usize,
-}
-
-pub type p_region_t = sel4_common::structures::p_region_t;
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct v_region_t {
-    pub start: usize,
-    pub end: usize,
-}
-
 #[allow(non_camel_case_types)]
 pub type seL4_SlotPos = usize;
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
 pub struct SlotRegion {
     pub start: seL4_SlotPos,
     pub end: seL4_SlotPos,
@@ -40,7 +24,7 @@ pub struct SlotRegion {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct UntypedDesc {
-    pub paddr: usize,
+    pub paddr: PAddr,
     pub sizeBits: u8,
     pub isDevice: u8,
     pub padding: [u8; 6],
@@ -71,9 +55,9 @@ pub struct BootInfo {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ndks_boot_t {
-    pub reserved: [p_region_t; MAX_NUM_RESV_REG],
+    pub reserved: [PRegion; MAX_NUM_RESV_REG],
     pub resv_count: usize,
-    pub freemem: [region_t; MAX_NUM_FREEMEM_REG],
+    pub freemem: [Region; MAX_NUM_FREEMEM_REG],
     pub bi_frame: *mut BootInfo,
     pub slot_pos_cur: seL4_SlotPos,
 }
@@ -90,7 +74,7 @@ pub struct rootserver_mem_t {
     pub tcb: usize,
     #[cfg(feature = "kernel_mcs")]
     pub sc: usize,
-    pub paging: region_t,
+    pub paging: Region,
 }
 
 #[repr(C)]
@@ -149,5 +133,5 @@ pub struct syscall_error_t {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct extra_caps_t {
-    pub excaprefs: [pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+    pub excaprefs: [PPtr; SEL4_MSG_MAX_EXTRA_CAPS],
 }

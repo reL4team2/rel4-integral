@@ -10,11 +10,11 @@ fn asm_gen(platform: &str, defs: &mut Vec<String>) {
         // defs.push("-DCONFIG_HAVE_FPU".to_string());
     }
     let inc_dir = format!("{}/include", src_dir);
-    rel4_config::generator::config_gen(&platform, &defs);
+    rel4_config::generator::config_gen(platform, defs);
     let out_inc_dir = env::var("OUT_DIR").unwrap();
 
-    rel4_config::generator::asm_gen(&dir, "head.S", vec![&inc_dir, &out_inc_dir], &defs, None);
-    rel4_config::generator::asm_gen(&dir, "traps.S", vec![&inc_dir, &out_inc_dir], &defs, None);
+    rel4_config::generator::asm_gen(&dir, "head.S", vec![&inc_dir, &out_inc_dir], defs, None);
+    rel4_config::generator::asm_gen(&dir, "traps.S", vec![&inc_dir, &out_inc_dir], defs, None);
 }
 
 fn main() {

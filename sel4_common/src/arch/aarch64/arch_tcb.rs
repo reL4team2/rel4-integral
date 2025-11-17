@@ -1,20 +1,7 @@
+use super::{CONTEXT_REG_NUM, ELR_EL1, SPSR_EL1, TLS_BASE, TPIDRRO_EL0, TPIDR_EL0};
+use aarch64_cpu::registers::Readable;
 use core::arch::asm;
 
-use super::{CONTEXT_REG_NUM, ELR_EL1, SPSR_EL1, TLS_BASE, TPIDRRO_EL0, TPIDR_EL0};
-
-/// Get value from the system register
-/// TODO: Move this macro into a proper place
-macro_rules! mrs {
-    ($reg: literal) => {
-        {
-            let value: usize;
-            unsafe {
-                core::arch::asm!(concat!("mrs {0}, ", $reg), out(reg) value);
-            }
-            value
-        }
-    };
-}
 #[cfg(feature = "have_fpu")]
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -23,6 +10,7 @@ pub struct FPUState {
     fpsr: u32,
     fpcr: u32,
 }
+
 /// This is `arch_tcb_t` in the sel4_c_impl.
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -52,14 +40,21 @@ impl ArchTCB {
     /// Config the registers fot the idle thread.
     pub fn config_idle_thread(&mut self, idle_thread: usize, _core: usize) {
         self.registers[ELR_EL1] = idle_thread;
-        self.registers[SPSR_EL1] = (1 << 6) | 5 | (1 << 8);
+        #[cfg(feature = "hypervisor")]
+        {
+            self.registers[SPSR_EL1] = (1 << 6) | 9 | (1 << 8);
+        }
+        #[cfg(not(feature = "hypervisor"))]
+        {
+            self.registers[SPSR_EL1] = (1 << 6) | 5 | (1 << 8);
+        }
     }
 
     /// Save TLS(Thread local Storage) registers
     #[inline]
     pub fn save_thread_local(&mut self) {
-        self.registers[TPIDR_EL0] = mrs!("tpidr_el0");
-        self.registers[TPIDRRO_EL0] = mrs!("tpidrro_el0");
+        self.registers[TPIDR_EL0] = aarch64_cpu::registers::TPIDR_EL0.get() as _;
+        self.registers[TPIDRRO_EL0] = aarch64_cpu::registers::TPIDRRO_EL0.get() as _;
     }
     #[inline]
     pub fn load_thread_local(&mut self) {

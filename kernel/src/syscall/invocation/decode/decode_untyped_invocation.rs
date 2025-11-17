@@ -1,4 +1,3 @@
-use crate::BIT;
 use log::debug;
 use sel4_common::arch::config::MAX_UNTYPED_BITS;
 use sel4_common::structures_gen::cap;
@@ -115,7 +114,7 @@ pub fn decode_untyed_invocation(
     };
 
     let free_ref = GET_FREE_REF(capability.get_capPtr() as usize, free_index);
-    let untyped_free_bytes = BIT!(capability.get_capBlockSize()) - FREE_INDEX_TO_OFFSET(free_index);
+    let untyped_free_bytes = bit!(capability.get_capBlockSize()) - FREE_INDEX_TO_OFFSET(free_index);
     if (untyped_free_bytes >> obj_size) < node_window {
         debug!(
             "Untyped Retype: Insufficient memory({} * {} bytes needed, {} bytes available)",
@@ -149,7 +148,7 @@ pub fn decode_untyed_invocation(
     invoke_untyped_retype(
         slot,
         reset,
-        aligned_free_ref,
+        pptr!(aligned_free_ref),
         new_type,
         user_obj_size,
         convert_to_mut_type_ref::<cte_t>(node_cap.get_capCNodePtr() as usize),

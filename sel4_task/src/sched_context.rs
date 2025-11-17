@@ -14,7 +14,6 @@ use sel4_common::{
     shared_types_bf_gen::seL4_MessageInfo,
     structures_gen::{cap_sched_context_cap, notification, notification_t},
     utils::{convert_to_mut_type_ref, convert_to_option_mut_type_ref},
-    BIT,
 };
 
 use crate::{
@@ -61,7 +60,7 @@ pub fn max_release_time() -> time_t {
     UINT64_MAX - 5 * us_to_ticks(max_period_us())
 }
 pub fn refill_absolute_max(sc_cap: &cap_sched_context_cap) -> usize {
-    return (BIT!(sc_cap.get_capSCSizeBits() as usize) - size_of::<sched_context_t>())
+    return (bit!(sc_cap.get_capSCSizeBits() as usize) - size_of::<sched_context_t>())
         / size_of::<refill_t>();
 }
 
@@ -318,7 +317,7 @@ impl sched_context {
         assert!(self.scTcb == 0);
         assert!(tcb.tcbSchedContext == 0);
         tcb.tcbSchedContext = self.get_ptr();
-        self.scTcb = tcb.get_ptr();
+        self.scTcb = tcb.get_ptr().raw();
         #[cfg(feature = "enable_smp")]
         unsafe {
             crate::ffi::migrate_tcb(tcb, self.scCore);
@@ -333,7 +332,7 @@ impl sched_context {
         }
     }
     pub fn sched_context_unbind_tcb(&mut self, tcb: &mut tcb_t) {
-        assert!(self.scTcb == tcb.get_ptr());
+        assert!(self.scTcb == tcb.get_ptr().raw());
         if tcb.is_current() {
             reschedule_required();
         }
@@ -353,7 +352,7 @@ impl sched_context {
     }
     pub fn sched_context_donate(&mut self, to: &mut tcb_t) {
         assert!(self.get_ptr() != 0);
-        assert!(to.get_ptr() != 0);
+        assert!(!to.get_ptr().is_null());
         assert!(to.tcbSchedContext == 0);
         if let Some(from) = convert_to_option_mut_type_ref::<tcb_t>(self.scTcb) {
             #[cfg(feature = "enable_smp")]
@@ -363,11 +362,11 @@ impl sched_context {
             from.sched_dequeue();
             from.release_remove();
             from.tcbSchedContext = 0;
-            if from.is_current() || from.get_ptr() == NODE_STATE!(ksSchedulerAction) {
+            if from.is_current() || from.get_ptr().raw() == NODE_STATE!(ksSchedulerAction) {
                 reschedule_required();
             }
         }
-        self.scTcb = to.get_ptr();
+        self.scTcb = to.get_ptr().raw();
         to.tcbSchedContext = self.get_ptr();
         #[cfg(feature = "enable_smp")]
         unsafe {

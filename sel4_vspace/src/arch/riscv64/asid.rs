@@ -1,5 +1,6 @@
 use core::{arch::asm, intrinsics::unlikely};
 
+use rel4_arch::basic::PPtr;
 use sel4_common::{
     sel4_config::{ASID_HIGH_BITS, ASID_LOW_BITS, IT_ASID},
     structures::exception_t,
@@ -7,16 +8,15 @@ use sel4_common::{
         cap, cap_asid_pool_cap, cap_page_table_cap, lookup_fault, lookup_fault_invalid_root,
     },
     utils::convert_to_option_mut_type_ref,
-    BIT, MASK,
 };
 
-use crate::{asid_pool_t, asid_t, findVSpaceForASID_ret, pptr_t, set_vm_root, PTE};
+use crate::{asid_pool_t, asid_t, findVSpaceForASID_ret, set_vm_root, PTE};
 
 ///存放`asid pool`的数组，每一个下标对应一个`asid pool`，
 ///一个`asid pool`可以存放`ASID_LOW_BITS`个asid值
 #[no_mangle]
-pub static mut riscvKSASIDTable: [*mut asid_pool_t; BIT!(ASID_HIGH_BITS)] =
-    [0 as *mut asid_pool_t; BIT!(ASID_HIGH_BITS)];
+pub static mut riscvKSASIDTable: [*mut asid_pool_t; bit!(ASID_HIGH_BITS)] =
+    [0 as *mut asid_pool_t; bit!(ASID_HIGH_BITS)];
 
 pub fn write_it_asid_pool(it_ap_cap: &cap_asid_pool_cap, it_lvl1pt_cap: &cap_page_table_cap) {
     let ap = it_ap_cap.get_capASIDPool() as usize;
@@ -38,10 +38,10 @@ pub fn delete_asid(
 ) -> Result<(), lookup_fault> {
     unsafe {
         let poolPtr = riscvKSASIDTable[asid >> ASID_LOW_BITS];
-        if poolPtr as usize != 0 && (*poolPtr).array[asid & MASK!(ASID_LOW_BITS)] == vspace {
+        if poolPtr as usize != 0 && (*poolPtr).array[asid & mask_bits!(ASID_LOW_BITS)] == vspace {
             #[cfg(target_arch = "riscv64")]
             hw_asid_flush(asid);
-            (*poolPtr).array[asid & MASK!(ASID_LOW_BITS)] = 0 as *mut PTE;
+            (*poolPtr).array[asid & mask_bits!(ASID_LOW_BITS)] = 0 as *mut PTE;
             set_vm_root(&default_vspace_cap)
         } else {
             Ok(())
@@ -52,10 +52,10 @@ pub fn delete_asid(
 /// `riscvKSASIDSpace`设置对应`index`的`asid pool`
 ///
 /// From `riscvKSASIDSpace` set the index-relevant asid pool.
-pub fn set_asid_pool_by_index(index: usize, pool_ptr: pptr_t) {
-    // assert!(index < BIT!(ASID_HIGH_BITS));
+pub fn set_asid_pool_by_index(index: usize, pool_ptr: PPtr) {
+    // assert!(index < bit!(ASID_HIGH_BITS));
     unsafe {
-        riscvKSASIDTable[index] = pool_ptr as *mut asid_pool_t;
+        riscvKSASIDTable[index] = pool_ptr.get_mut_ptr();
     }
 }
 
@@ -65,7 +65,7 @@ pub fn set_asid_pool_by_index(index: usize, pool_ptr: pptr_t) {
 #[inline]
 pub fn get_asid_pool_by_index(index: usize) -> Option<&'static mut asid_pool_t> {
     unsafe {
-        if unlikely(index >= BIT!(ASID_HIGH_BITS)) {
+        if unlikely(index >= bit!(ASID_HIGH_BITS)) {
             return None;
         }
         return convert_to_option_mut_type_ref::<asid_pool_t>(riscvKSASIDTable[index] as usize);
@@ -90,7 +90,7 @@ pub fn find_vspace_for_asid(asid: asid_t) -> findVSpaceForASID_ret {
         ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
         return ret;
     }
-    let vspace_root = unsafe { (*poolPtr).array[asid & MASK!(ASID_LOW_BITS)] };
+    let vspace_root = unsafe { (*poolPtr).array[asid & mask_bits!(ASID_LOW_BITS)] };
     if vspace_root as usize == 0 {
         ret.lookup_fault = Some(lookup_fault_invalid_root::new().unsplay());
         ret.vspace_root = None;

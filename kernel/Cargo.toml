@@ -16,8 +16,6 @@ path = "src/main.rs"
 
 [dependencies]
 buddy_system_allocator = "0.6"
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
-aarch64-cpu = "9.4.0"
 log = "0.4"
 tock-registers = "0.8"
 cfg-if = "1.0"
@@ -27,16 +25,36 @@ sel4_cspace = { git = "https://github.com/reL4team2/sel4_cspace.git", branch = "
 sel4_vspace = { git = "https://github.com/reL4team2/sel4_vspace.git", branch = "master" }
 sel4_task = { git = "https://github.com/reL4team2/sel4_task.git", branch = "master" }
 sel4_ipc = { git = "https://github.com/reL4team2/sel4_ipc.git", branch = "master" }
-driver-collect = { git = "https://github.com/reL4team2/driver-collect.git", branch = "master" }
-
+rel4-utils = { workspace = true }
+rel4-arch = { workspace = true }
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 rel4_config = { path = "../rel4_config" }
 
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu = { workspace = true }
+
 [features]
-enable_smp = ["sel4_common/enable_smp", "sel4_task/enable_smp", "sel4_vspace/enable_smp"]
-kernel_mcs = ["sel4_common/kernel_mcs", "sel4_task/kernel_mcs", "sel4_cspace/kernel_mcs", "sel4_ipc/kernel_mcs"]
+hypervisor = [
+    "sel4_common/hypervisor",
+    "sel4_cspace/hypervisor",
+    "sel4_vspace/hypervisor",
+]
+enable_smp = [
+    "sel4_common/enable_smp",
+    "sel4_task/enable_smp",
+    "sel4_vspace/enable_smp",
+]
+kernel_mcs = [
+    "sel4_common/kernel_mcs",
+    "sel4_task/kernel_mcs",
+    "sel4_cspace/kernel_mcs",
+    "sel4_ipc/kernel_mcs",
+]
 enable_smc = ["sel4_common/enable_smc", "sel4_cspace/enable_smc"]
 build_binary = ["sel4_common/build_binary"]
 enable_arm_pcnt = []

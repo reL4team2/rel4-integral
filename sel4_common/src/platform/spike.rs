@@ -4,6 +4,9 @@ use crate::arch::config::RESET_CYCLES;
 use crate::arch::{get_time, set_timer};
 use crate::platform::time_def::ticks_t;
 use core::arch::asm;
+use core::ptr::NonNull;
+use serial_frame::SerialDriver;
+use serial_impl_sbi::SerialSBI;
 
 pub struct timer;
 
@@ -33,4 +36,10 @@ pub fn read_time() -> usize {
         asm!("rdtime {}",out(reg)temp);
     }
     temp
+}
+
+/// Initialize Default Serial Driver
+pub fn default_serial() -> impl SerialDriver {
+    // 0xf is a random number, the argument of this function will never be used
+    SerialSBI::new(unsafe { NonNull::new_unchecked(0xf as _) })
 }

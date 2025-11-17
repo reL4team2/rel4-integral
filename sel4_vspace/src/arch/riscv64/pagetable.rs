@@ -1,14 +1,15 @@
-use crate::{asid_t, find_vspace_for_asid, pptr_to_paddr, sfence, vptr_t, PageTable, PTE};
+use crate::{asid_t, find_vspace_for_asid, sfence, PTE};
+use rel4_arch::basic::{PPtr, VPtr};
+use rel4_utils::no_lock::NoLock;
 use sel4_common::{
     arch::config::{
         KERNEL_ELF_BASE, KERNEL_ELF_PADDR_BASE, PADDR_BASE, PADDR_TOP, PPTR_BASE, PPTR_BASE_OFFSET,
         PPTR_TOP,
     },
     sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS},
-    structures::{exception_t, paddr_t, pptr_t},
+    structures::exception_t,
     structures_gen::lookup_fault,
     utils::pageBitsForSize,
-    BIT, ROUND_DOWN,
 };
 
 use super::{
@@ -17,23 +18,16 @@ use super::{
 };
 
 ///页表采用`SV39`，该变量是内核使用的页表的根页表（一级页表）
-#[no_mangle]
 #[link_section = ".page_table"]
-pub(crate) static mut kernel_root_pageTable: [PTE; BIT!(PT_INDEX_BITS)] =
-    [PTE::pte_invalid(); BIT!(PT_INDEX_BITS)];
+#[export_name = "kernel_root_pageTable"]
+pub(crate) static KERNEL_ROOT_PAGE_TABLE: NoLock<[PTE; bit!(PT_INDEX_BITS)]> =
+    NoLock::new([PTE::pte_invalid(); bit!(PT_INDEX_BITS)]);
 
 ///内核使用的二级页表
-#[no_mangle]
 #[link_section = ".page_table"]
-pub(crate) static mut kernel_image_level2_pt: [PTE; BIT!(PT_INDEX_BITS)] =
-    [PTE::pte_invalid(); BIT!(PT_INDEX_BITS)];
-
-pub(crate) static mut KERNEL_ROOT_PAGE_TABLE: PageTable = PageTable::new(paddr_t(0));
-pub(crate) static mut KERNEL_LEVEL2_PAGE_TABLE: PageTable = PageTable::new(paddr_t(0));
-
-impl PageTable {
-    pub(crate) const PTE_NUM_IN_PAGE: usize = 0x200;
-}
+#[export_name = "kernel_image_level2_pt"]
+pub(crate) static KERNEL_IMAGE_LEVEL2_PT: NoLock<[PTE; bit!(PT_INDEX_BITS)]> =
+    NoLock::new([PTE::pte_invalid(); bit!(PT_INDEX_BITS)]);
 
 /// 构建`reL4`的内核页表,主要完成了`PSpace`和`KERNEL ELF`两段虚拟地址空间的映射
 ///
@@ -83,43 +77,33 @@ impl PageTable {
 ///
 #[no_mangle]
 pub fn rust_map_kernel_window() {
-    unsafe {
-        KERNEL_ROOT_PAGE_TABLE.set(kernel_root_pageTable.as_ptr() as usize);
-        KERNEL_LEVEL2_PAGE_TABLE.set(kernel_image_level2_pt.as_ptr() as usize);
-    }
-
     // 物理地址到内核地址空间的直接映射，用`1GB`大页的方式映射
     for (pptr, paddr) in (PPTR_BASE..PPTR_TOP)
         .step_by(riscv_get_lvl_pgsize(0))
         .zip((PADDR_BASE..PADDR_TOP).step_by(riscv_get_lvl_pgsize(0)))
     {
-        unsafe {
-            KERNEL_ROOT_PAGE_TABLE.map_next_table(riscv_get_pt_index(pptr, 0), paddr, true);
-        }
+        KERNEL_ROOT_PAGE_TABLE.no_lock()[riscv_get_pt_index(pptr, 0)] =
+            PTE::pte_next_table(paddr!(paddr), true);
     }
 
-    let mut pptr = ROUND_DOWN!(KERNEL_ELF_BASE, riscv_get_lvl_pgsize_bits(0));
-    let mut paddr = ROUND_DOWN!(KERNEL_ELF_PADDR_BASE, riscv_get_lvl_pgsize_bits(0));
+    let mut pptr = pptr!(KERNEL_ELF_BASE).align_down(riscv_get_lvl_pgsize_bits(0));
+    let mut paddr = paddr!(KERNEL_ELF_PADDR_BASE).align_down(riscv_get_lvl_pgsize_bits(0));
     // 将根页表`KERNEL_ELF_PADDR_BASE`和`KERNEL_ELF_BASE`处的页表项改为使用`kernel_image_level2_pt`映射
-    unsafe {
-        KERNEL_ROOT_PAGE_TABLE.map_next_table(
-            riscv_get_pt_index(KERNEL_ELF_PADDR_BASE + PPTR_BASE_OFFSET, 0),
-            kpptr_to_paddr(KERNEL_LEVEL2_PAGE_TABLE.base()),
-            false,
-        );
-        KERNEL_ROOT_PAGE_TABLE.map_next_table(
-            riscv_get_pt_index(pptr, 0),
-            kpptr_to_paddr(KERNEL_LEVEL2_PAGE_TABLE.base()),
-            false,
-        );
-    }
+    KERNEL_ROOT_PAGE_TABLE.no_lock()
+        [riscv_get_pt_index(KERNEL_ELF_PADDR_BASE + PPTR_BASE_OFFSET, 0)] = PTE::pte_next_table(
+        kpptr_to_paddr(KERNEL_IMAGE_LEVEL2_PT.as_ptr() as usize),
+        false,
+    );
+
+    KERNEL_ROOT_PAGE_TABLE.no_lock()[riscv_get_pt_index(pptr.raw(), 0)] = PTE::pte_next_table(
+        kpptr_to_paddr(KERNEL_IMAGE_LEVEL2_PT.as_ptr() as usize),
+        false,
+    );
 
     let mut index = 0;
     // 做了 `0xFFFF_FFFF_8400_0000(KERNEL_ELF_BASE)~0xFFFF_FFFF_C4000_0000(KDEV_BASE)`到`0x8400_0000~0xC400_0000`的地址映射。
-    while pptr < PPTR_TOP + riscv_get_lvl_pgsize(0) {
-        unsafe {
-            KERNEL_LEVEL2_PAGE_TABLE.map_next_table(index, paddr, true);
-        }
+    while pptr.raw() < PPTR_TOP + riscv_get_lvl_pgsize(0) {
+        KERNEL_IMAGE_LEVEL2_PT.no_lock()[index] = PTE::pte_next_table(paddr, true);
         pptr += riscv_get_lvl_pgsize(1);
         paddr += riscv_get_lvl_pgsize(1);
         index += 1;
@@ -132,9 +116,7 @@ pub fn rust_map_kernel_window() {
 /// Activate kernel vspace, assign kernel root page table's value to satp.
 #[inline]
 pub fn activate_kernel_vspace() {
-    unsafe {
-        set_vspace_root(kpptr_to_paddr(kernel_root_pageTable.as_ptr() as usize), 0);
-    }
+    set_vspace_root(kpptr_to_paddr(KERNEL_ROOT_PAGE_TABLE.as_ptr() as usize), 0);
 }
 
 /// 拷贝内核页表到新给出的页表基地址`Lvl1pt`，当创建一个进程的时候，会拷贝一个新的页表给新创建的进程，新的页表中包含内核地址空间
@@ -142,14 +124,12 @@ pub fn activate_kernel_vspace() {
 /// Copy the whole kernel page table into a new page table.
 /// when create a new process, a new page table will be alloced to the new process.
 #[no_mangle]
-pub fn copyGlobalMappings(Lvl1pt: usize) {
+pub fn copyGlobalMappings(Lvl1pt: PPtr) {
     let mut i: usize = riscv_get_pt_index(0x80000000, 0);
-    while i < BIT!(PT_INDEX_BITS) {
-        unsafe {
-            let newLvl1pt = (Lvl1pt + i * 8) as *mut usize;
-            *newLvl1pt = kernel_root_pageTable[i].0;
-            i += 1;
-        }
+    while i < bit!(PT_INDEX_BITS) {
+        let newLvl1pt = (Lvl1pt + i * 8).get_mut_ref();
+        *newLvl1pt = KERNEL_ROOT_PAGE_TABLE.no_lock()[i];
+        i += 1;
     }
 }
 
@@ -164,8 +144,8 @@ pub fn copyGlobalMappings(Lvl1pt: usize) {
 pub fn unmap_page(
     page_size: usize,
     asid: asid_t,
-    vptr: vptr_t,
-    pptr: pptr_t,
+    vptr: VPtr,
+    pptr: PPtr,
 ) -> Result<(), lookup_fault> {
     /*
         let find_ret = find_vspace_for_asid(asid);
@@ -211,15 +191,12 @@ pub fn unmap_page(
 
     if slot.get_valid() == 0
         || slot.is_pte_table()
-        || slot.get_ppn() << SEL4_PAGE_BITS != pptr_to_paddr(pptr)
+        || slot.get_ppn() << SEL4_PAGE_BITS != pptr.to_paddr().raw()
     {
         return Ok(());
     }
 
-    unsafe {
-        let slot = lu_ret.ptSlot as *mut usize;
-        *slot = 0;
-        sfence();
-    }
+    *pptr!(lu_ret.ptSlot).get_mut_ref::<usize>() = 0;
+    sfence();
     Ok(())
 }

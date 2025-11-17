@@ -1,32 +1,28 @@
 use bitflags::bitflags;
 use core::intrinsics::unlikely;
-
+use rel4_arch::basic::{PAddr, VPtr};
 use sel4_common::{
     arch::{riscv_get_read_from_vm_rights, riscv_get_write_from_vm_rights, vm_rights_t},
     sel4_config::{CONFIG_PT_LEVELS, PT_INDEX_BITS, SEL4_PAGE_BITS, SEL4_PAGE_TABLE_BITS},
     structures::exception_t,
-    utils::{convert_to_mut_type_ref, convert_to_type_ref},
-    BIT, MASK,
 };
 
 use crate::{
     arch::riscv64::{sfence, utils::riscv_get_pt_index},
-    asid_t, find_vspace_for_asid, lookupPTSlot_ret_t, vptr_t, PTE,
+    asid_t, find_vspace_for_asid, lookupPTSlot_ret_t, PTE,
 };
-
-use super::paddr_to_pptr;
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct PTEFlags: usize {
-        const V = BIT!(0);
-        const R = BIT!(1);
-        const W = BIT!(2);
-        const X = BIT!(3);
-        const U = BIT!(4);
-        const G = BIT!(5);
-        const A = BIT!(6);
-        const D = BIT!(7);
+        const V = bit!(0);
+        const R = bit!(1);
+        const W = bit!(2);
+        const X = bit!(3);
+        const U = bit!(4);
+        const G = bit!(5);
+        const A = bit!(6);
+        const D = bit!(7);
 
         const VRWX  = Self::V.bits() | Self::R.bits() | Self::W.bits() | Self::X.bits();
         const ADUVRX = Self::A.bits() | Self::D.bits() | Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
@@ -50,7 +46,7 @@ impl PTE {
 
     /// 创建一个用户使用的页表项（`Global=0`、`User=1`）
     #[inline]
-    pub fn make_user_pte(paddr: usize, executable: bool, vm_rights: vm_rights_t) -> Self {
+    pub fn make_user_pte(paddr: PAddr, executable: bool, vm_rights: vm_rights_t) -> Self {
         let write = riscv_get_write_from_vm_rights(&vm_rights);
         let read = riscv_get_read_from_vm_rights(&vm_rights);
         if !executable && !read && !write {
@@ -66,13 +62,13 @@ impl PTE {
         if read {
             flag |= PTEFlags::R;
         }
-        Self::new(paddr >> SEL4_PAGE_BITS, flag)
+        Self::new(paddr.raw() >> SEL4_PAGE_BITS, flag)
     }
 
     ///创建内核态页表项（`Global=1`、`User=0`）
     #[inline]
-    pub fn pte_next_table(phys_addr: usize, is_leaf: bool) -> Self {
-        let ppn = (phys_addr >> 12) as usize;
+    pub fn pte_next_table(phys_addr: PAddr, is_leaf: bool) -> Self {
+        let ppn = (phys_addr.raw() >> 12) as usize;
 
         let mut flag = PTEFlags::V | PTEFlags::G;
         if is_leaf {
@@ -87,7 +83,7 @@ impl PTE {
         sfence();
     }
 
-    pub fn unmap_page_table(&mut self, asid: asid_t, vptr: vptr_t) {
+    pub fn unmap_page_table(&mut self, asid: asid_t, vptr: VPtr) {
         let target_pt = self as *mut PTE;
         let find_ret = find_vspace_for_asid(asid);
         if find_ret.status != exception_t::EXCEPTION_NONE {
@@ -95,10 +91,10 @@ impl PTE {
         }
         assert_ne!(find_ret.vspace_root.unwrap(), target_pt);
         let mut pt = find_ret.vspace_root.unwrap();
-        let mut ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr, 0))) };
+        let mut ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr.raw(), 0))) };
         let mut i = 0;
         while i < CONFIG_PT_LEVELS - 1 && pt != target_pt {
-            ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr, i))) };
+            ptSlot = unsafe { &mut *(pt.add(riscv_get_pt_index(vptr.raw(), i))) };
             if unlikely(ptSlot.is_pte_table()) {
                 return;
             }
@@ -127,12 +123,16 @@ impl PTE {
 
     #[inline]
     pub fn get_pte_from_ppn_mut(&self) -> &'static mut Self {
-        convert_to_mut_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << SEL4_PAGE_TABLE_BITS))
+        paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)
+            .to_pptr()
+            .get_mut_ref()
     }
 
     #[inline]
     pub fn get_pte_from_ppn(&self) -> &'static Self {
-        convert_to_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << SEL4_PAGE_TABLE_BITS))
+        paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)
+            .to_pptr()
+            .get_ref()
     }
 
     #[inline]
@@ -161,13 +161,16 @@ impl PTE {
     }
 
     ///用于记录某个虚拟地址`vptr`对应的pte表项在内存中的位置
-    pub fn lookup_pt_slot(&mut self, vptr: vptr_t) -> lookupPTSlot_ret_t {
+    pub fn lookup_pt_slot(&mut self, vptr: VPtr) -> lookupPTSlot_ret_t {
         let mut level = CONFIG_PT_LEVELS - 1;
         let mut pt = self as *mut PTE;
         let mut ret = lookupPTSlot_ret_t {
             ptBitsLeft: PT_INDEX_BITS * level + SEL4_PAGE_BITS,
             ptSlot: unsafe {
-                pt.add((vptr >> (PT_INDEX_BITS * level + SEL4_PAGE_BITS)) & MASK!(PT_INDEX_BITS))
+                pt.add(
+                    (vptr.raw() >> (PT_INDEX_BITS * level + SEL4_PAGE_BITS))
+                        & mask_bits!(PT_INDEX_BITS),
+                )
             },
         };
 
@@ -175,7 +178,8 @@ impl PTE {
             level -= 1;
             ret.ptBitsLeft -= PT_INDEX_BITS;
             pt = unsafe { (*ret.ptSlot).get_pte_from_ppn_mut() as *mut PTE };
-            ret.ptSlot = unsafe { pt.add((vptr >> ret.ptBitsLeft) & MASK!(PT_INDEX_BITS)) };
+            ret.ptSlot =
+                unsafe { pt.add((vptr.raw() >> ret.ptBitsLeft) & mask_bits!(PT_INDEX_BITS)) };
         }
         ret
     }

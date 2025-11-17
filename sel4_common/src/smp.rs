@@ -52,7 +52,7 @@ pub fn get_sbi_mask_for_all_remote_harts() -> usize {
     let mut mask: usize = 0;
     for i in 0..CONFIG_MAX_NUM_NODES {
         if i != get_current_cpu_index() {
-            mask |= BIT!(cpu_index_to_id(i));
+            mask |= bit!(cpu_index_to_id(i));
         }
     }
     mask

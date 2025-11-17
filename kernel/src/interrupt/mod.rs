@@ -1,9 +1,8 @@
 pub mod handler;
 
 #[cfg(target_arch = "riscv64")]
-use crate::BIT;
-#[cfg(target_arch = "riscv64")]
 use core::arch::asm;
+use rel4_arch::basic::PPtr;
 use sel4_common::platform::*;
 use sel4_common::sel4_config::*;
 use sel4_common::structures::{current_cpu_irq_to_idx, idx_to_irq};
@@ -11,7 +10,6 @@ use sel4_common::utils::{convert_to_mut_type_ref, cpu_id};
 #[cfg(target_arch = "aarch64")]
 use sel4_common::utils::{global_ops, unsafe_ops};
 use sel4_cspace::interface::cte_t;
-use sel4_vspace::pptr_t;
 
 #[cfg(target_arch = "riscv64")]
 use crate::arch::read_sip;
@@ -36,7 +34,7 @@ cfg_if::cfg_if! {
 pub static mut int_state_irq_table: [usize; INT_STATE_ARRAY_SIZE + 1] =
     [0; INT_STATE_ARRAY_SIZE + 1];
 
-pub static mut int_state_irq_node_ptr: pptr_t = 0;
+pub static mut int_state_irq_node_ptr: PPtr = PPtr::null();
 
 #[cfg(target_arch = "aarch64")]
 #[no_mangle]
@@ -85,7 +83,11 @@ pub fn get_irq_state(irq: usize) -> IRQState {
 /// 和下面的 delete 都是 index，从 cspace 中删除 slot
 #[inline]
 pub fn get_irq_handler_slot(irq: usize) -> &'static mut cte_t {
-    unsafe { convert_to_mut_type_ref::<cte_t>(int_state_irq_node_ptr).get_offset_slot(irq) }
+    unsafe {
+        int_state_irq_node_ptr
+            .get_mut_ref::<cte_t>()
+            .get_offset_slot(irq)
+    }
 }
 
 pub fn deleting_irq_handler(irq: usize) {
@@ -138,7 +140,7 @@ pub(crate) static intStateIRQNode: IntStateIrqNode = IntStateIrqNode::new();
 #[no_mangle]
 pub extern "C" fn intStateIRQNodeToR() {
     unsafe {
-        int_state_irq_node_ptr = intStateIRQNode.0.as_ptr() as usize;
+        int_state_irq_node_ptr = pptr!(intStateIRQNode.0.as_ptr());
     }
 }
 
@@ -170,9 +172,9 @@ pub fn mask_interrupt(disable: bool, irq: usize) {
     #[cfg(target_arch = "riscv64")]
     if irq == KERNEL_TIMER_IRQ {
         if disable {
-            clear_sie_mask(BIT!(SIE_STIE));
+            clear_sie_mask(bit!(SIE_STIE));
         } else {
-            set_sie_mask(BIT!(SIE_STIE));
+            set_sie_mask(bit!(SIE_STIE));
         }
     }
     #[cfg(target_arch = "aarch64")]
@@ -189,7 +191,7 @@ pub fn mask_interrupt(disable: bool, irq: usize) {
 #[inline]
 pub fn is_irq_pending() -> bool {
     let sip = read_sip();
-    if (sip & (BIT!(SIP_STIP) | BIT!(SIP_SEIP))) != 0 {
+    if (sip & (bit!(SIP_STIP) | bit!(SIP_SEIP))) != 0 {
         true
     } else {
         false
@@ -255,22 +257,22 @@ pub fn get_active_irq() -> usize {
     #[cfg(feature = "enable_smp")]
     {
         use sel4_common::arch::riscv64::clear_ipi;
-        if (sip & BIT!(SIP_SEIP)) != 0 {
+        if (sip & bit!(SIP_SEIP)) != 0 {
             irq = 0;
-        } else if (sip & BIT!(SIP_SSIP)) != 0 {
+        } else if (sip & bit!(SIP_SSIP)) != 0 {
             clear_ipi();
             irq = ipi_get_irq();
             // debug!("irq: {}", irq);
-        } else if (sip & BIT!(SIP_STIP)) != 0 {
+        } else if (sip & bit!(SIP_STIP)) != 0 {
             irq = KERNEL_TIMER_IRQ;
         } else {
             irq = IRQ_INVALID;
         }
     }
     #[cfg(not(feature = "enable_smp"))]
-    if (sip & BIT!(SIP_SEIP)) != 0 {
+    if (sip & bit!(SIP_SEIP)) != 0 {
         irq = 0;
-    } else if (sip & BIT!(SIP_STIP)) != 0 {
+    } else if (sip & bit!(SIP_STIP)) != 0 {
         irq = KERNEL_TIMER_IRQ;
     } else {
         irq = IRQ_INVALID;
@@ -282,7 +284,6 @@ pub fn get_active_irq() -> usize {
 }
 
 #[cfg(target_arch = "aarch64")]
-#[inline]
 #[no_mangle]
 pub fn get_active_irq() -> usize {
     /*

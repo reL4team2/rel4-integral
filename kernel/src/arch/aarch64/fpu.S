@@ -1,3 +1,4 @@
+.arch armv8
 .global save_fpu_state
 save_fpu_state:
 	stp     q0, q1, [x0, #16 * 0]
@@ -23,6 +24,7 @@ save_fpu_state:
 	mrs     x0, fpcr
 	str     w0, [x1, #4]
 	ret
+.size save_fpu_state, .-save_fpu_state
 
 .global load_fpu_state
 load_fpu_state:
@@ -48,3 +50,4 @@ load_fpu_state:
 	ldr     w0, [x1, #4]
 	msr     fpcr, x0
 	ret
+.size load_fpu_state, .-load_fpu_state

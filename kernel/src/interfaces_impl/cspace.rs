@@ -44,8 +44,8 @@ pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
                 match unmap_page(
                     cap::cap_frame_cap(capability).get_capFSize() as usize,
                     cap::cap_frame_cap(capability).get_capFMappedASID() as usize,
-                    cap::cap_frame_cap(capability).get_capFMappedAddress() as usize,
-                    cap::cap_frame_cap(capability).get_capFBasePtr() as usize,
+                    vptr!(cap::cap_frame_cap(capability).get_capFMappedAddress()),
+                    pptr!(cap::cap_frame_cap(capability).get_capFBasePtr()),
                 ) {
                     Err(lookup_fault) => unsafe { current_lookup_fault = lookup_fault },
                     _ => {}
@@ -65,7 +65,7 @@ pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
                 } else {
                     convert_to_mut_type_ref::<PTE>(pte).unmap_page_table(
                         asid,
-                        cap::cap_page_table_cap(capability).get_capPTMappedAddress() as usize,
+                        vptr!(cap::cap_page_table_cap(capability).get_capPTMappedAddress()),
                     );
                 }
                 if let Some(lookup_fault) = find_ret.lookup_fault {
@@ -105,8 +105,8 @@ pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
                 match unmap_page(
                     cap::cap_frame_cap(capability).get_capFSize() as usize,
                     cap::cap_frame_cap(capability).get_capFMappedASID() as usize,
-                    cap::cap_frame_cap(capability).get_capFMappedAddress() as usize,
-                    cap::cap_frame_cap(capability).get_capFBasePtr() as usize,
+                    vptr!(cap::cap_frame_cap(capability).get_capFMappedAddress()),
+                    pptr!(cap::cap_frame_cap(capability).get_capFBasePtr()),
                 ) {
                     Err(fault) => unsafe { current_lookup_fault = fault },
                     _ => {}
@@ -148,7 +148,7 @@ pub fn arch_finalise_cap(capability: &cap, final_: bool) -> FinaliseCapRet {
                     ptr_to_mut(cap::cap_page_table_cap(capability).get_capPTBasePtr() as *mut PTE);
                 unmap_page_table(
                     cap::cap_page_table_cap(capability).get_capPTMappedASID() as usize,
-                    cap::cap_page_table_cap(capability).get_capPTMappedAddress() as usize,
+                    vptr!(cap::cap_page_table_cap(capability).get_capPTMappedAddress()),
                     pte,
                 );
             }

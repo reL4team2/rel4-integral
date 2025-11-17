@@ -4,6 +4,7 @@ use core::intrinsics::unlikely;
 use super::endpoint::*;
 use super::notification::*;
 
+use rel4_arch::basic::PPtr;
 use sel4_common::arch::ArchReg;
 #[cfg(feature = "kernel_mcs")]
 use sel4_common::arch::N_TIMEOUT_MESSAGE;
@@ -21,7 +22,6 @@ use sel4_cspace::interface::*;
 use sel4_task::{possible_switch_to, set_thread_state, tcb_t, ThreadState};
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{reply::reply_t, reply_remove_tcb, sched_context::sched_context_t};
-use sel4_vspace::pptr_t;
 
 /// The trait for IPC transfer, please see doc.md for more details
 pub trait Transfer {
@@ -31,14 +31,14 @@ pub trait Transfer {
         &mut self,
         endpoint: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+        current_extra_caps: &[PPtr; SEL4_MSG_MAX_EXTRA_CAPS],
     );
 
     fn set_transfer_caps_with_buf(
         &mut self,
         endpoint: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+        current_extra_caps: &[PPtr; SEL4_MSG_MAX_EXTRA_CAPS],
         ipc_buffer: Option<&mut seL4_IPCBuffer>,
     );
 
@@ -111,24 +111,24 @@ impl Transfer for tcb_t {
         &mut self,
         ep: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+        current_extra_caps: &[PPtr; SEL4_MSG_MAX_EXTRA_CAPS],
     ) {
         info.set_extraCaps(0);
         info.set_capsUnwrapped(0);
         let ipc_buffer = self.lookup_mut_ipc_buffer(true);
-        if current_extra_caps[0] as usize == 0 || ipc_buffer.is_none() {
+        if current_extra_caps[0].is_null() || ipc_buffer.is_none() {
             return;
         }
         let buffer = ipc_buffer.unwrap();
         let mut dest_slot = self.get_receive_slot();
         let mut i = 0;
-        while i < SEL4_MSG_MAX_EXTRA_CAPS && current_extra_caps[i] as usize != 0 {
-            let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
+        while i < SEL4_MSG_MAX_EXTRA_CAPS && !current_extra_caps[i].is_null() {
+            let slot = current_extra_caps[i].get_mut_ref::<cte_t>();
             let capability_cpy = &slot.capability.clone();
             if capability_cpy.get_tag() == cap_tag::cap_endpoint_cap
                 && ep.is_some()
                 && cap::cap_endpoint_cap(capability_cpy).get_capEPPtr() as usize
-                    == ep.unwrap().get_ptr()
+                    == ep.unwrap().get_ptr().raw()
             {
                 buffer.caps_or_badges[i] =
                     cap::cap_endpoint_cap(capability_cpy).get_capEPBadge() as usize;
@@ -157,25 +157,25 @@ impl Transfer for tcb_t {
         &mut self,
         ep: Option<&endpoint>,
         info: &mut seL4_MessageInfo,
-        current_extra_caps: &[pptr_t; SEL4_MSG_MAX_EXTRA_CAPS],
+        current_extra_caps: &[PPtr; SEL4_MSG_MAX_EXTRA_CAPS],
         ipc_buffer: Option<&mut seL4_IPCBuffer>,
     ) {
         info.set_extraCaps(0);
         info.set_capsUnwrapped(0);
         // let ipc_buffer = self.lookup_mut_ipc_buffer(true);
-        if likely(current_extra_caps[0] as usize == 0 || ipc_buffer.is_none()) {
+        if likely(current_extra_caps[0].is_null() || ipc_buffer.is_none()) {
             return;
         }
         let buffer = ipc_buffer.unwrap();
         let mut dest_slot = self.get_receive_slot();
         let mut i = 0;
-        while i < SEL4_MSG_MAX_EXTRA_CAPS && current_extra_caps[i] as usize != 0 {
-            let slot = convert_to_mut_type_ref::<cte_t>(current_extra_caps[i]);
+        while i < SEL4_MSG_MAX_EXTRA_CAPS && !current_extra_caps[i].is_null() {
+            let slot = current_extra_caps[i].get_mut_ref::<cte_t>();
             let capability_cpy = &slot.capability.clone();
             if capability_cpy.get_tag() == cap_tag::cap_endpoint_cap
                 && ep.is_some()
                 && cap::cap_endpoint_cap(capability_cpy).get_capEPPtr() as usize
-                    == ep.unwrap().get_ptr()
+                    == ep.unwrap().get_ptr().raw()
             {
                 buffer.caps_or_badges[i] =
                     cap::cap_endpoint_cap(capability_cpy).get_capEPBadge() as usize;
@@ -202,7 +202,7 @@ impl Transfer for tcb_t {
     fn do_fault_transfer(&self, receiver: &mut tcb_t, badge: usize) {
         let sent = match self.tcbFault.get_tag() {
             seL4_Fault_tag::seL4_Fault_CapFault => {
-                receiver.set_mr(CAP_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
+                receiver.set_mr(CAP_FAULT_IP, self.tcbArch.get_register(ArchReg::FaultIP));
                 receiver.set_mr(
                     CAP_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_CapFault(&self.tcbFault).get_address() as usize,
@@ -233,7 +233,7 @@ impl Transfer for tcb_t {
                 )
             }
             seL4_Fault_tag::seL4_Fault_VMFault => {
-                receiver.set_mr(VM_FAULT_IP, self.tcbArch.get_register(ArchReg::FAULT_IP));
+                receiver.set_mr(VM_FAULT_IP, self.tcbArch.get_register(ArchReg::FaultIP));
                 receiver.set_mr(
                     VM_FAULT_ADDR,
                     seL4_Fault::seL4_Fault_VMFault(&self.tcbFault).get_address() as usize,
@@ -282,14 +282,14 @@ impl Transfer for tcb_t {
     ) {
         let mut tag =
             seL4_MessageInfo::from_word_security(self.tcbArch.get_register(ArchReg::MsgInfo));
-        let mut current_extra_caps = [0; SEL4_MSG_MAX_EXTRA_CAPS];
+        let mut current_extra_caps = [PPtr::null(); SEL4_MSG_MAX_EXTRA_CAPS];
         if can_grant {
             let status = self.lookup_extra_caps(&mut current_extra_caps);
             if unlikely(status != exception_t::EXCEPTION_NONE) {
-                current_extra_caps[0] = 0;
+                current_extra_caps[0] = PPtr::null();
             }
         } else {
-            current_extra_caps[0] = 0;
+            current_extra_caps[0] = PPtr::null();
         }
         let msg_transferred = self.copy_mrs(receiver, tag.get_length() as usize);
         receiver.set_transfer_caps(ep, &mut tag, &current_extra_caps);

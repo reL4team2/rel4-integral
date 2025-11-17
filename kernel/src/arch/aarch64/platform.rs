@@ -1,18 +1,17 @@
 use crate::arch::aarch64::fpu::disable_fpu;
-use aarch64_cpu::registers::TPIDR_EL1;
-use aarch64_cpu::registers::{Writeable, CNTKCTL_EL1};
+use aarch64_cpu::asm::barrier::{self, dsb, isb};
+use aarch64_cpu::registers::{self, Writeable, CNTKCTL_EL1};
 use core::arch::asm;
+use rel4_arch::basic::PRegion;
 use sel4_common::arch::config::{KERNEL_ELF_BASE, PADDR_TOP};
 use sel4_common::ffi::kernel_stack_alloc;
 use sel4_common::ffi_addr;
 use sel4_common::platform::{timer, Timer_func};
 use sel4_common::sel4_config::*;
-use sel4_common::structures::p_region_t;
 use sel4_common::utils::cpu_id;
 
 use crate::boot::{
-    avail_p_regs_addr, avail_p_regs_size, paddr_to_pptr_reg, res_reg, reserve_region,
-    rust_init_freemem,
+    avail_p_regs_addr, avail_p_regs_size, res_reg, reserve_region, rust_init_freemem,
 };
 use crate::utils::{fpsime_hw_cap_test, set_vtable};
 use log::debug;
@@ -20,31 +19,30 @@ use sel4_vspace::*;
 
 use super::arm_gic::gic_v2::gic_v2::{cpu_init_local_irq_controller, dist_init};
 
-#[allow(unused)]
 pub fn init_cpu() -> bool {
     activate_kernel_vspace();
 
+    #[cfg(feature = "hypervisor")]
+    super::vcpu::vcpu_boot_init();
+
     // CPU's exception vector table
-    unsafe {
-        set_vtable(ffi_addr!(arm_vector_table));
-    }
+    set_vtable(ffi_addr!(arm_vector_table));
 
     // Setup kernel stack pointer.
-    let mut stack_top = unsafe {
-        &mut kernel_stack_alloc.data[cpu_id()] as *mut u8 as usize
-            + sel4_common::BIT!(CONFIG_KERNEL_STACK_BITS)
-    };
+    let mut stack_top = kernel_stack_alloc.get_stack_top(cpu_id());
 
     #[cfg(feature = "enable_smp")]
     {
-        stack_top |= cpu_id()
+        stack_top |= cpu_id();
     }
 
     // CPU's exception vector table
-    unsafe {
-        set_vtable(ffi_addr!(arm_vector_table));
-    }
-    TPIDR_EL1.set(stack_top as u64);
+    set_vtable(ffi_addr!(arm_vector_table));
+
+    #[cfg(not(feature = "hypervisor"))]
+    registers::TPIDR_EL1.set(stack_top as u64);
+    #[cfg(feature = "hypervisor")]
+    registers::TPIDR_EL2.set(stack_top as _);
 
     let haveHWFPU = fpsime_hw_cap_test();
 
@@ -60,27 +58,26 @@ pub fn init_cpu() -> bool {
     // armv_init_user_access
     armv_init_user_access();
 
-    unsafe {
-        timer.init_timer();
-    }
+    timer.init_timer();
+
     true
 }
 
-pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
+pub fn init_freemem(ui_p_reg: PRegion, dtb_p_reg: PRegion) -> bool {
     unsafe {
-        res_reg[0].start = paddr_to_pptr(kpptr_to_paddr(KERNEL_ELF_BASE));
-        res_reg[0].end = paddr_to_pptr(kpptr_to_paddr(ffi_addr!(ki_end)));
+        res_reg[0].start = kpptr_to_paddr(KERNEL_ELF_BASE).to_pptr();
+        res_reg[0].end = kpptr_to_paddr(ffi_addr!(ki_end)).to_pptr();
     }
 
     let mut index = 1;
 
-    if dtb_p_reg.start != 0 {
+    if !dtb_p_reg.start.is_null() {
         if index >= NUM_RESERVED_REGIONS {
             debug!("ERROR: no slot to add DTB to reserved regions\n");
             return false;
         }
         unsafe {
-            res_reg[index] = paddr_to_pptr_reg(&dtb_p_reg);
+            res_reg[index] = dtb_p_reg.to_region();
             index += 1;
         }
     }
@@ -88,22 +85,19 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
     // here use the MODE_RESERVED:ARRAY_SIZE(mode_reserved_region) to judge
     // but in aarch64, the array size is always 0
     // so eliminate some code
-    if ui_p_reg.start < PADDR_TOP {
+    if ui_p_reg.start.raw() < PADDR_TOP {
         if index >= NUM_RESERVED_REGIONS {
             debug!("ERROR: no slot to add the user image to the reserved regions");
             return false;
         }
         unsafe {
             // FIXED: here should be ui_p_reg, but before is dtb_p_reg.
-            res_reg[index] = paddr_to_pptr_reg(&ui_p_reg);
+            res_reg[index] = ui_p_reg.to_region();
             index += 1;
         }
     } else {
         unsafe {
-            reserve_region(p_region_t {
-                start: ui_p_reg.start,
-                end: ui_p_reg.end,
-            });
+            reserve_region(ui_p_reg);
         }
     }
 
@@ -111,21 +105,17 @@ pub fn init_freemem(ui_p_reg: p_region_t, dtb_p_reg: p_region_t) -> bool {
 }
 
 pub fn clean_invalidate_l1_caches() {
-    unsafe {
-        asm!("dsb sy;"); // DSB SY
-        clean_invalidate_d_pos();
-        asm!("dsb sy;"); // DSB SY
-        invalidate_i_pou();
-        asm!("dsb sy;"); // DSB SY
-    }
+    dsb(barrier::SY);
+    clean_invalidate_d_pos();
+    dsb(barrier::SY);
+    invalidate_i_pou();
+    dsb(barrier::SY);
 }
 pub fn invalidate_local_tlb() {
-    unsafe {
-        asm!("dsb sy;"); // DSB SY
-        asm!("tlbi vmalle1;");
-        asm!("dsb sy;"); // DSB SY
-        asm!("isb;"); // ISB SY
-    }
+    dsb(barrier::SY);
+    unsafe { asm!("tlbi vmalle1") };
+    dsb(barrier::SY);
+    isb(barrier::SY);
 }
 
 fn clean_invalidate_d_pos() {
@@ -160,10 +150,8 @@ fn clean_invalidate_d_by_level(level: usize) {
 }
 
 fn invalidate_i_pou() {
-    unsafe {
-        asm!("ic iallu;");
-        asm!("isb;");
-    }
+    unsafe { asm!("ic iallu") };
+    isb(barrier::SY);
 }
 fn read_clid() -> usize {
     let mut clid: usize;
@@ -204,11 +192,11 @@ fn armv_init_user_access() {
     let mut val: usize = 0;
     #[cfg(feature = "enable_arm_pcnt")]
     {
-        val |= sel4_common::BIT!(0);
+        val |= bit!(0);
     }
     #[cfg(feature = "enable_arm_ptmr")]
     {
-        val |= sel4_common::BIT!(9);
+        val |= bit!(9);
     }
     CNTKCTL_EL1.set(val as u64);
 }

@@ -1,20 +1,24 @@
 #![no_std]
 #![crate_type = "staticlib"]
 #![feature(core_intrinsics)]
-#![feature(const_option)]
-#![feature(const_nonnull_new)]
 #![no_main]
 #![allow(internal_features)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 #![feature(alloc_error_handler)]
-#![feature(asm_const)]
-#![feature(panic_info_message)]
+#![feature(const_nonnull_new)]
 #![feature(linkage)]
 #![feature(stmt_expr_attributes)]
 
 extern crate core;
+
+#[macro_use]
+extern crate rel4_utils;
+
+#[macro_use]
+extern crate rel4_arch;
+
 use sel4_common::arch::shutdown;
 // mod console;
 mod arch;
@@ -32,8 +36,6 @@ mod interfaces_impl;
 
 #[cfg(feature = "enable_smp")]
 mod smp;
-
-pub use sel4_common::{BIT, IS_ALIGNED, MASK, ROUND_DOWN, ROUND_UP};
 
 #[no_mangle]
 pub extern "C" fn halt() {

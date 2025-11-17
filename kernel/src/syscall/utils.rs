@@ -1,10 +1,7 @@
 use core::intrinsics::unlikely;
 
 use crate::kernel::boot::current_extra_caps;
-use crate::{
-    kernel::boot::{current_lookup_fault, current_syscall_error},
-    BIT, IS_ALIGNED, MASK,
-};
+use crate::kernel::boot::{current_lookup_fault, current_syscall_error};
 use log::debug;
 use sel4_common::arch::{maskVMRights, ArchReg, MSG_REGISTER_NUM};
 use sel4_common::ffi::current_fault;
@@ -31,7 +28,7 @@ use sel4_ipc::notification_func;
 use sel4_task::{get_currenct_thread, lookupSlot_ret_t, tcb_t};
 
 pub fn alignUp(baseValue: usize, alignment: usize) -> usize {
-    (baseValue + BIT!(alignment) - 1) & !MASK!(alignment)
+    (baseValue + bit!(alignment) - 1) & !mask_bits!(alignment)
 }
 
 pub fn FREE_INDEX_TO_OFFSET(freeIndex: usize) -> usize {
@@ -80,7 +77,7 @@ pub fn lookup_extra_caps_with_buf(thread: &mut tcb_t, buf: Option<&seL4_IPCBuffe
 }
 
 // TODO: Remove this option because it not need to check whether is None or Some
-#[inline]
+#[export_name = "getSyscallArg"]
 pub fn get_syscall_arg(i: usize, ipc_buffer: &seL4_IPCBuffer) -> usize {
     match i < MSG_REGISTER_NUM {
         true => get_currenct_thread().tcbArch.get_register(ArchReg::Msg(i)),
@@ -119,7 +116,7 @@ pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap) -> exception_t {
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    if !IS_ALIGNED!(vptr, SEL4_IPC_BUFFER_SIZE_BITS) {
+    if !is_aligned!(vptr, SEL4_IPC_BUFFER_SIZE_BITS) {
         debug!("Requested IPC Buffer location 0x%x is not aligned.");
         unsafe {
             current_syscall_error._type = SEL4_ALIGNMENT_ERROR;
@@ -132,7 +129,7 @@ pub fn check_ipc_buffer_vaild(vptr: usize, capability: &cap) -> exception_t {
 #[inline]
 pub fn do_bind_notification(tcb: &mut tcb_t, nftn: &mut notification) {
     nftn.bind_tcb(tcb);
-    tcb.bind_notification(nftn.get_ptr());
+    tcb.bind_notification(pptr!(nftn.get_ptr()));
 }
 
 #[inline]

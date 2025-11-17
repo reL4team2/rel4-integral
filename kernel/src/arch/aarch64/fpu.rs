@@ -5,11 +5,10 @@ use core::{
     intrinsics::{likely, unlikely},
 };
 
-use sel4_common::arch::arch_tcb::FPUState;
+use sel4_common::{
+    arch::arch_tcb::FPUState, sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH, utils::cpu_id,
+};
 use sel4_task::{get_currenct_thread, tcb_t, NODE_STATE, SET_NODE_STATE};
-
-use sel4_common::sel4_config::CONFIG_FPU_MAX_RESTORES_SINCE_SWITCH;
-use sel4_common::utils::cpu_id;
 
 #[cfg(feature = "enable_smp")]
 use crate::smp::ipi::remote_switch_fpu_owner;
@@ -27,6 +26,21 @@ extern "C" {
 pub(crate) unsafe fn enable_fpu() -> usize {
     // TODO: don't support EL2
     let mut cpacr: usize = 0;
+    #[cfg(feature = "hypervisor")]
+    asm!(
+        "mrs {0}, cptr_el2",
+        "bic x8, x8, #(1 << 10)",
+        "bic x8, x8, #(1 << 31)",
+        "msr cptr_el2, {0}",
+        "isb",
+        inout(reg) cpacr
+    );
+    // {
+    //     asm!("mrs {0}, cptr_el2", out(reg) cpacr);
+    //     cpacr &= !((1 << 10) | (1 << 31));
+    //     asm!("msr cptr_el2, {0};isb", in(reg) cpacr);
+    // }
+    #[cfg(not(feature = "hypervisor"))]
     asm!(
         "mrs {0}, cpacr_el1",
         "orr {0}, {0}, #(0x3 << 20)",
@@ -41,6 +55,17 @@ pub(crate) unsafe fn enable_fpu() -> usize {
 
 #[inline]
 pub(crate) unsafe fn disable_fpu() {
+    #[cfg(feature = "hypervisor")]
+    {
+        asm!(
+            "mrs x8, cptr_el2",
+            "orr x8, x8, #(1 << 10)",
+            "orr x8, x8, #(1 << 31)",
+            "msr cptr_el2, x8",
+            "isb",
+        );
+    }
+    #[cfg(not(feature = "hypervisor"))]
     asm!(
         "mrs x8, cpacr_el1",
         "bic x8, x8, #(0x3 << 20)",

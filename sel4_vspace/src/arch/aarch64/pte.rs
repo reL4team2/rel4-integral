@@ -1,15 +1,13 @@
 use crate::{arch::aarch64::machine::clean_by_va_pou, vm_attributes_t, PTE};
 
-use super::utils::paddr_to_pptr;
 use super::{mair_types, UPT_LEVELS, VSPACE_INDEX_BITS};
-use crate::{lookupPTSlot_ret_t, vptr_t};
+use crate::lookupPTSlot_ret_t;
+use rel4_arch::basic::{PAddr, VPtr};
 use sel4_common::utils::ptr_to_mut;
-use sel4_common::MASK;
 use sel4_common::{
     arch::vm_rights_t,
     sel4_config::{PT_INDEX_BITS, SEL4_PAGE_BITS, SEL4_PAGE_TABLE_BITS},
-    utils::{convert_ref_type_to_usize, convert_to_mut_type_ref},
-    BIT,
+    utils::convert_ref_type_to_usize,
 };
 
 #[allow(unused)]
@@ -45,70 +43,72 @@ bitflags::bitflags! {
     pub struct PTEFlags: usize {
         // Attribute fields in stage 1 VMSAv8-64 Block and Page descriptors:
         /// Whether the descriptor is valid.
-        const VALID =       BIT!(0);
+        const VALID =       bit!(0);
         /// The descriptor gives the address of the next level of translation table or 4KB page.
         /// (not a 2M, 1G block)
-        const NON_BLOCK =   BIT!(1);
+        const NON_BLOCK =   bit!(1);
         /// Memory attributes index field.
         const ATTR_INDX =   0b111 << 2;
         const NORMAL_NONCACHE = 0b010 << 2;
         const NORMAL =      0b100 << 2;
         /// Non-secure bit. For memory accesses from Secure state, specifies whether the output
         /// address is in Secure or Non-secure memory.
-        const NS =          BIT!(5);
+        const NS =          bit!(5);
         /// Access permission: accessable at EL0.
-        const AP_EL0 =      BIT!(6);
+        const AP_EL0 =      bit!(6);
         /// Access permission: read-only.
-        const AP_RO =       BIT!(7);
+        const AP_RO =       bit!(7);
         /// Shareability: Inner Shareable (otherwise Outer Shareable).
-        const INNER =       BIT!(8);
+        const INNER =       bit!(8);
         /// Shareability: Inner or Outer Shareable (otherwise Non-shareable).
-        const SHAREABLE =   BIT!(9);
+        const SHAREABLE =   bit!(9);
         /// The Access flag.
-        const AF =          BIT!(10);
+        const AF =          bit!(10);
         /// The not global bit.
-        const NG =          BIT!(11);
+        const NG =          bit!(11);
         /// Indicates that 16 adjacent translation table entries point to contiguous memory regions.
-        const CONTIGUOUS =  BIT!(52);
+        const CONTIGUOUS =  bit!(52);
         /// The Privileged execute-never field.
-        const PXN =         BIT!(53);
+        const PXN =         bit!(53);
         /// The Execute-never or Unprivileged execute-never field.
-        const UXN =         BIT!(54);
+        const UXN =         bit!(54);
 
         // Next-level attributes in stage 1 VMSAv8-64 Table descriptors:
 
         /// PXN limit for subsequent levels of lookup.
-        const PXN_TABLE =           BIT!(59);
+        const PXN_TABLE =           bit!(59);
         /// XN limit for subsequent levels of lookup.
-        const XN_TABLE =            BIT!(60);
+        const XN_TABLE =            bit!(60);
         /// Access permissions limit for subsequent levels of lookup: access at EL0 not permitted.
-        const AP_NO_EL0_TABLE =     BIT!(61);
+        const AP_NO_EL0_TABLE =     bit!(61);
         /// Access permissions limit for subsequent levels of lookup: write access not permitted.
-        const AP_NO_WRITE_TABLE =   BIT!(62);
+        const AP_NO_WRITE_TABLE =   bit!(62);
         /// For memory accesses from Secure state, specifies the Security state for subsequent
         /// levels of lookup.
-        const NS_TABLE =            BIT!(63);
+        const NS_TABLE =            bit!(63);
 
     }
 }
 
 impl PTE {
-    pub fn new(addr: usize, flags: PTEFlags) -> Self {
-        Self((addr & 0xfffffffff000) | flags.bits())
+    pub fn new(addr: PAddr, flags: PTEFlags) -> Self {
+        Self((addr.raw() & 0xfffffffff000) | flags.bits())
     }
-    pub fn pte_next_table(addr: usize, _: bool) -> Self {
+    pub fn pte_next_table(addr: PAddr, _: bool) -> Self {
         Self::new(addr, PTEFlags::VALID | PTEFlags::NON_BLOCK)
     }
     // fn new_4k_page(addr: usize, flags: PTEFlags) -> Self {
     //     Self((addr & 0xfffffffff000) | flags.bits() | 0x400000000000003)
     // }
 
-    pub fn get_page_base_address(&self) -> usize {
-        self.0 & 0xfffffffff000
+    pub fn get_page_base_address(&self) -> PAddr {
+        paddr!(self.0 & 0xfffffffff000)
     }
 
     pub fn get_pte_from_ppn_mut(&self) -> &mut PTE {
-        convert_to_mut_type_ref::<PTE>(paddr_to_pptr(self.get_ppn() << SEL4_PAGE_TABLE_BITS))
+        paddr!(self.get_ppn() << SEL4_PAGE_TABLE_BITS)
+            .to_pptr()
+            .get_mut_ref::<PTE>()
     }
 
     pub fn get_ppn(&self) -> usize {
@@ -136,7 +136,7 @@ impl PTE {
         *self = pte;
         clean_by_va_pou(
             convert_ref_type_to_usize(self),
-            convert_ref_type_to_usize(self),
+            paddr!(convert_ref_type_to_usize(self)),
         );
     }
 
@@ -149,7 +149,7 @@ impl PTE {
     }
 
     pub fn make_user_pte(
-        paddr: usize,
+        paddr: PAddr,
         rights: vm_rights_t,
         attr: vm_attributes_t,
         page_size: usize,
@@ -186,14 +186,14 @@ impl PTE {
         }
     }
 
-    pub fn pte_new_table(pt_base_address: usize) -> PTE {
-        let val = 0 | (pt_base_address & 0xfffffffff000) | (0x3);
+    pub fn pte_new_table(pt_base_address: PAddr) -> PTE {
+        let val = 0 | (pt_base_address.raw() & 0xfffffffff000) | (0x3);
         PTE(val)
     }
 
     pub fn pte_new_page(
         UXN: usize,
-        page_base_address: usize,
+        page_base_address: PAddr,
         nG: usize,
         AF: usize,
         SH: usize,
@@ -202,7 +202,7 @@ impl PTE {
     ) -> PTE {
         let val = 0
             | (UXN & 0x1) << 54
-            | (page_base_address & 0xfffffffff000) >> 0
+            | (page_base_address.raw() & 0xfffffffff000) >> 0
             | (nG & 0x1) << 11
             | (AF & 0x1) << 10
             | (SH & 0x3) << 8
@@ -215,7 +215,7 @@ impl PTE {
 
     pub fn pte_new_4k_page(
         UXN: usize,
-        page_base_address: usize,
+        page_base_address: PAddr,
         nG: usize,
         AF: usize,
         SH: usize,
@@ -224,7 +224,7 @@ impl PTE {
     ) -> PTE {
         let val = 0
             | (UXN & 0x1) << 54
-            | (page_base_address & 0xfffffffff000) >> 0
+            | (page_base_address.raw() & 0xfffffffff000) >> 0
             | (nG & 0x1) << 11
             | (AF & 0x1) << 10
             | (SH & 0x3) << 8
@@ -234,11 +234,11 @@ impl PTE {
         PTE(val)
     }
     ///用于记录某个虚拟地址`vptr`对应的pte表项在内存中的位置
-    pub fn lookup_pt_slot(&mut self, vptr: vptr_t) -> lookupPTSlot_ret_t {
+    pub fn lookup_pt_slot(&mut self, vptr: VPtr) -> lookupPTSlot_ret_t {
         let mut pt = self.0 as *mut PTE;
         let mut level: usize = UPT_LEVELS - 1;
         let ptBitsLeft = PT_INDEX_BITS * level + SEL4_PAGE_BITS;
-        pt = unsafe { pt.add((vptr >> ptBitsLeft) & MASK!(VSPACE_INDEX_BITS)) };
+        pt = unsafe { pt.add((vptr.raw() >> ptBitsLeft) & mask_bits!(VSPACE_INDEX_BITS)) };
         let mut ret: lookupPTSlot_ret_t = lookupPTSlot_ret_t {
             ptSlot: pt,
             ptBitsLeft: ptBitsLeft,
@@ -248,8 +248,8 @@ impl PTE {
             level = level - 1;
             ret.ptBitsLeft = ret.ptBitsLeft - PT_INDEX_BITS;
             let paddr = ptr_to_mut(ret.ptSlot).next_level_paddr();
-            pt = paddr_to_pptr(paddr) as *mut PTE;
-            pt = unsafe { pt.add((vptr >> ret.ptBitsLeft) & MASK!(PT_INDEX_BITS)) };
+            pt = paddr.to_pptr().get_mut_ptr::<PTE>();
+            pt = unsafe { pt.add((vptr.raw() >> ret.ptBitsLeft) & mask_bits!(PT_INDEX_BITS)) };
             ret.ptSlot = pt;
         }
         ret
