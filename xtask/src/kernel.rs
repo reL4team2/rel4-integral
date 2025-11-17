@@ -58,7 +58,7 @@ pub struct BuildOptions {
         long,
         short = 'N',
         help = "Number of nodes in the system, if > 1, enable smp",
-        default_value = "1"
+        default_value_t = 1
     )]
     pub num_nodes: usize,
     #[clap(default_value = "INFO", help = "set log level", long)]

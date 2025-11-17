@@ -25,15 +25,14 @@ jobs:
           - smp_option: ""
             smp_simulation: ""
             timeout_minutes: 3
-          # 只有在 smp + mcs + spike(riscv) 的情况下，需要特别指定运行时间
-          - smp_option: "-N 4"
-            platform: "spike"
-            mcs_option: "-m"
-            smc_option: ""
-            timeout_minutes: 50
         exclude:
           - platform: "spike"
             smc_option: "-s"
+          # 由于 rel4-integral issues/38 导致的问题，暂时取消这个 CI 测试
+          - platform: "spike"
+            smc_option: ""
+            mcs_option: "-m"
+            smp_option: "-N 4"
     container:
       image: ghcr.io/rel4team2/rel4_dev:no_mirror
       options: --user=root
