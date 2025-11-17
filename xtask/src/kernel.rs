@@ -37,13 +37,13 @@ pub struct BuildOptions {
         help = "Enable SMC support if set to true or on"
     )]
     pub smc: bool,
-    #[clap(long)]
+    #[clap(long, help = "Disable fastpath feature")]
     pub nofastpath: bool,
-    #[clap(long, default_value_t = false)]
+    #[clap(long, default_value_t = false, help = "Enable pcnt regs read/write in userspace")]
     pub arm_pcnt: bool,
-    #[clap(long, default_value_t = false)]
+    #[clap(long, default_value_t = false, help = "Enable ptmr regs read/write in userspace")]
     pub arm_ptmr: bool,
-    #[clap(long, default_value_t = false)]
+    #[clap(long, default_value_t = false, help = "Enable hypervisor feature(TODO)")]
     pub arm_hypervisor: bool,
     #[clap(long, help = "Only build the reL4 rust kernel")]
     pub rust_only: bool,
