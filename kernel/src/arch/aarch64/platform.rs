@@ -190,7 +190,7 @@ fn read_cache_size(level: usize) -> usize {
 #[allow(unused_mut)]
 fn armv_init_user_access() {
     let mut val: usize = 0;
-    val = sel4_common::BIT!(0);
+    val = bit!(0);
 
     #[cfg(feature = "enable_benchmark")]
     {
