@@ -24,7 +24,7 @@ jobs:
             timeout_minutes: 15
           - smp_option: ""
             smp_simulation: ""
-            timeout_minutes: 3
+            timeout_minutes: 4
         exclude:
           - platform: "spike"
             smc_option: "-s"
@@ -36,63 +36,57 @@ jobs:
     container:
       image: ghcr.io/rel4team2/rel4_dev:no_mirror
       options: --user=root
-    defaults:
-      run:
-        working-directory: ./sel4-test
     steps:
-      - run: mkdir sel4-test
-        working-directory: .
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/checkout@v5
         with:
-          toolchain: nightly-2024-11-18
-          components: rust-src rustfmt
-          rustflags:
-          target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
-      - name: Clone Menifest && Sync repositories
-        run: | 
-          repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
-          sed -i "19c\ \t<project name=\"rel4-integral.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"master\" dest-branch=\"master\"/>"  .repo/manifests/default.xml
-          repo sync
-      - run: cd kernel && git checkout master
+          path: 'rel4_kernel'
+      - uses: ./rel4_kernel/.github/actions/env-setup
       - name: Build
-        run: cd rel4_kernel && cargo xtask build -p ${{ matrix.platform }} ${{ matrix.smc_option }} ${{ matrix.mcs_option }} ${{ matrix.smp_option}} --bin
-      - name: simulate
-        run: cd rel4_kernel/target/sel4-test && ./simulate ${{ matrix.smp_simulation }} > 1.log
+        run: cd sel4-test/rel4_kernel && cargo xtask run -p ${{ matrix.platform }} ${{ matrix.smc_option }} ${{ matrix.mcs_option }} ${{ matrix.smp_option}} --bin | tee 1.log
         timeout-minutes: ${{ matrix.timeout_minutes }}
         continue-on-error: true
-      - run: cat rel4_kernel/target/sel4-test/1.log
-      - name: Check Result
-        run: rel4_kernel/.github/workflows/parse.py rel4_kernel/target/sel4-test/1.log
+      - name: Parse Result
+        run: sel4-test/rel4_kernel/.github/workflows/parse.py sel4-test/rel4_kernel/1.log
+
+  rel4-bench:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rel4team2/rel4_dev:no_mirror
+      options: --user=root
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: 'rel4_kernel'
+      - uses: ./rel4_kernel/.github/actions/env-setup
+      - name: Build
+        working-directory: sel4-test/rel4_kernel
+        run: cargo xtask build -p qemu-arm-virt --arm-ptmr --arm-pcnt --benchmark
+      - name: run
+        timeout-minutes: 1
+        continue-on-error: true
+        working-directory: sel4-test/rel4_kernel/target/sel4-bench
+        run: qemu-system-aarch64 -machine virt -cpu cortex-a53 -nographic -smp 1 -m 1024 -kernel images/sel4benchapp-image-arm-qemu-arm-virt | tee 1.log
+      - name: Parse Result
+        run: sel4-test/rel4_kernel/.github/workflows/parse.py sel4-test/rel4_kernel/target/sel4-bench/1.log
+
   rel4-build-artifact:
     runs-on: ubuntu-latest
     container:
-      image: croakexciting/rel4_dev:0.0.8
+      image: ghcr.io/rel4team2/rel4_dev:no_mirror
       options: --user=root
-    defaults:
-      run:
-        working-directory: ./sel4-test
     steps:
-      - run: mkdir sel4-test
-        working-directory: .
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/checkout@v5
         with:
-          toolchain: nightly-2024-11-18
-          components: rust-src rustfmt
-          rustflags:
-          target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
-      - name: Clone Menifest && Sync repositories
-        run: | 
-          repo init -u https://github.com/reL4team2/sel4test-manifest.git -b ci-test 
-          sed -i "19c\ \t<project name=\"rel4-integral.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" remote=\"seL4_kernel\" upstream=\"master\" dest-branch=\"master\"/>"  .repo/manifests/default.xml
-          repo sync
-      - run: cd kernel && git checkout master
+          path: 'rel4_kernel'
+      - uses: ./rel4_kernel/.github/actions/env-setup
       - name: Build
-        run: cd rel4_kernel && cargo xtask install --platform qemu-arm-virt -s --arm-pcnt --arm-ptmr
+        run: cd sel4-test/rel4_kernel && cargo xtask install --platform qemu-arm-virt -s --arm-pcnt --arm-ptmr
       - name: upload-artifact
         uses: actions/upload-artifact@v4
         with:
           name: rel4
-          path: rel4_kernel/target/kernel-install
+          path: sel4-test/rel4_kernel/target/kernel-install
+
   rel4-test-linux:
     needs: rel4-build-artifact
     uses: rel4team2/rel4-linux-kit/.github/workflows/test.yml@main

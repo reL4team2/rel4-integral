@@ -45,11 +45,23 @@ pub struct BuildOptions {
     pub smc: bool,
     #[clap(long, help = "Disable fastpath feature")]
     pub nofastpath: bool,
-    #[clap(long, default_value_t = false, help = "Enable pcnt regs read/write in userspace")]
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "Enable pcnt regs read/write in userspace"
+    )]
     pub arm_pcnt: bool,
-    #[clap(long, default_value_t = false, help = "Enable ptmr regs read/write in userspace")]
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "Enable ptmr regs read/write in userspace"
+    )]
     pub arm_ptmr: bool,
-    #[clap(long, default_value_t = false, help = "Enable hypervisor feature(TODO)")]
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "Enable hypervisor feature(TODO)"
+    )]
     pub arm_hypervisor: bool,
     #[clap(long, help = "Only build the reL4 rust kernel")]
     pub rust_only: bool,
@@ -96,7 +108,7 @@ pub fn parse_cmake_defines(opts: &BuildOptions) -> Result<Vec<String>, anyhow::E
         define.push("-DKernelArmHypervisorSupport=ON".to_string());
     }
     if opts.num_nodes > 1 {
-        define.push(format!("-DSMP=TRUE"));
+        define.push(String::from("-DSMP=TRUE"));
         define.push(format!("-DNUM_NODES={}", opts.num_nodes));
     }
     match opts.platform.as_str() {
@@ -246,9 +258,10 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
     let kernel = PathBuf::from(&current_dir).join("../kernel");
     cargo("build", kernel.to_str().unwrap(), opts)?;
 
+
     if !opts.rust_only {
         let defines = parse_cmake_defines(opts)?;
-        crate::cmake::sel4test_build(&opts.platform, &defines)?;
+        crate::cmake::sel4test_build(&opts.platform, &defines, super::cmake::get_build_dir(opts.benchmark))?;
     }
     println!("Building complete, enjoy rel4!");
     Ok(())
