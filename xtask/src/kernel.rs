@@ -1,6 +1,11 @@
 use clap::Parser;
 use rel4_config::utils::vec_rustflags;
-use std::{path::PathBuf, process::Command};
+use std::os::unix::fs::symlink;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 /// Options for building the kernel.
 ///
@@ -14,6 +19,7 @@ use std::{path::PathBuf, process::Command};
 /// * `arm_ptmr` - Enables ARM physical timer support.
 /// * `rust_only` - Builds the kernel using only Rust code, excluding any external dependencies.
 /// * `bin` - Generates a binary output for the kernel. Can be specified with `-B` or `--bin`.
+/// * `benchmark` -Enable Benchmark.
 #[derive(Debug, Parser, Clone)]
 pub struct BuildOptions {
     #[clap(
@@ -39,11 +45,23 @@ pub struct BuildOptions {
     pub smc: bool,
     #[clap(long, help = "Disable fastpath feature")]
     pub nofastpath: bool,
-    #[clap(long, default_value_t = false, help = "Enable pcnt regs read/write in userspace")]
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "Enable pcnt regs read/write in userspace"
+    )]
     pub arm_pcnt: bool,
-    #[clap(long, default_value_t = false, help = "Enable ptmr regs read/write in userspace")]
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "Enable ptmr regs read/write in userspace"
+    )]
     pub arm_ptmr: bool,
-    #[clap(long, default_value_t = false, help = "Enable hypervisor feature(TODO)")]
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "Enable hypervisor feature(TODO)"
+    )]
     pub arm_hypervisor: bool,
     #[clap(long, help = "Only build the reL4 rust kernel")]
     pub rust_only: bool,
@@ -63,6 +81,8 @@ pub struct BuildOptions {
     pub num_nodes: usize,
     #[clap(default_value = "INFO", help = "set log level", long)]
     pub log: String,
+    #[clap(long)]
+    pub benchmark: bool,
 }
 
 /// Parse CMAKE DEFINES from build options
@@ -88,7 +108,7 @@ pub fn parse_cmake_defines(opts: &BuildOptions) -> Result<Vec<String>, anyhow::E
         define.push("-DKernelArmHypervisorSupport=ON".to_string());
     }
     if opts.num_nodes > 1 {
-        define.push(format!("-DSMP=TRUE"));
+        define.push(String::from("-DSMP=TRUE"));
         define.push(format!("-DNUM_NODES={}", opts.num_nodes));
     }
     match opts.platform.as_str() {
@@ -106,6 +126,8 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat",
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
+    let current_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+    let easy_setting_cmake_file = PathBuf::from(&current_dir).join("../../easy-settings.cmake");
 
     let mut args = vec![command.to_string(), target.to_string(), "--release".into()];
 
@@ -157,6 +179,46 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         marcos.push("AARCH64_VSPACE_S2_START_L1=true".to_string());
     }
 
+    if Path::new(&easy_setting_cmake_file).exists() {
+        fs::remove_file(easy_setting_cmake_file.clone())?;
+        println!("Removed existing easy-settings.cmake");
+    }
+
+    if Path::new(&easy_setting_cmake_file).exists() {
+        return Err(anyhow::anyhow!("unknown file exist"));
+    }
+
+    if opts.benchmark {
+        append_features(&mut args, "enable_benchmark".to_string());
+        // TODO: I'm not sure whether should I add the feature of C code.
+        // marcos.push("EXPORT_PTMR_USER=true".to_string());
+
+        let target =
+            PathBuf::from(&current_dir).join("../../projects/sel4bench/easy-settings.cmake");
+        if Path::new(&target).exists() {
+            symlink(target, easy_setting_cmake_file)?;
+            println!("Created symlink to sel4bench easy-settings.cmake");
+        } else {
+            return Err(anyhow::anyhow!("Target file does not exist"));
+        }
+
+        let nanopb_dst_dir_path = PathBuf::from(&current_dir).join("../../nanopb");
+        let nanopb_src_dir_path = PathBuf::from(&current_dir).join("../../tools/nanopb");
+        if !Path::new(&nanopb_dst_dir_path).exists() {
+            symlink(nanopb_src_dir_path, nanopb_dst_dir_path)?;
+            println!("Created symlink to nanopb");
+        }
+    } else {
+        let target =
+            PathBuf::from(&current_dir).join("../../projects/sel4test/easy-settings.cmake");
+        if Path::new(&target).exists() {
+            symlink(target, easy_setting_cmake_file)?;
+            println!("Created symlink to sel4test easy-settings.cmake");
+        } else {
+            return Err(anyhow::anyhow!("Target file does not exist"));
+        }
+    }
+
     if opts.num_nodes > 1 {
         append_features(&mut args, "enable_smp".to_string());
         marcos.push(format!("MAX_NUM_NODES={}", opts.num_nodes));
@@ -196,9 +258,10 @@ pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
     let kernel = PathBuf::from(&current_dir).join("../kernel");
     cargo("build", kernel.to_str().unwrap(), opts)?;
 
+
     if !opts.rust_only {
         let defines = parse_cmake_defines(opts)?;
-        crate::cmake::sel4test_build(&opts.platform, &defines)?;
+        crate::cmake::sel4test_build(&opts.platform, &defines, super::cmake::get_build_dir(opts.benchmark))?;
     }
     println!("Building complete, enjoy rel4!");
     Ok(())

@@ -1,0 +1,24 @@
+name: Initialize Environment
+
+runs:
+  using: "composite"
+  steps:
+    - run: mkdir sel4-test
+      shell: bash
+      working-directory: .
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: nightly-2024-11-18
+        components: rust-src rustfmt
+        rustflags:
+        target: riscv64gc-unknown-none-elf aarch64-unknown-none-softfloat
+    - name: Clone Menifest && Sync repositories
+      shell: bash
+      working-directory: sel4-test
+      run: |
+        repo init -u https://github.com/reL4team2/rel4-dev-repo.git -b main
+        sed -i "17c\ \t<project name=\"rel4-integral.git\" path=\"rel4_kernel\" revision=\"${{ github.sha }}\" />"  .repo/manifests/default.xml
+        repo sync
+        
+        cd kernel
+        git checkout master
