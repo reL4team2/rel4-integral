@@ -173,7 +173,10 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
     )) {
         slowpath(SYS_CALL as usize);
     }
+    #[cfg(target_arch = "riscv64")]
     let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(TCB_VTABLE).capability);
+    #[cfg(target_arch = "aarch64")]
+    let new_vtable = cap::cap_vspace_cap(&dest.get_cspace(TCB_VTABLE).capability);
 
     let dom = 0;
     if unlikely(dest.tcbPriority < current.tcbPriority && !is_highest_prio(dom, dest.tcbPriority)) {
@@ -257,13 +260,26 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
 
     fastpath_copy_mrs(length, current, dest);
     dest.tcbState.0.arr[0] = ThreadState::ThreadStateRunning as u64;
-    let cap_pd = new_vtable.get_capPTBasePtr() as *mut PTE;
-    let stored_hw_asid: PTE = PTE(new_vtable.get_capPTMappedASID() as usize);
-    switch_to_thread_fp(dest as *mut tcb_t, cap_pd, stored_hw_asid);
-    info.set_capsUnwrapped(0);
-    let msgInfo1 = info.to_word();
-    let badge = ep_cap.get_capEPBadge() as usize;
-    fastpath_restore(badge, msgInfo1, get_currenct_thread());
+    #[cfg(target_arch = "riscv64")]
+    {
+        let cap_pd = new_vtable.get_capPTBasePtr() as *mut PTE;
+        let stored_hw_asid: PTE = PTE(new_vtable.get_capPTMappedASID() as usize);
+        switch_to_thread_fp(dest as *mut tcb_t, cap_pd, stored_hw_asid);
+        info.set_capsUnwrapped(0);
+        let msgInfo1 = info.to_word();
+        let badge = ep_cap.get_capEPBadge() as usize;
+        fastpath_restore(badge, msgInfo1, get_currenct_thread());
+    }
+    #[cfg(target_arch = "aarch64")]
+    {
+        let cap_pd = new_vtable.get_capVSBasePtr() as *mut PTE;
+        let stored_hw_asid: PTE = PTE(new_vtable.get_capVSMappedASID() as usize);
+        switch_to_thread_fp(dest as *mut tcb_t, cap_pd, stored_hw_asid);
+        info.set_capsUnwrapped(0);
+        let msgInfo1 = info.to_word();
+        let badge = ep_cap.get_capEPBadge() as usize;
+        fastpath_restore(badge, msgInfo1, get_currenct_thread());
+    }
 }
 
 #[inline]
@@ -283,7 +299,7 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
 
     if unlikely(
         lookup_fp_ret.clone().get_tag() != cap_tag::cap_endpoint_cap
-            || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanSend() == 0,
+            || cap::cap_endpoint_cap(lookup_fp_ret).get_capCanReceive() == 0,
     ) {
         slowpath(SYS_REPLY_RECV as usize);
     }
@@ -323,7 +339,10 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     )) {
         slowpath(SYS_REPLY_RECV as usize);
     }
+    #[cfg(target_arch = "riscv64")]
     let new_vtable = &cap::cap_page_table_cap(&caller.get_cspace(TCB_VTABLE).capability);
+    #[cfg(target_arch = "aarch64")]
+    let new_vtable = &cap::cap_vspace_cap(&caller.get_cspace(TCB_VTABLE).capability);
 
     let dom = 0;
     if unlikely(!is_highest_prio(dom, caller.tcbPriority)) {
@@ -355,7 +374,6 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
         EPState_Recv,
     );
 
-    // unsafe {
     let node = convert_to_mut_type_ref::<cte_t>(caller_slot.cteMDBNode.get_mdbPrev() as usize);
     mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(&mut node.cteMDBNode, 0, 1, 1);
     caller_slot.capability = cap_null_cap::new().unsplay();
@@ -363,13 +381,24 @@ pub fn fastpath_reply_recv(cptr: usize, msgInfo: usize) {
     fastpath_copy_mrs(length, current, caller);
 
     caller.tcbState.0.arr[0] = ThreadState::ThreadStateRunning as u64;
-    let cap_pd = new_vtable.get_capPTBasePtr() as *mut PTE;
-    let stored_hw_asid: PTE = PTE(new_vtable.get_capPTMappedASID() as usize);
-    switch_to_thread_fp(caller, cap_pd, stored_hw_asid);
-    info.set_capsUnwrapped(0);
-    let msg_info1 = info.to_word();
-    fastpath_restore(0, msg_info1, get_currenct_thread() as *mut tcb_t);
-    // }
+    #[cfg(target_arch = "riscv64")]
+    {
+        let cap_pd = new_vtable.get_capPTBasePtr() as *mut PTE;
+        let stored_hw_asid: PTE = PTE(new_vtable.get_capPTMappedASID() as usize);
+        switch_to_thread_fp(caller, cap_pd, stored_hw_asid);
+        info.set_capsUnwrapped(0);
+        let msg_info1 = info.to_word();
+        fastpath_restore(0, msg_info1, get_currenct_thread() as *mut tcb_t);
+    }
+    #[cfg(target_arch = "aarch64")]
+    {
+        let cap_pd = new_vtable.get_capVSBasePtr() as *mut PTE;
+        let stored_hw_asid: PTE = PTE(new_vtable.get_capVSMappedASID() as usize);
+        switch_to_thread_fp(caller, cap_pd, stored_hw_asid);
+        info.set_capsUnwrapped(0);
+        let msg_info1 = info.to_word();
+        fastpath_restore(0, msg_info1, get_currenct_thread() as *mut tcb_t);
+    }
 }
 
 #[inline]
