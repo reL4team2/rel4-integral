@@ -110,10 +110,19 @@ pub fn mdb_node_ptr_mset_mdbNext_mdbRevocable_mdbFirstBadged(
 
 #[inline]
 #[no_mangle]
+#[cfg(target_arch = "riscv64")]
 pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
     // cap_capType_equals(cap, cap_page_table_cap) && cap.get_pt_is_mapped() != 0
     capability.get_tag() == cap_tag::cap_page_table_cap
         && cap::cap_page_table_cap(capability).get_capPTIsMapped() != 0
+}
+#[inline]
+#[no_mangle]
+#[cfg(target_arch = "aarch64")]
+pub fn isValidVTableRoot_fp(capability: &cap) -> bool {
+    // cap_capType_equals(cap, cap_page_table_cap) && cap.get_pt_is_mapped() != 0
+    capability.get_tag() == cap_tag::cap_vspace_cap
+        && cap::cap_vspace_cap(capability).get_capVSIsMapped() != 0
 }
 
 #[inline]
