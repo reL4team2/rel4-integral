@@ -94,6 +94,7 @@ pub fn decode_tcb_invocation(
     call: bool,
     buffer: &seL4_IPCBuffer,
 ) -> exception_t {
+    // sel4_common::println!("decode tcb invocation {}", invLabel as usize);
     #[cfg(feature = "enable_smp")]
     crate::smp::ipi::remote_tcb_stall(convert_to_mut_type_ref::<tcb_t>(
         capability.get_capTCBPtr() as usize

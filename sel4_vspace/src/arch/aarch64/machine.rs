@@ -9,9 +9,11 @@ pub fn set_current_kernel_vspace_root(val: usize) {
 
 #[inline]
 pub fn set_current_user_vspace_root(val: usize) {
+    dsb();
     TTBR0_EL1.set(val as _);
+    isb();
     // FIXME: use aisd instead of flush tlb
-    unsafe { core::arch::asm!("tlbi vmalle1; dsb sy; isb") };
+    // unsafe { core::arch::asm!("tlbi vmalle1; dsb sy; isb") };
 }
 
 #[inline]

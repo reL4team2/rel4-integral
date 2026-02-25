@@ -168,15 +168,36 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
 
     let dest = convert_to_mut_type_ref::<tcb_t>(ep.get_epQueue_head() as usize);
 
-    if unlikely(!isValidVTableRoot_fp(
-        &dest.get_cspace(TCB_VTABLE).capability.clone(),
-    )) {
+    let tcb_vtable_cap = dest.get_cspace(TCB_VTABLE).capability.clone();
+    #[cfg(target_arch = "riscv64")]
+    let new_vtable = cap::cap_page_table_cap(&tcb_vtable_cap);
+    #[cfg(target_arch = "aarch64")]
+    let new_vtable = cap::cap_vspace_cap(&tcb_vtable_cap);
+
+    if unlikely(!isValidVTableRoot_fp(&tcb_vtable_cap)) {
         slowpath(SYS_CALL as usize);
     }
-    #[cfg(target_arch = "riscv64")]
-    let new_vtable = cap::cap_page_table_cap(&dest.get_cspace(TCB_VTABLE).capability);
+
     #[cfg(target_arch = "aarch64")]
-    let new_vtable = cap::cap_vspace_cap(&dest.get_cspace(TCB_VTABLE).capability);
+    {
+        let asid = new_vtable.get_capVSMappedASID();
+        use sel4_common::structures_gen::asid_map_Splayed;
+        match find_map_for_asid(asid as usize) {
+            Some(asidmap) => match asidmap.clone().splay() {
+                asid_map_Splayed::asid_map_none(_) => {
+                    slowpath(SYS_CALL as usize);
+                }
+                asid_map_Splayed::asid_map_vspace(data) => {
+                    if unlikely(data.get_vspace_root() != new_vtable.get_capVSBasePtr()) {
+                        slowpath(SYS_CALL as usize);
+                    }
+                }
+            },
+            None => {
+                slowpath(SYS_CALL as usize);
+            }
+        }
+    }
 
     let dom = 0;
     if unlikely(dest.tcbPriority < current.tcbPriority && !is_highest_prio(dom, dest.tcbPriority)) {
@@ -206,7 +227,7 @@ pub fn fastpath_call(cptr: usize, msgInfo: usize) {
 
     ep.set_epQueue_head(dest.tcbEPNext as u64);
     if unlikely(dest.tcbEPNext != 0) {
-        convert_to_mut_type_ref::<tcb_t>(dest.tcbEPNext).tcbEPNext = 0;
+        convert_to_mut_type_ref::<tcb_t>(dest.tcbEPNext).tcbEPPrev = 0;
     } else {
         ep.set_epQueue_tail(0);
         ep.set_state(EPState::Idle as u64);

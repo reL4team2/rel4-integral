@@ -141,7 +141,7 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
             return Ok(());
         }
     }
-    set_current_user_vspace_root(pptr_to_paddr(thread_root_vspace.get_capVSBasePtr() as usize));
+    set_current_user_vspace_root(ttbr_new(asid,pptr_to_paddr(thread_root_vspace.get_capVSBasePtr() as usize)));
     Ok(())
 }
 
@@ -400,7 +400,7 @@ pub fn unmap_page(
         pte.update(*(lu_ret.ptSlot));
     }
     assert!(asid < BIT!(16));
-    invalidate_tlb_by_asid(asid);
+    invalidate_tlb_by_asid_va(asid, vptr);
     Ok(())
 
     // match page_size {
