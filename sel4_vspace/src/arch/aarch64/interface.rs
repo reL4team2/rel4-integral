@@ -235,7 +235,7 @@ pub fn unmap_page(
         pte.update(*(lu_ret.ptSlot));
     }
     assert!(asid < bit!(16));
-    invalidate_tlb_by_asid(asid);
+    invalidate_tlb_by_asid_va(asid,vptr);
     Ok(())
 
     // match page_size {

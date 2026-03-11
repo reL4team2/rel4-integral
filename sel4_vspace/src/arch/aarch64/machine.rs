@@ -21,10 +21,10 @@ pub fn set_current_kernel_vspace_root(val: usize) {
 
 #[inline]
 pub fn set_current_user_vspace_root(val: usize) {
+    dsb();
     #[cfg(not(feature = "hypervisor"))]
     {
         registers::TTBR0_EL1.set(val as _);
-        unsafe { core::arch::asm!("tlbi vmalle1") };
     }
     #[cfg(feature = "hypervisor")]
     {
@@ -36,10 +36,10 @@ pub fn set_current_user_vspace_root(val: usize) {
             asm!("tlbi alle1");
         }
     }
-    dsb();
     isb();
     // log::warn!("virtual ttbr el2: {:#x}", val);
     // FIXME: use aisd instead of flush tlb
+    // FIXED
 }
 
 #[inline]

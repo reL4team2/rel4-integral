@@ -199,7 +199,7 @@ fn decode_page_clean_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let _vaddr = cap::cap_frame_cap(&cte.capability).get_capFMappedAddress();
+    let _vaddr = cap::cap_frame_cap(&cte.capability).get_capFMappedAddress() as usize;
     let asid = cap::cap_frame_cap(&cte.capability).get_capFMappedASID() as usize;
     let find_ret = find_vspace_for_asid(asid);
 
@@ -232,14 +232,14 @@ fn decode_page_clean_invocation(
     let pstart = (pptr!(cap::cap_frame_cap(&cte.capability).get_capFBasePtr()) + start).to_paddr();
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
 
-    if start < end {
+    if start < end - 1 {
         let root_switched = set_vm_root_for_flush(find_ret.vspace_root.unwrap() as _, asid);
         // log::warn!(
         //     "need to flush cache for decode_page_clean_invocation label: {:?}",
         //     label
         // );
 
-        do_flush(label, start, end, pstart);
+        do_flush(label, _vaddr + start, _vaddr + end - 1, pstart);
         if root_switched {
             get_currenct_thread()
                 .set_vm_root()
@@ -835,7 +835,7 @@ fn decode_vspace_root_invocation(
                 find_ret.vspace_root.unwrap() as usize,
                 asid,
                 vptr!(start),
-                vptr!(end),
+                vptr!(end - 1),
                 paddr!(pstart),
             );
         }
