@@ -141,7 +141,7 @@ pub fn set_vm_root_for_flush_with_thread_root(
     }
 
     // armv_context_switch(vspace, asid);
-    set_current_user_vspace_root(ttbr_new(asid, paddr!(vspace)));
+    set_current_user_vspace_root(ttbr_new(asid, paddr!(thread_root.get_capVSBasePtr() as usize)));
     true
 }
 
