@@ -199,7 +199,7 @@ fn decode_page_clean_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
-    let _vaddr = cap::cap_frame_cap(&cte.capability).get_capFMappedAddress();
+    let vaddr = cap::cap_frame_cap(&cte.capability).get_capFMappedAddress() as usize;
     let asid = cap::cap_frame_cap(&cte.capability).get_capFMappedASID() as usize;
     let find_ret = find_vspace_for_asid(asid);
 
@@ -239,7 +239,7 @@ fn decode_page_clean_invocation(
         //     label
         // );
 
-        do_flush(label, start, end, pstart);
+        do_flush(label, vaddr + start, vaddr + end - 1, pstart);
         if root_switched {
             get_currenct_thread()
                 .set_vm_root()
@@ -792,7 +792,7 @@ fn decode_vspace_root_invocation(
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
             let vspace_root = cap::cap_vspace_cap(&cte.capability).get_capVSBasePtr() as *mut PTE;
-            let asid = cap::cap_asid_pool_cap(&cte.capability).get_capASIDBase() as usize;
+            let asid = cap::cap_vspace_cap(&cte.capability).get_capVSMappedASID() as usize;
             let find_ret = find_vspace_for_asid(asid);
             if find_ret.status != exception_t::EXCEPTION_NONE {
                 debug!("VSpaceRoot Flush: No VSpace for ASID");
@@ -802,7 +802,9 @@ fn decode_vspace_root_invocation(
                     return exception_t::EXCEPTION_SYSCALL_ERROR;
                 }
             }
-            if find_ret.vspace_root.unwrap() as usize != ptr_to_ref(vspace_root).get_ptr() {
+            let cmp_a = find_ret.vspace_root.unwrap() as usize;
+            let cmp_b = vspace_root as usize;
+            if cmp_a != cmp_b {
                 debug!("VSpaceRoot Flush: Invalid VSpace Cap");
                 unsafe {
                     current_syscall_error._type = SEL4_INVALID_CAPABILITY;
@@ -810,32 +812,33 @@ fn decode_vspace_root_invocation(
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let resolve_ret = ptr_to_mut(vspace_root).lookup_pt_slot(vptr!(start));
+            let mut root_pte = PTE::new_from_pte(vspace_root as usize);
+            let resolve_ret = root_pte.lookup_pt_slot(vptr!(start));
             let pte = resolve_ret.ptSlot;
-            if ptr_to_ref(pte).get_type() != (pte_tag_t::pte_page) as usize {
+            if !ptr_to_ref(pte).pte_is_page_type() {
                 get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
                 return exception_t::EXCEPTION_NONE;
             }
-            let page_base_start = start & !mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
-            let page_base_end = (end - 1) & !mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let page_base_start = start & !mask_bits!(resolve_ret.ptBitsLeft);
+            let page_base_end = (end - 1) & !mask_bits!(resolve_ret.ptBitsLeft);
             if page_base_start != page_base_end {
                 unsafe {
                     current_syscall_error._type = SEL4_RANGE_ERROR;
                     current_syscall_error.rangeErrorMin = start;
                     current_syscall_error.rangeErrorMax =
-                        page_base_start + mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
+                        page_base_start + mask_bits!(resolve_ret.ptBitsLeft);
                 }
                 return exception_t::EXCEPTION_SYSCALL_ERROR;
             }
-            let pstart = ptr_to_ref(pte).get_page_base_address().raw() + start
-                & mask_bits!(pageBitsForSize(resolve_ret.ptBitsLeft));
+            let pstart = ptr_to_ref(pte).get_page_base_address().raw()
+                + (start & mask_bits!(resolve_ret.ptBitsLeft));
             get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
             return decode_vspace_flush_invocation(
                 label,
-                find_ret.vspace_root.unwrap() as usize,
+                vspace_root as usize,
                 asid,
                 vptr!(start),
-                vptr!(end),
+                vptr!(end - 1),
                 paddr!(pstart),
             );
         }
