@@ -574,6 +574,11 @@ fn alloc_rootserver_obj(size_bits: usize, n: usize) -> usize {
         assert!(allocated % bit!(size_bits) == 0);
         rootserver_mem.start += n * bit!(size_bits);
         assert!(rootserver_mem.start <= rootserver_mem.end);
+
+        for i in 0..n {
+            clear_memory((allocated + i * bit!(size_bits)) as *mut u8, size_bits);
+        }
+
         allocated
     }
 }
