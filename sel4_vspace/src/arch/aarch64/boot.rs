@@ -177,9 +177,9 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     // TIPS: exec true will be cast to 1 and false to 0.
     let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
     #[cfg(not(feature = "hypervisor"))]
-    let (ng, attr) = (1, 0);
+    let (ng, attr) = (1, mair_types::NORMAL as usize);
     #[cfg(feature = "hypervisor")]
-    let (ng, attr) = (1, 0);
+    let (ng, attr) = (1, mair_types::NORMAL as usize);
     pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, paddr!(0), ng, 1, shareable, 1, attr).0);
     pte.set_next_level_paddr(pptr!(frame_cap.get_capFBasePtr()).to_paddr());
 }
