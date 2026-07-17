@@ -10,6 +10,7 @@ members = [
     "serial-frame",
     "serial-impl/pl011",
     "serial-impl/sbi",
+    "serial-impl/mini_uart",
     "rel4-arch",
     "rel4-utils",
 ]

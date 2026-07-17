@@ -16,7 +16,7 @@ pub fn install(opts: &BuildOptions) -> Result<(), anyhow::Error> {
 
     let preload_cmake = match opts.platform.as_str() {
         "spike" => "kernel-settings-riscv64.cmake",
-        "qemu-arm-virt" => "kernel-settings-aarch64.cmake",
+        "qemu-arm-virt" | "bcm2711" => "kernel-settings-aarch64.cmake",
         _ => unreachable!(),
     };
 

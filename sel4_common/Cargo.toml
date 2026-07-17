@@ -13,6 +13,7 @@ rel4-utils = { workspace = true }
 # Serial Driver
 serial-frame = { git = "https://github.com/reL4team2/serial-frame.git", branch = "master" }
 serial-impl-pl011 = { git = "https://github.com/reL4team2/serial-impl-pl011.git", branch = "master" }
+serial-impl-mini-uart = { path = "../serial-impl/mini_uart" }
 serial-impl-sbi = { git = "https://github.com/reL4team2/serial-impl-sbi.git", branch = "master" }
 
 [build-dependencies]
@@ -34,3 +35,4 @@ have_fpu = ["rel4-arch/fpu"]
 hypervisor = ["rel4-arch/hypervisor"]
 riscv_ext_d = []
 riscv_ext_f = []
+platform_bcm2711 = []

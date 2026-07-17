@@ -801,6 +801,7 @@ dependencies = [
  "riscv",
  "rust_sel4_pbf_parser",
  "serial-frame",
+ "serial-impl-mini-uart",
  "serial-impl-pl011",
  "serial-impl-sbi",
  "spin 0.9.8",
@@ -918,6 +919,13 @@ dependencies = [
 [[package]]
 name = "serial-frame"
 version = "0.1.0"
+
+[[package]]
+name = "serial-impl-mini-uart"
+version = "0.1.0"
+dependencies = [
+ "serial-frame",
+]
 
 [[package]]
 name = "serial-impl-pl011"

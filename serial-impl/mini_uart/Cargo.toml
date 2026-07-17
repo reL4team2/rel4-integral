@@ -1,0 +1,10 @@
+[package]
+name = "serial-impl-mini-uart"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serial-frame = { path = "../../serial-frame" }
+
+[features]
+default = []

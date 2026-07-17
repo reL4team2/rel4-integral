@@ -114,6 +114,7 @@ pub fn parse_cmake_defines(opts: &BuildOptions) -> Result<Vec<String>, anyhow::E
     match opts.platform.as_str() {
         "spike" => define.push("-DKernelRiscvExtD=ON".to_string()),
         "qemu-arm-virt" => {}
+        "bcm2711" => define.push("-DRPI4_MEMORY=2048".to_string()),
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
     Ok(define)
@@ -124,12 +125,14 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
     let target = match opts.platform.as_str() {
         "spike" => "--target=riscv64gc-unknown-none-elf",
         "qemu-arm-virt" => "--target=aarch64-unknown-none-softfloat",
+        "bcm2711" => "--target=aarch64-unknown-none-softfloat",
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
     let current_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let easy_setting_cmake_file = PathBuf::from(&current_dir).join("../../easy-settings.cmake");
 
     let mut args = vec![command.to_string(), target.to_string(), "--release".into()];
+    // let mut args = vec![command.to_string(), target.to_string()];
 
     if opts.bin {
         args.push("--bin".into());
@@ -140,6 +143,8 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         args.push("--lib".into());
     }
 
+    println!("Building kernel with command: cargo {:?}", args);
+
     let rustflags = vec_rustflags()?;
     let mut cmd = Command::new("cargo");
 
@@ -148,6 +153,11 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         "KERNEL_STACK_BITS={}",
         rel4_config::get_int_from_cfg(&opts.platform, "memory.stack_bits").unwrap()
     )];
+
+    println!(
+        "Building kernel with rustflags: {:?} and marcos: {:?}",
+        rustflags, marcos
+    );
 
     if !opts.nofastpath {
         marcos.push("FASTPATH=true".to_string());
@@ -179,15 +189,13 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         marcos.push("AARCH64_VSPACE_S2_START_L1=true".to_string());
     }
 
-    if Path::new(&easy_setting_cmake_file).exists() {
-        fs::remove_file(easy_setting_cmake_file.clone())?;
-        println!("Removed existing easy-settings.cmake");
+    match fs::remove_file(&easy_setting_cmake_file) {
+        Ok(()) => println!("Removed existing easy-settings.cmake"),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
     }
 
-    if Path::new(&easy_setting_cmake_file).exists() {
-        return Err(anyhow::anyhow!("unknown file exist"));
-    }
-
+    println!("Creating symlink to easy-settings.cmake at {:?}", easy_setting_cmake_file);
     if opts.benchmark {
         append_features(&mut args, "enable_benchmark".to_string());
         // TODO: I'm not sure whether should I add the feature of C code.
@@ -212,12 +220,15 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         let target =
             PathBuf::from(&current_dir).join("../../projects/sel4test/easy-settings.cmake");
         if Path::new(&target).exists() {
+            println!("Creating symlink to easy-settings.cmake at {:?}", easy_setting_cmake_file);
             symlink(target, easy_setting_cmake_file)?;
             println!("Created symlink to sel4test easy-settings.cmake");
         } else {
             return Err(anyhow::anyhow!("Target file does not exist"));
         }
     }
+
+    println!("Building kernel with command: cargo {:?}", args);
 
     if opts.num_nodes > 1 {
         append_features(&mut args, "enable_smp".to_string());
@@ -235,8 +246,13 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
             marcos.push("RISCV_EXT_D=true".to_string())
         }
         "qemu-arm-virt" => {}
+        "bcm2711" => {
+            append_features(&mut args, "platform_bcm2711".to_string());
+        }
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
+
+    println!("Building kernel with command: cargo {:?}", args);
 
     let status = cmd
         .current_dir(dir)
@@ -256,7 +272,9 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
 pub fn build(opts: &BuildOptions) -> Result<(), anyhow::Error> {
     let current_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let kernel = PathBuf::from(&current_dir).join("../kernel");
+    println!("Building kernel in directory: {:?}", kernel);
     cargo("build", kernel.to_str().unwrap(), opts)?;
+    println!("Building userspace in directory: {:?}", current_dir);
 
 
     if !opts.rust_only {
