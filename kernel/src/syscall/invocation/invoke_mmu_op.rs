@@ -116,8 +116,13 @@ pub fn invoke_page_unmap(frame_slot: &mut cte_t) -> exception_t {
             _ => {}
         }
     }
-    page_cap.set_capFMappedAddress(0);
-    page_cap.set_capFMappedASID(ASID_INVALID as u64);
+    let mut raw = frame_slot.capability.clone();
+    unsafe {
+        let fp = &mut raw as *mut cap as *mut cap_frame_cap;
+        (*fp).set_capFMappedAddress(0);
+        (*fp).set_capFMappedASID(ASID_INVALID as u64);
+        core::ptr::write_volatile(&mut frame_slot.capability, raw);
+    }
     exception_t::EXCEPTION_NONE
 }
 
@@ -171,7 +176,8 @@ pub fn invoke_page_map(
     );
     if unlikely(tlbflush_required) {
         assert!(asid < bit!(16));
-        invalidate_tlb_by_asid_va(asid, vptr!(capability.get_capFMappedAddress()));
+        sel4_vspace::invalidate_tlb_by_asid_va(
+            asid, vptr!(capability.get_capFMappedAddress()));
     }
     exception_t::EXCEPTION_NONE
 }

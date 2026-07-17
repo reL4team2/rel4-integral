@@ -103,11 +103,10 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
             return Ok(());
         }
     }
-    set_current_user_vspace_root(
-        pptr!(thread_root_vspace.get_capVSBasePtr())
-            .to_paddr()
-            .raw(),
-    );
+    set_current_user_vspace_root(ttbr_new(
+        asid,
+        pptr!(thread_root_vspace.get_capVSBasePtr()).to_paddr(),
+    ));
     Ok(())
 }
 
@@ -161,14 +160,15 @@ pub fn invalidate_tlb_by_asid(asid: asid_t) {
 
 #[inline]
 pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: VPtr) {
-    invalidate_local_tlb_va_asid((asid << 48) | vaddr.raw() >> SEL4_PAGE_BITS);
+    let mva_plus_asid: usize = (asid << 48) | (vaddr.raw() >> SEL4_PAGE_BITS);
+    invalidate_local_tlb_va_asid(mva_plus_asid);
     #[cfg(feature = "enable_smp")]
     {
         extern "C" {
             fn remote_invalidate_translation_single(vptr: usize);
         }
         unsafe {
-            remote_invalidate_translation_single((asid << 48) | vaddr.raw() >> SEL4_PAGE_BITS);
+            remote_invalidate_translation_single(mva_plus_asid);
         }
     }
 }
@@ -200,7 +200,7 @@ pub fn unmap_page_table(asid: asid_t, vaddr: VPtr, pt: &PTE) {
         *(ptSlot) = PTE(0);
         ptr_to_mut(ptSlot).update(*(pte));
     }
-    invalidate_tlb_by_asid(asid);
+    invalidate_tlb_by_asid_va(asid, vaddr);
 }
 
 /// Unmap a page table
@@ -235,7 +235,7 @@ pub fn unmap_page(
         pte.update(*(lu_ret.ptSlot));
     }
     assert!(asid < bit!(16));
-    invalidate_tlb_by_asid(asid);
+    invalidate_tlb_by_asid_va(asid, vptr);
     Ok(())
 
     // match page_size {
