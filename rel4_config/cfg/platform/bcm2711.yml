@@ -28,11 +28,12 @@ device:
 
 # memory layout
 memory:
-  vmem_offset: 0xffffff8000000000
-  pmem_start: 0x1000
-  kernel_start: 0x1000
+  # vmem_offset: 0xffffff8000000000
+  vmem_offset: 0x0000008000000000
+  pmem_start: 0x1000000
+  kernel_start: 0x1000000
   avail_mem_zone:
-    - {start: 0x1000, end: 0x3b400000}
+    - {start: 0x1000000, end: 0x3b400000}
     - {start: 0x40000000, end: 0x80000000}
   stack_bits: 12 # 2^12 4K
 
@@ -74,7 +75,7 @@ definitions:
   DEBUG_DISABLE_L1_ICACHE: false
   DEBUG_DISABLE_L1_DCACHE: false
   DEBUG_DISABLE_BRANCH_PREDICTION: false
-  ARM_HYPERVISOR_SUPPORT: false
+  ARM_HYPERVISOR_SUPPORT: true
   ARM_GIC_V3_SUPPORT: false
   AARCH64_VSPACE_S2_START_L1: false
   ARM_HYP_ENABLE_VCPU_CP14_SAVE_AND_RESTORE: false

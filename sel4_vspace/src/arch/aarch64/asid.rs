@@ -111,7 +111,10 @@ pub fn delete_asid_pool(
 #[no_mangle]
 pub fn write_it_asid_pool(it_ap_cap: &cap_asid_pool_cap, it_vspace_cap: &cap_vspace_cap) {
     let ap = asid_pool_from_addr(it_ap_cap.get_capASIDPool() as usize);
+    #[cfg(not(feature = "hypervisor"))]
     let asidmap = asid_map_asid_map_vspace::new(it_vspace_cap.get_capVSBasePtr() as u64).unsplay();
+    #[cfg(feature = "hypervisor")]
+    let asidmap = asid_map_asid_map_vspace::new(it_vspace_cap.get_capVSBasePtr() as u64, 0, 0).unsplay();
     ap[IT_ASID] = asidmap;
     set_asid_pool_by_index(IT_ASID >> ASID_LOW_BITS, ap as *const _ as usize);
 }

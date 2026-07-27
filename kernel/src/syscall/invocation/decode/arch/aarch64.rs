@@ -438,7 +438,7 @@ fn decode_asid_pool(label: MessageLabel, cte: &mut cte_t) -> exception_t {
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
     vspace_cap.set_capVSMappedASID(asid as u64);
     vspace_cap.set_capVSIsMapped(1);
-    let asidmap = asid_map_asid_map_vspace::new(vspace_cap.get_capVSBasePtr() as u64).unsplay();
+    let asidmap = asid_map_asid_map_vspace::new(vspace_cap.get_capVSBasePtr() as u64, 0, 0).unsplay();
     pool[asid & mask_bits!(ASID_LOW_BITS)] = asidmap;
     exception_t::EXCEPTION_NONE
 }

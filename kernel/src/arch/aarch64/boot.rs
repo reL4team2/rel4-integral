@@ -153,7 +153,7 @@ pub fn try_init_kernel(
             clh_lock_acquire(cpu_id(), false);
         }
 
-        info!("Booting all finished, dropped to user space");
+        info!("reL4 kernel Booting all finished, dropped to user space");
     } else {
         return false;
     }
