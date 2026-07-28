@@ -200,7 +200,7 @@ pub fn unmap_page_table(asid: asid_t, vaddr: VPtr, pt: &PTE) {
         *(ptSlot) = PTE(0);
         ptr_to_mut(ptSlot).update(*(pte));
     }
-    invalidate_tlb_by_asid_va(asid, vaddr);
+    invalidate_tlb_by_asid(asid);
 }
 
 /// Unmap a page table
