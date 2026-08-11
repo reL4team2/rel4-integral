@@ -176,8 +176,21 @@ pub const SEL4_PGD_BITS: usize = 12;
 pub const SEL4_HUGE_PAGE_BITS: usize = 30;
 pub const SEL4_LARGE_PAGE_BITS: usize = 21;
 pub const SEL4_PML4_BITS: usize = 12;
-pub const SEL4_VSPACE_BITS: usize = SEL4_PML4_BITS;
+/// Size of the top-level page table root (VSpaceObject).
+/// Only used for the VSpace root, NOT for lower levels
+/// (PageTableObject / PageDir use SEL4_PAGE_TABLE_BITS / SEL4_PAGE_DIR_BITS respectively).
+///
+/// Hypervisor mode: 13 (8KB, 1024 entries of 8 bytes) — 3-level translation needs
+/// a wider root (10-bit index) to cover 40-bit PA without a PGD level.
+/// Non-hypervisor mode: 12 (4KB, 512 entries) — standard 4-level translation.
+#[cfg(feature = "hypervisor")]
+pub const SEL4_VSPACE_BITS: usize = 13;
+#[cfg(not(feature = "hypervisor"))]
+pub const SEL4_VSPACE_BITS: usize = 12;
 pub const SEL4_WORD_BITS: usize = 64;
+#[cfg(feature = "hypervisor")]
+pub const SEL4_USER_TOP: usize = 0x000000ffffffffff;
+#[cfg(not(feature = "hypervisor"))]
 pub const SEL4_USER_TOP: usize = 0x00007fffffffffff;
 pub const USER_TOP: usize = SEL4_USER_TOP;
 

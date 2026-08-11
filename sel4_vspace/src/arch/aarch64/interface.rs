@@ -2,7 +2,7 @@ use super::pte::pte_tag_t;
 use super::{kpptr_to_paddr, machine::*, UPT_LEVELS};
 use crate::arch::VAddr;
 use crate::utils::PageAligned;
-use crate::{asid_t, find_vspace_for_asid, PTE};
+use crate::{asid_t, find_map_for_asid, find_vspace_for_asid, PTE};
 use core::intrinsics::unlikely;
 use rel4_arch::basic::{PAddr, PPtr, VPtr};
 use sel4_common::arch::MessageLabel;
@@ -31,7 +31,21 @@ pub(crate) static mut armKSGlobalKernelPT: PageAligned<PTE> = PageAligned::new(P
 
 #[no_mangle]
 #[link_section = ".page_table"]
+#[cfg(not(feature = "hypervisor"))]
 pub(crate) static mut armKSGlobalUserVSpace: PageAligned<PTE> = PageAligned::new(PTE(0));
+
+/// In hypervisor mode (SL0=1), the root PUD table needs 1024 entries (10-bit index).
+/// This requires 2 physical pages (8KB).
+#[no_mangle]
+#[link_section = ".page_table"]
+#[cfg(feature = "hypervisor")]
+pub(crate) static mut armKSGlobalUserVSpace: [PageAligned<PTE>; 2] = [PageAligned::new(PTE(0)), PageAligned::new(PTE(0))];
+
+/// Separate PUD page used for Stage-1 identity mapping of user-space VA→IPA.
+/// Set as the target of PGD[0] when hypervisor is enabled.
+#[no_mangle]
+#[link_section = ".page_table"]
+pub(crate) static mut armKSGlobalUserPUD: PageAligned<PTE> = PageAligned::new(PTE(0));
 
 #[inline]
 pub fn get_kernel_page_global_directory_base() -> usize {
@@ -94,17 +108,32 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
     let asid = thread_root_vspace.get_capVSMappedASID() as usize;
     let find_ret = find_vspace_for_asid(asid);
 
+    let mut fallback = false;
     if let Some(root) = find_ret.vspace_root {
         if find_ret.status != exception_t::EXCEPTION_NONE || root as usize != vspace_root {
-            set_current_user_vspace_root(ttbr_new(
-                0,
-                kpptr_to_paddr(get_arm_global_user_vspace_base()),
-            ));
-            return Ok(());
+            log::info!("[set_vm_root] asid={} found root={:#x} expected={:#x} → fallback to empty vspace",
+                asid, root as usize, vspace_root);
+            fallback = true;
         }
+    } else {
+        log::info!("[set_vm_root] asid={} vspace={:#x} findVSpaceForASID returned None → fallback",
+            asid, vspace_root);
+        fallback = true;
     }
+    if fallback {
+        set_current_user_vspace_root(ttbr_new(
+            0,
+            kpptr_to_paddr(get_arm_global_user_vspace_base()),
+        ));
+        return Ok(());
+    }
+    // In hypervisor mode, use hardware VMID instead of software ASID
+    #[cfg(feature = "hypervisor")]
+    let ttbr_asid = super::asid::get_hw_asid(asid);
+    #[cfg(not(feature = "hypervisor"))]
+    let ttbr_asid = asid;
     set_current_user_vspace_root(ttbr_new(
-        asid,
+        ttbr_asid,
         pptr!(thread_root_vspace.get_capVSBasePtr()).to_paddr(),
     ));
     Ok(())
@@ -114,6 +143,35 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
 #[link_section = ".boot.text"]
 pub fn activate_kernel_vspace() {
     clean_invalidate_l1_caches();
+    #[cfg(feature = "hypervisor")]
+    {
+        // PGD[0] covers user-space VA [0x0 .. 0x8000000000).
+        // Set PGD[0] to a table descriptor that points to a dedicated
+        // PUD filled with 1 GiB identity block descriptors, so that
+        // EL0 instruction fetches can pass Stage‑1.
+        // Note: C kernel relies on HCR_EL2.DC to bypass Stage‑1 entirely,
+        // but QEMU TCG does not fully implement this behavior for instruction
+        // fetch, so we explicitly populate PGD[0].
+        set_kernel_page_global_directory_by_index(
+            0,
+            PTE::pte_new_table(kpptr_to_paddr(&raw mut armKSGlobalUserPUD as usize)),
+        );
+        let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
+        for idx in 0..512 {
+            let va = idx << 30; // 1 GiB stride
+            unsafe {
+                armKSGlobalUserPUD[idx] = PTE::pte_new_page(
+                    0,              // UXN = 0 (allow execution)
+                    paddr!(va),
+                    0,              // nG = 0
+                    1,              // AF = 1
+                    shareable,
+                    PTE::ap_from_vm_rights_t(sel4_common::arch::vm_rights_t::VMReadWrite),
+                    super::mair_types::NORMAL as usize,
+                );
+            }
+        }
+    }
     set_current_kernel_vspace_root(ttbr_new(
         0,
         kpptr_to_paddr(get_kernel_page_global_directory_base()),
@@ -140,12 +198,41 @@ pub fn set_vm_root_for_flush_with_thread_root(
     }
 
     // armv_context_switch(vspace, asid);
-    set_current_user_vspace_root(ttbr_new(asid, paddr!(vspace)));
+    #[cfg(feature = "hypervisor")]
+    let ttbr_asid = super::asid::get_hw_asid(asid);
+    #[cfg(not(feature = "hypervisor"))]
+    let ttbr_asid = asid;
+    set_current_user_vspace_root(ttbr_new(ttbr_asid, paddr!(vspace)));
     true
 }
 
 #[inline]
 pub fn invalidate_tlb_by_asid(asid: asid_t) {
+    #[cfg(feature = "hypervisor")]
+    {
+        let asid_map = find_map_for_asid(asid);
+        match asid_map {
+            Some(map) => match map.clone().splay() {
+                sel4_common::structures_gen::asid_map_Splayed::asid_map_vspace(data) => {
+                    if data.get_stored_vmid_valid() != 0 {
+                        let hw_vmid = data.get_stored_hw_vmid() as usize;
+                        // Invalidate Stage-2 TLB by VMID
+                        // At EL2, TLBI ASIDE1 treats the ASID value as VMID.
+                        unsafe {
+                            core::arch::asm!("tlbi aside1is, {}", in(reg) (hw_vmid << 48));
+                        }
+                        dsb();
+                        isb();
+                        return;
+                    }
+                }
+                _ => {}
+            },
+            None => {}
+        }
+        // VMID not valid, fall through to local invalidation
+    }
+    #[cfg(not(feature = "hypervisor"))]
     invalidate_local_tlb_asid(asid);
     #[cfg(feature = "enable_smp")]
     {
@@ -160,6 +247,26 @@ pub fn invalidate_tlb_by_asid(asid: asid_t) {
 
 #[inline]
 pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: VPtr) {
+    #[cfg(feature = "hypervisor")]
+    {
+        let asid_map = find_map_for_asid(asid);
+        match asid_map {
+            Some(map) => match map.clone().splay() {
+                sel4_common::structures_gen::asid_map_Splayed::asid_map_vspace(data) => {
+                    if data.get_stored_vmid_valid() != 0 {
+                        let hw_vmid = data.get_stored_hw_vmid() as usize;
+                        let mva_plus_vmid: usize =
+                            (hw_vmid << 48) | (vaddr.raw() >> SEL4_PAGE_BITS);
+                        invalidate_local_tlb_va_asid(mva_plus_vmid);
+                        return;
+                    }
+                }
+                _ => {}
+            },
+            None => {}
+        }
+        // VMID not valid, fall through with ASID
+    }
     let mva_plus_asid: usize = (asid << 48) | (vaddr.raw() >> SEL4_PAGE_BITS);
     invalidate_local_tlb_va_asid(mva_plus_asid);
     #[cfg(feature = "enable_smp")]

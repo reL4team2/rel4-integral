@@ -1,3 +1,4 @@
+#[cfg(not(feature = "hypervisor"))]
 use crate::arch::set_vm_root_for_flush;
 use crate::kernel::boot::{current_extra_caps, get_extra_cap_by_index};
 use crate::syscall::invocation::decode::current_syscall_error;
@@ -74,6 +75,11 @@ pub fn decode_mmu_invocation(
         cap_Splayed::frame_cap(_) => decode_frame_invocation(label, length, slot, call, buffer),
         cap_Splayed::asid_control_cap(_) => decode_asid_control(label, length, buffer),
         cap_Splayed::asid_pool_cap(_) => decode_asid_pool(label, slot),
+        #[cfg(feature = "hypervisor")]
+        cap_Splayed::vcpu_cap(_) => {
+            use crate::arch::vcpu::decode_vcpu_invocation;
+            decode_vcpu_invocation(label, length, slot, buffer)
+        }
         _ => {
             panic!("Invalid arch cap type");
         }
@@ -199,6 +205,7 @@ fn decode_page_clean_invocation(
         return exception_t::EXCEPTION_SYSCALL_ERROR;
     }
 
+    #[cfg_attr(feature = "hypervisor", allow(unused_variables))]
     let vaddr = cap::cap_frame_cap(&cte.capability).get_capFMappedAddress() as usize;
     let asid = cap::cap_frame_cap(&cte.capability).get_capFMappedASID() as usize;
     let find_ret = find_vspace_for_asid(asid);
@@ -232,18 +239,27 @@ fn decode_page_clean_invocation(
     let pstart = (pptr!(cap::cap_frame_cap(&cte.capability).get_capFBasePtr()) + start).to_paddr();
     get_currenct_thread().set_state(ThreadState::ThreadStateRestart);
 
-    if start < end {
-        let root_switched = set_vm_root_for_flush(find_ret.vspace_root.unwrap() as _, asid);
-        // log::warn!(
-        //     "need to flush cache for decode_page_clean_invocation label: {:?}",
-        //     label
-        // );
-
-        do_flush(label, vaddr + start, vaddr + end - 1, pstart);
-        if root_switched {
-            get_currenct_thread()
-                .set_vm_root()
-                .expect("can't set vm root for decode_page_clean_invocation");
+    #[cfg(feature = "hypervisor")]
+    {
+        // In EL2, user virtual addresses are not valid.
+        // Use kernel virtual addresses (physical mapping) for cache operations.
+        let size = end - start;
+        let kstart = unsafe { (pstart.raw() as *const u8).add(start) as usize };
+        let kend = kstart + size;
+        if start < end {
+            do_flush(label, kstart, kend, pstart);
+        }
+    }
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        if start < end {
+            let root_switched = set_vm_root_for_flush(find_ret.vspace_root.unwrap() as _, asid);
+            do_flush(label, vaddr + start, vaddr + end - 1, pstart);
+            if root_switched {
+                get_currenct_thread()
+                    .set_vm_root()
+                    .expect("can't set vm root for decode_page_clean_invocation");
+            }
         }
     }
     exception_t::EXCEPTION_NONE
@@ -854,17 +870,31 @@ fn decode_vspace_root_invocation(
 
 fn decode_vspace_flush_invocation(
     label: MessageLabel,
-    vspace: usize,
-    asid: asid_t,
+    #[cfg_attr(feature = "hypervisor", allow(unused_variables))] vspace: usize,
+    #[cfg_attr(feature = "hypervisor", allow(unused_variables))] asid: asid_t,
     start: VPtr,
     end: VPtr,
     pstart: PAddr,
 ) -> exception_t {
-    if start < end {
-        let root_switched = set_vm_root_for_flush(vspace, asid);
-        do_flush(label, start.raw(), end.raw(), pstart);
-        if root_switched {
-            let _ = get_currenct_thread().set_vm_root();
+    #[cfg(feature = "hypervisor")]
+    {
+        // In EL2, user virtual addresses are not valid.
+        // Use kernel virtual addresses (paddr_to_pptr) for cache operations.
+        let size = end.raw() - start.raw();
+        let kstart = pstart.to_pptr().raw();
+        let kend = kstart + size;
+        if start < end {
+            do_flush(label, kstart, kend, pstart);
+        }
+    }
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        if start < end {
+            let root_switched = set_vm_root_for_flush(vspace, asid);
+            do_flush(label, start.raw(), end.raw(), pstart);
+            if root_switched {
+                let _ = get_currenct_thread().set_vm_root();
+            }
         }
     }
     exception_t::EXCEPTION_NONE

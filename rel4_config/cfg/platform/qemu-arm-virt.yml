@@ -14,12 +14,13 @@ timer:
 # device messages
 device:
   device_region:
-    - {paddr: 0x9000000, pptr_offset: 0x0, arm_execute_never: 1, user_available: 1, desc: "uart"}
-    - {paddr: 0x8000000, pptr_offset: 0x1000, arm_execute_never: 1, user_available: 0, desc: "gicv2_distributor"}
-    - {paddr: 0x8010000, pptr_offset: 0x2000, arm_execute_never: 1, user_available: 0, desc: "gicv2_controller"}
+    - {paddr: 0x9000000, pptr_offset: 0x0, arm_execute_never: 2, user_available: 1, desc: "uart"}
+    - {paddr: 0x8000000, pptr_offset: 0x1000, arm_execute_never: 2, user_available: 0, desc: "gicv2_distributor"}
+    - {paddr: 0x8010000, pptr_offset: 0x2000, arm_execute_never: 2, user_available: 0, desc: "gicv2_controller"}
+    - {paddr: 0x8030000, pptr_offset: 0x3000, arm_execute_never: 2, user_available: 0, desc: "gicv2_vcpu_ctrl"}
   irqs:
     - {label: "INTERRUPT_VTIMER_EVENT", number: 27}
-    - {label: "KERNEL_TIMER_IRQ", number: 27}
+    - {label: "KERNEL_TIMER_IRQ", number: 26}
     - {label: "MAX_IRQ", number: 159}
     - {label: "IRQ_INVALID", number: 65535}
     - {label: "NUM_PPI", number: 32}
@@ -28,12 +29,15 @@ device:
 # memory layout
 memory:
   # FIXME: change vmem_offset when using hypervisor or not
-  vmem_offset: 0xffffff8000000000
-  # vmem_offset: 0x8000000000
-  pmem_start: 0x40000000
-  kernel_start: 0x40000000
+  # vmem_offset: 0xffffff8000000000
+  vmem_offset: 0x8000000000
+  # pmem_start: 0x40000000
+  pmem_start: 0x60000000
+  # kernel_start: 0x40000000
+  kernel_start: 0x60000000
   avail_mem_zone:
-    - {start: 0x40000000, end: 0x80000000}
+    # - {start: 0x40000000, end: 0x80000000}
+    - {start: 0x60000000, end: 0x80000000}
   stack_bits: 12 # 2^12 4K
 
 definitions:
@@ -73,7 +77,7 @@ definitions:
   DEBUG_DISABLE_L1_ICACHE: false
   DEBUG_DISABLE_L1_DCACHE: false
   DEBUG_DISABLE_BRANCH_PREDICTION: false
-  ARM_HYPERVISOR_SUPPORT: false
+  ARM_HYPERVISOR_SUPPORT: true
   ARM_GIC_V3_SUPPORT: false
   AARCH64_VSPACE_S2_START_L1: false
   ARM_HYP_ENABLE_VCPU_CP14_SAVE_AND_RESTORE: false

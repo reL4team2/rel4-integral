@@ -11,7 +11,11 @@ use super::sel4_config::*;
 pub const OBJECT_TYPE_COUNT: usize = ObjectType::PageTableObject as usize + 1;
 // FIXED: Need to add 1 to cover all possible object types
 #[cfg(any(target_arch = "aarch64", test))]
+#[cfg(not(feature = "hypervisor"))]
 pub const OBJECT_TYPE_COUNT: usize = ObjectType::seL4_ARM_PageTableObject as usize + 1;
+#[cfg(any(target_arch = "aarch64", test))]
+#[cfg(feature = "hypervisor")]
+pub const OBJECT_TYPE_COUNT: usize = ObjectType::seL4_ARM_VCPUObject as usize + 1;
 #[cfg(not(feature = "kernel_mcs"))]
 pub const NON_ARCH_OBJECT_TYPE_COUNT: usize = ObjectType::CapTableObject as usize + 1;
 #[cfg(feature = "kernel_mcs")]

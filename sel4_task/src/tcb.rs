@@ -493,6 +493,14 @@ impl tcb_t {
         // if hart_id() == 0 {
         //     debug!("switch_to_this: {:#x}", self.get_ptr());
         // }
+        #[cfg(feature = "hypervisor")]
+        {
+            // Switch VCPU before setting VMRoot (matching C kernel Arch_switchToThread)
+            extern "Rust" {
+                fn vcpu_switch(new: usize);
+            }
+            unsafe { vcpu_switch(self.tcbArch.tcbVCPU); }
+        }
         let _ = self.set_vm_root();
         self.sched_dequeue();
         set_current_thread(self);

@@ -68,6 +68,16 @@ pub enum MessageLabel {
     ARMIRQIssueIRQHandlerTrigger,
     #[cfg(feature = "enable_smp")]
     ARMIRQIssueIRQHandlerTriggerCore,
+    #[cfg(feature = "hypervisor")]
+    ARMVCPUSetTCB,
+    #[cfg(feature = "hypervisor")]
+    ARMVCPUReadReg,
+    #[cfg(feature = "hypervisor")]
+    ARMVCPUWriteReg,
+    #[cfg(feature = "hypervisor")]
+    ARMVCPUInjectIRQ,
+    #[cfg(feature = "hypervisor")]
+    ARMVCPUAckVPPI,
     nArchInvocationLabels,
 }
 #[cfg(not(feature = "kernel_mcs"))]

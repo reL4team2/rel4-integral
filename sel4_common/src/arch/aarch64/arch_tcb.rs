@@ -16,6 +16,9 @@ pub struct FPUState {
 #[derive(Debug, Clone)]
 pub struct ArchTCB {
     pub(in crate::arch) registers: [usize; CONTEXT_REG_NUM],
+    /// Pointer to the associated VCPU (0 if not bound to any VCPU).
+    #[cfg(feature = "hypervisor")]
+    pub tcbVCPU: usize,
     #[cfg(feature = "have_fpu")]
     pub(in crate::arch) fpu: FPUState,
 }
@@ -24,9 +27,11 @@ pub struct ArchTCB {
 impl Default for ArchTCB {
     fn default() -> Self {
         let mut registers = [0; CONTEXT_REG_NUM];
-        registers[SPSR_EL1] = (1 << 6) | (1 << 8);
+        registers[SPSR_EL1] = (1 << 6);
         Self {
             registers,
+            #[cfg(feature = "hypervisor")]
+            tcbVCPU: 0,
             #[cfg(feature = "have_fpu")]
             fpu: FPUState {
                 vregs: [0; 64],

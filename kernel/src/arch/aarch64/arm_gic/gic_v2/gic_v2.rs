@@ -6,10 +6,17 @@ use tock_registers::interfaces::Writeable;
 static GIC_DIST: GicDistMap = GicDistMap::new(GIC_V2_DISTRIBUTOR_PPTR as *mut u8);
 static GIC_CPUIFACE: GicCpuIfaceMap = GicCpuIfaceMap::new(GIC_V2_CONTROLLER_PPTR as *mut u8);
 
+#[cfg(feature = "hypervisor")]
+static GIC_VCPUIFACE: super::GicVCpuIfaceMap =
+    super::GicVCpuIfaceMap::new(GIC_V2_VCPUIFACE_PPTR as *mut u8);
+
 // This is for aarch64 only
 pub fn cpu_iface_init() {
     GIC_DIST.regs().enable_clr[0].set(IRQ_SET_ALL);
     GIC_DIST.regs().pending_clr[0].set(IRQ_SET_ALL);
+    #[cfg(not(feature = "hypervisor"))]
+    GIC_DIST.regs().security[0].set(0);
+    #[cfg(feature = "hypervisor")]
     GIC_DIST.regs().security[0].set(0);
     GIC_DIST.regs().priority[0].set(0x0);
 
@@ -28,6 +35,7 @@ pub fn cpu_iface_init() {
         i = GIC_CPUIFACE.regs().int_ack.get();
     }
     GIC_CPUIFACE.regs().icontrol.set(1);
+    GIC_DIST.regs().enable.set(1);
 }
 
 pub fn cpu_init_local_irq_controller() {
@@ -62,12 +70,18 @@ pub fn dist_pending_clr(irq: usize) {
     GIC_DIST.regs().pending_clr[word].set(1 << bits);
 }
 
-/// Get the current interrupt number
+/// Get the current interrupt number.
+/// In hypervisor mode, uses NS alias register to handle Group 1 interrupts.
 pub fn gic_int_ack() -> usize {
-    GIC_CPUIFACE.regs().int_ack.get() as usize
+    #[cfg(not(feature = "hypervisor"))]
+    { GIC_CPUIFACE.regs().int_ack.get() as usize }
+    #[cfg(feature = "hypervisor")]
+    { GIC_CPUIFACE.regs().int_ack.get() as usize }
 }
 
-/// Acknowledge the interrupt
+/// Acknowledge the interrupt.
+/// In hypervisor mode, interrupts are configured as Group 0 (secure),
+/// so we use the standard EOI register at all times.
 pub fn ack_irq(irq: usize) {
     GIC_CPUIFACE.regs().eoi.set(irq as _);
 }
@@ -83,7 +97,10 @@ pub fn dist_init() {
     }
 
     for i in (32..nirqs).step_by(4) {
+        #[cfg(not(feature = "hypervisor"))]
         GIC_DIST.regs().priority[i >> 2].set(0);
+        #[cfg(feature = "hypervisor")]
+        GIC_DIST.regs().priority[i >> 2].set(0x80808080);
     }
 
     let target = infer_cpu_gic_id(nirqs);
@@ -97,6 +114,9 @@ pub fn dist_init() {
     }
 
     for i in (0..nirqs).step_by(32) {
+        #[cfg(not(feature = "hypervisor"))]
+        GIC_DIST.regs().security[i >> 5].set(0);
+        #[cfg(feature = "hypervisor")]
         GIC_DIST.regs().security[i >> 5].set(0);
     }
 
@@ -201,4 +221,88 @@ fn infer_cpu_gic_id(nirqs: usize) -> u8 {
 
 fn target_cpu_all_int(CPU: u8) -> u32 {
     ((CPU as u32) << 0) | ((CPU as u32) << 8) | ((CPU as u32) << 16) | ((CPU as u32) << 24)
+}
+
+// ---------------------------------------------------------------------------
+// GICH (GIC Virtual CPU Interface) accessor functions for hypervisor
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_hcr() -> u32 {
+    GIC_VCPUIFACE.regs().hcr.get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn set_gic_vcpu_ctrl_hcr(val: u32) {
+    GIC_VCPUIFACE.regs().hcr.set(val)
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_vmcr() -> u32 {
+    GIC_VCPUIFACE.regs().vmcr.get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn set_gic_vcpu_ctrl_vmcr(val: u32) {
+    GIC_VCPUIFACE.regs().vmcr.set(val)
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_apr() -> u32 {
+    GIC_VCPUIFACE.regs().apr.get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn set_gic_vcpu_ctrl_apr(val: u32) {
+    GIC_VCPUIFACE.regs().apr.set(val)
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_vtr() -> u32 {
+    GIC_VCPUIFACE.regs().vtr.get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_misr() -> u32 {
+    GIC_VCPUIFACE.regs().misr.get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_eisr0() -> u32 {
+    GIC_VCPUIFACE.regs().eisr0.get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_eisr1() -> u32 {
+    GIC_VCPUIFACE.regs().eisr1.get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn get_gic_vcpu_ctrl_lr(idx: usize) -> u32 {
+    GIC_VCPUIFACE.regs().lr[idx].get()
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn set_gic_vcpu_ctrl_lr(idx: usize, val: u32) {
+    GIC_VCPUIFACE.regs().lr[idx].set(val)
+}
+
+/// Number of VGIC list registers available on this hardware.
+#[cfg(feature = "hypervisor")]
+pub fn gic_vcpu_num_list_regs() -> usize {
+    let vtr = get_gic_vcpu_ctrl_vtr();
+    let nlistregs = ((vtr >> 0) & 0x3f) as usize + 1;
+    core::cmp::min(nlistregs, GIC_V2_VCPU_MAX_LR)
 }

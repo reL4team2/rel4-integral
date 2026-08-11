@@ -351,6 +351,33 @@ fn read_clid() -> usize {
 }
 
 #[inline]
+/// Perform Stage-1 address translation for an IPA when VCPU is active.
+/// Uses AT S1E1R to walk the VM's Stage-1 page tables and returns
+/// the resulting physical address from PAR_EL1.
+/// Returns the full PAR_EL1 value (contains fault info if translation fails).
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn address_translate_s1(vaddr: usize) -> usize {
+    unsafe {
+        // AT S1E1R: Address Translate Stage 1 EL1 Read
+        core::arch::asm!("at s1e1r, {}", in(reg) vaddr);
+    }
+    barrier::isb(barrier::SY);
+    let par: usize;
+    unsafe {
+        core::arch::asm!("mrs {}, par_el1", out(reg) par);
+    }
+    par
+}
+
+/// Extract the output address from a PAR_EL1 value.
+/// PAR_EL1[47:12] contains the output address bits for successful translations.
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub const fn get_par_addr(par: usize) -> usize {
+    par & 0x0000_ffff_ffff_f000
+}
+
 pub fn invalidate_local_tlb() {
     dsb();
     unsafe {
@@ -369,12 +396,19 @@ pub fn invalidate_local_tlb() {
  *  - NORMAL Normal Memory, Inner/Outer Write-back non-transient, Write-allocate, Read-allocate
  *  - NORMAL_WT Normal Memory, Inner/Outer Write-through non-transient, No-Write-allocate, Read-allocate
  * Note: These should match with contents of MAIR_EL1 register!
+ *
+ * Stage-2 translation memory attributes (used when CONFIG_ARM_HYPERVISOR_SUPPORT is enabled).
+ * These correspond to MAIR_EL2 attribute indices for VTTBR_EL2 page tables.
  */
 pub enum mair_types {
-    DEVICE_nGnRnE,
-    DEVICE_nGnRE,
-    DEVICE_GRE,
-    NORMAL_NC,
-    NORMAL,
-    NORMAL_WT,
+    DEVICE_nGnRnE = 0,
+    DEVICE_nGnRE = 1,
+    DEVICE_GRE = 2,
+    NORMAL_NC = 3,
+    NORMAL = 4,
+    NORMAL_WT = 5,
+
+    // Stage-2 normal memory attribute index.
+    // Device attributes (0-3) are identical between Stage-1 and Stage-2.
+    S2_NORMAL = 15,
 }

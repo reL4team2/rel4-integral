@@ -97,9 +97,6 @@ impl PTE {
     pub fn pte_next_table(addr: PAddr, _: bool) -> Self {
         Self::new(addr, PTEFlags::VALID | PTEFlags::NON_BLOCK)
     }
-    // fn new_4k_page(addr: usize, flags: PTEFlags) -> Self {
-    //     Self((addr & 0xfffffffff000) | flags.bits() | 0x400000000000003)
-    // }
 
     pub fn get_page_base_address(&self) -> PAddr {
         paddr!(self.0 & 0xfffffffff000)
@@ -140,14 +137,49 @@ impl PTE {
         );
     }
 
-    pub fn ap_from_vm_rights_t(rights: vm_rights_t) -> PTEFlags {
+    /// Convert vm_rights_t to AP/S2AP bits (bits[7:6] of the PTE descriptor).
+    ///
+    /// Stage-1 translation AP format:
+    ///   AP[2:1] = 00: EL1 RW, EL0 none
+    ///   AP[2:1] = 01: EL1 RW, EL0 RW
+    ///   AP[2:1] = 10: EL1 R,  EL0 none
+    ///   AP[2:1] = 11: EL1 R,  EL0 R
+    ///
+    /// Stage-2 translation S2AP format (used when feature="hypervisor"):
+    ///   S2AP[1:0] = 00: None
+    ///   S2AP[1:0] = 01: Read-only
+    ///   S2AP[1:0] = 10: Write-only
+    ///   S2AP[1:0] = 11: Read-write
+    ///
+    /// Returns the raw 2-bit value to be placed in bits[7:6] of the PTE.
+    pub fn ap_from_vm_rights_t(rights: vm_rights_t) -> usize {
         match rights {
-            vm_rights_t::VMKernelOnly => PTEFlags::empty(),
-            vm_rights_t::VMReadWrite => PTEFlags::AP_EL0,
-            vm_rights_t::VMReadOnly => PTEFlags::AP_EL0 | PTEFlags::AP_RO,
+            #[cfg(feature = "hypervisor")]
+            vm_rights_t::VMKernelOnly => 0, // S2AP=00: None
+            #[cfg(not(feature = "hypervisor"))]
+            vm_rights_t::VMKernelOnly => 0, // AP[2:1]=00: EL1 RW, EL0 none
+
+            #[cfg(feature = "hypervisor")]
+            vm_rights_t::VMReadWrite => 3, // S2AP=11: Read-write
+            #[cfg(not(feature = "hypervisor"))]
+            vm_rights_t::VMReadWrite => 1, // AP[2:1]=01: EL1 RW, EL0 RW
+
+            #[cfg(feature = "hypervisor")]
+            vm_rights_t::VMReadOnly => 1, // S2AP=01: Read-only
+            #[cfg(not(feature = "hypervisor"))]
+            vm_rights_t::VMReadOnly => 3, // AP[2:1]=11: EL1 R, EL0 R
         }
     }
 
+    /// Create a user page PTE (either 4k or large page).
+    ///
+    /// When `feature="hypervisor"` is enabled, the user page tables are used
+    /// for Stage-2 translation (VTTBR_EL2). In this case:
+    ///   - nG (not global) bit[11] is 0 (Stage-2 has no global bit)
+    ///   - Memory attribute index uses S2_NORMAL (15) for cacheable pages
+    ///     (MAIR_EL2), but still DEVICE_nGnRnE (0) for device pages since
+    ///     stage-1 and stage-2 device attribute indices 0-3 are identical.
+    ///   - AP bits use the S2AP format
     pub fn make_user_pte(
         paddr: PAddr,
         rights: vm_rights_t,
@@ -156,13 +188,26 @@ impl PTE {
     ) -> Self {
         let nonexecutable = attr.get_arm_execute_never();
         let cacheable = attr.get_arm_page_cachable();
-        let mut attrindx = mair_types::DEVICE_nGnRnE as usize;
-        if cacheable {
-            attrindx = mair_types::NORMAL as usize;
-        }
-        let nG: usize = 1;
-        let vm_right: usize = Self::ap_from_vm_rights_t(rights).bits() >> 6;
-        let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
+
+        #[cfg(feature = "hypervisor")]
+        let (nG, attrindx) = {
+            if cacheable {
+                (0, mair_types::S2_NORMAL as usize)
+            } else {
+                (0, mair_types::DEVICE_nGnRnE as usize)
+            }
+        };
+        #[cfg(not(feature = "hypervisor"))]
+        let (nG, attrindx) = {
+            if cacheable {
+                (1, mair_types::NORMAL as usize)
+            } else {
+                (1, mair_types::DEVICE_nGnRnE as usize)
+            }
+        };
+
+        let vm_right = Self::ap_from_vm_rights_t(rights);
+        let shareable = if cacheable && cfg!(feature = "enable_smp") { 3 } else { 0 };
         if VMPageSize::ARMSmallPage as usize == page_size {
             PTE::pte_new_4k_page(
                 nonexecutable as usize,

@@ -2,7 +2,16 @@ pub mod consts;
 pub mod gic_v2;
 
 use core::ptr::NonNull;
-pub use gic_v2::{dist_pending_clr, irq_disable, irq_enable, irq_is_edge_triggered};
+pub use gic_v2::{
+    ack_irq, dist_pending_clr, gic_int_ack, irq_disable, irq_enable, irq_is_edge_triggered,
+};
+#[cfg(feature = "hypervisor")]
+pub use gic_v2::{
+    get_gic_vcpu_ctrl_apr, get_gic_vcpu_ctrl_eisr0, get_gic_vcpu_ctrl_eisr1,
+    get_gic_vcpu_ctrl_hcr, get_gic_vcpu_ctrl_lr, get_gic_vcpu_ctrl_misr,
+    get_gic_vcpu_ctrl_vmcr, get_gic_vcpu_ctrl_vtr, gic_vcpu_num_list_regs, set_gic_vcpu_ctrl_apr,
+    set_gic_vcpu_ctrl_hcr, set_gic_vcpu_ctrl_lr, set_gic_vcpu_ctrl_vmcr,
+};
 use tock_registers::register_structs;
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 
@@ -43,6 +52,28 @@ register_structs! {
         (0x0fc0 => periph_id: [ReadWrite<u32>; 12]),
         (0x0ff0 => component_id: [ReadWrite<u32>; 0x4]),
         (0x1000 => @END),
+    }
+}
+
+register_structs! {
+    /// GIC Virtual CPU Interface (GICH) registers.
+    /// Used when hypervisor is enabled to manage virtual GIC state.
+    #[allow(non_snake_case)]
+    pub GicVCpuIfaceMapRegs {
+        (0x0000 => hcr: ReadWrite<u32>),
+        (0x0004 => vtr: ReadOnly<u32>),
+        (0x0008 => vmcr: ReadWrite<u32>),
+        (0x000c => _reserved_0),
+        (0x0010 => misr: ReadOnly<u32>),
+        (0x0014 => _reserved_1),
+        (0x0020 => eisr0: ReadOnly<u32>),
+        (0x0024 => _reserved_2),
+        (0x0030 => eisr1: ReadOnly<u32>),
+        (0x0034 => _reserved_3),
+        (0x00f0 => _reserved_4),
+        (0x0100 => apr: ReadWrite<u32>),
+        (0x0104 => lr: [ReadWrite<u32>; 16]),
+        (0x0144 => @END),
     }
 }
 
@@ -124,6 +155,28 @@ impl GicCpuIfaceMap {
     }
 
     pub const fn regs(&self) -> &GicCpuIfaceMapRegs {
+        unsafe { self.base.as_ref() }
+    }
+}
+
+#[cfg(feature = "hypervisor")]
+pub struct GicVCpuIfaceMap {
+    base: NonNull<GicVCpuIfaceMapRegs>,
+}
+
+#[cfg(feature = "hypervisor")]
+unsafe impl Send for GicVCpuIfaceMap {}
+#[cfg(feature = "hypervisor")]
+unsafe impl Sync for GicVCpuIfaceMap {}
+
+#[cfg(feature = "hypervisor")]
+impl GicVCpuIfaceMap {
+    pub const fn new(base: *mut u8) -> Self {
+        Self {
+            base: NonNull::new(base).unwrap().cast(),
+        }
+    }
+    pub const fn regs(&self) -> &GicVCpuIfaceMapRegs {
         unsafe { self.base.as_ref() }
     }
 }

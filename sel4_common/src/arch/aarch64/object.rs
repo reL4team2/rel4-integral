@@ -1,7 +1,7 @@
 use crate::sel4_config::{
     ARM_HUGE_PAGE, ARM_HUGE_PAGE_BITS, ARM_LARGE_PAGE, ARM_LARGE_PAGE_BITS, ARM_SMALL_PAGE,
     ARM_SMALL_PAGE_BITS, SEL4_PAGE_DIR_BITS, SEL4_PAGE_TABLE_BITS, SEL4_PGD_BITS, SEL4_PUD_BITS,
-    SEL4_VSPACE_BITS,
+    SEL4_VSPACE_BITS, SEL4_PAGE_BITS,
 };
 #[cfg(not(feature = "kernel_mcs"))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -18,6 +18,8 @@ pub enum ObjectType {
     seL4_ARM_SmallPageObject = 7,
     seL4_ARM_LargePageObject = 8,
     seL4_ARM_PageTableObject = 9,
+    #[cfg(feature = "hypervisor")]
+    seL4_ARM_VCPUObject = 10,
 }
 
 #[cfg(feature = "kernel_mcs")]
@@ -36,6 +38,8 @@ pub enum ObjectType {
     seL4_ARM_SmallPageObject = 9,
     seL4_ARM_LargePageObject = 10,
     seL4_ARM_PageTableObject = 11,
+    #[cfg(feature = "hypervisor")]
+    seL4_ARM_VCPUObject = 12,
 }
 
 impl ObjectType {
@@ -46,6 +50,8 @@ impl ObjectType {
             Self::seL4_ARM_HugePageObject => ARM_HUGE_PAGE_BITS,
             Self::seL4_ARM_PageTableObject => SEL4_PAGE_TABLE_BITS,
             Self::seL4_ARM_VSpaceObject => SEL4_VSPACE_BITS,
+            #[cfg(feature = "hypervisor")]
+            Self::seL4_ARM_VCPUObject => SEL4_PAGE_BITS,
             _ => panic!("unsupported object type:{}", *self as usize),
         }
     }
@@ -71,11 +77,19 @@ impl ObjectType {
     ///
     /// true if the object type is an architecture-specific type, false otherwise.
     pub fn is_arch_type(self) -> bool {
-        matches!(
+        let base = matches!(
             self,
             Self::seL4_ARM_HugePageObject
                 | Self::seL4_ARM_SmallPageObject
                 | Self::seL4_ARM_LargePageObject
-        )
+        );
+        #[cfg(feature = "hypervisor")]
+        {
+            base || matches!(self, Self::seL4_ARM_VCPUObject)
+        }
+        #[cfg(not(feature = "hypervisor"))]
+        {
+            base
+        }
     }
 }

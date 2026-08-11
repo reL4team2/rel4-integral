@@ -220,6 +220,13 @@ pub fn arch_same_region_as(cap1: &cap, cap2: &cap) -> bool {
                 return true;
             }
         }
+        #[cfg(feature = "hypervisor")]
+        cap_tag::cap_vcpu_cap => {
+            if cap2.get_tag() == cap_tag::cap_vcpu_cap {
+                return cap::cap_vcpu_cap(cap1).get_capVCPUPtr()
+                    == cap::cap_vcpu_cap(cap2).get_capVCPUPtr();
+            }
+        }
         _ => panic!("unknown cap"),
     }
     false

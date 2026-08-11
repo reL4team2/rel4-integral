@@ -22,6 +22,39 @@ extern "C" {
     pub fn load_fpu_state(src: usize, src_fpsr: usize);
 }
 
+/// Enable FP/SIMD for EL0 and EL1 via CPACR_EL1.FPEN = 0b11.
+/// Corresponds to C kernel `enableFpuEL01()`.
+///
+/// In non-hypervisor mode this is the primary FPU enable path.
+/// In hypervisor mode this is used *before* HCR_EL2.TGE=1 is set,
+/// because after that CPACR_EL1 reads redirect to CPTR_EL2.
+#[inline]
+pub(crate) unsafe fn enable_fpen_el01() {
+    let mut cpacr: usize;
+    asm!(
+        "mrs {0}, cpacr_el1",
+        "orr {0}, {0}, #(0x3 << 20)",
+        "msr cpacr_el1, {0}",
+        "isb",
+        out(reg) cpacr,
+    );
+}
+
+/// Set CPACR_EL1.FPEN=0b11 for native (non-VCPU) mode.
+/// Must be called *before* HCR_EL2.TGE=1, as TGE redirects CPACR_EL1 → CPTR_EL2.
+#[inline]
+pub(crate) unsafe fn native_enable_fpu() {
+    enable_fpen_el01();
+}
+
+/// Restore a VCPU's CPACR_EL1 with FPEN=0b11 and update the FPU cache.
+#[inline]
+pub(crate) unsafe fn vcpu_restore_fpu(cpacr: u64) {
+    use aarch64_cpu::registers::{CPACR_EL1, Writeable};
+    CPACR_EL1.set(cpacr | (0x3 << 20));
+    is_fpu_enabled_cached = false;
+}
+
 #[inline]
 pub(crate) unsafe fn enable_fpu() -> usize {
     // TODO: don't support EL2
@@ -29,25 +62,17 @@ pub(crate) unsafe fn enable_fpu() -> usize {
     #[cfg(feature = "hypervisor")]
     asm!(
         "mrs {0}, cptr_el2",
-        "bic x8, x8, #(1 << 10)",
-        "bic x8, x8, #(1 << 31)",
+        "bic {0}, {0}, #(1 << 10)",
+        "bic {0}, {0}, #(1 << 31)",
         "msr cptr_el2, {0}",
         "isb",
         inout(reg) cpacr
     );
-    // {
-    //     asm!("mrs {0}, cptr_el2", out(reg) cpacr);
-    //     cpacr &= !((1 << 10) | (1 << 31));
-    //     asm!("msr cptr_el2, {0};isb", in(reg) cpacr);
-    // }
     #[cfg(not(feature = "hypervisor"))]
-    asm!(
-        "mrs {0}, cpacr_el1",
-        "orr {0}, {0}, #(0x3 << 20)",
-        "msr cpacr_el1, {0}",
-        "isb",
-        inout(reg) cpacr,
-    );
+    {
+        enable_fpen_el01();
+        asm!("mrs {0}, cpacr_el1", out(reg) cpacr);
+    }
 
     is_fpu_enabled_cached = true;
     cpacr
@@ -55,23 +80,26 @@ pub(crate) unsafe fn enable_fpu() -> usize {
 
 #[inline]
 pub(crate) unsafe fn disable_fpu() {
+    let mut cptr: usize = 0;
     #[cfg(feature = "hypervisor")]
     {
         asm!(
-            "mrs x8, cptr_el2",
-            "orr x8, x8, #(1 << 10)",
-            "orr x8, x8, #(1 << 31)",
-            "msr cptr_el2, x8",
+            "mrs {0}, cptr_el2",
+            "orr {0}, {0}, #(1 << 10)",
+            "orr {0}, {0}, #(1 << 31)",
+            "msr cptr_el2, {0}",
             "isb",
+            inout(reg) cptr
         );
     }
     #[cfg(not(feature = "hypervisor"))]
     asm!(
-        "mrs x8, cpacr_el1",
-        "bic x8, x8, #(0x3 << 20)",
-        "orr x8, x8, #(0x1 << 20)",
-        "msr cpacr_el1, x8",
-        "isb"
+        "mrs {0}, cpacr_el1",
+        "bic {0}, {0}, #(0x3 << 20)",
+        "orr {0}, {0}, #(0x1 << 20)",
+        "msr cpacr_el1, {0}",
+        "isb",
+        inout(reg) cptr,
     );
     is_fpu_enabled_cached = false
 }
@@ -80,6 +108,12 @@ pub(crate) unsafe fn disable_fpu() {
 #[allow(unused)]
 pub unsafe fn is_fpu_enable() -> bool {
     return is_fpu_enabled_cached;
+}
+
+#[inline]
+#[allow(unused)]
+pub unsafe fn set_fpu_enabled_cache(val: bool) {
+    is_fpu_enabled_cached = val;
 }
 
 #[inline]

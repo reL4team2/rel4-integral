@@ -7,10 +7,22 @@ use sel4_common::{
 };
 
 pub const KPT_LEVELS: usize = 4;
+#[cfg(feature = "hypervisor")]
+pub const UPT_LEVELS: usize = 3;
+#[cfg(not(feature = "hypervisor"))]
 pub const UPT_LEVELS: usize = 4;
+#[cfg(feature = "hypervisor")]
+pub const VSPACE_INDEX_BITS: usize = 10;
+#[cfg(not(feature = "hypervisor"))]
 pub const VSPACE_INDEX_BITS: usize = 9;
 pub(self) const PAGE_ADDR_MASK: usize = mask_bits!(48) & !0xfff;
 #[inline]
+#[cfg(feature = "hypervisor")]
+pub fn ulvl_frm_arm_pt_lvl(n: usize) -> usize {
+    n - 1
+}
+#[inline]
+#[cfg(not(feature = "hypervisor"))]
 pub fn ulvl_frm_arm_pt_lvl(n: usize) -> usize {
     n
 }
@@ -66,7 +78,12 @@ impl VAddr {
         ((self.0) >> (kpt_level_shift(n))) & mask_bits!(PT_INDEX_BITS)
     }
     pub(super) fn get_upt_index(&self, n: usize) -> usize {
-        ((self.0) >> (upt_level_shift(n))) & mask_bits!(PT_INDEX_BITS)
+        let shift = upt_level_shift(n);
+        // In hypervisor (SL0=1) mode the root level (n=0) uses 10-bit
+        // VSPACE_INDEX_BITS for concatenated PUD tables.
+        // Mirrors C: UPT_INDEX_MASK(n) = (n==0 ? seL4_VSpaceIndexBits : PT_INDEX_BITS)
+        let mask = if n == 0 { VSPACE_INDEX_BITS } else { PT_INDEX_BITS };
+        ((self.0) >> shift) & mask_bits!(mask)
     }
 
     /// Get the index of the pt(last level, bit 12..20)
@@ -79,9 +96,11 @@ impl VAddr {
         (self.0 >> 21) & 0x1ff
     }
 
-    /// Get the index of the pud(second level, bit 30..38)
+    /// Get the index of the pud(second level, bit 30..39)
+    /// In hypervisor mode (SL0=1), the root table IS the PUD level
+    /// and hardware uses VSPACE_INDEX_BITS (10) for indexing.
     pub(super) const fn pud_index(&self) -> usize {
-        (self.0 >> 30) & 0x1ff
+        (self.0 >> 30) & mask_bits!(VSPACE_INDEX_BITS)
     }
 
     /// Get the index of the pgd(first level, bit 39..47)
@@ -99,6 +118,13 @@ pub(super) fn page_slice<T>(addr: PPtr) -> &'static mut [T] {
     // 4096 / sizeof::<usize>() == 512
     // So the len is 512
     convert_to_mut_slice::<T>(addr.raw(), 0x200)
+}
+
+/// Get the slice for the VSpace root table.
+/// In hypervisor mode (SL0=1), the root PUD needs 1024 entries (2 pages).
+/// In non-hyp mode, the PGD needs 512 entries (1 page).
+pub(super) fn vspace_root_slice<T>(addr: PPtr) -> &'static mut [T] {
+    convert_to_mut_slice::<T>(addr.raw(), bit!(VSPACE_INDEX_BITS))
 }
 
 pub fn ap_from_vm_rights(rights: vm_rights_t) -> usize {

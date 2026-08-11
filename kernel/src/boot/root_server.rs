@@ -732,20 +732,26 @@ unsafe fn rust_create_it_address_space(
     // let PGD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 3;
     // let PUD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 2;
     // let PD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS;
-    let mut vptr = it_v_reg.start.align_down(PGD_INDEX_OFFSET);
-    // #[cfg(not(feature = "hypervisor"))]
-    while vptr < it_v_reg.end {
-        if !provide_cap(
-            root_cnode_cap,
-            create_it_pud_cap(&vspace_cap, it_alloc_paging(), vptr, IT_ASID).unsplay(),
-        ) {
-            return cap_vspace_cap::new(0, 0, 0);
+    // With SL0=1 (40-bit IPA), VTTBR_EL2 points directly to PUD.
+    // Create entries at PUD granularity (1 GiB) to cover all user VA.
+    // With AARCH64_VSPACE_S2_START_L1 (SL0=1), VTTBR_EL2 points directly
+    // to PUD level. The PUD creation loop is skipped entirely.
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        let mut vptr = it_v_reg.start.align_down(PGD_INDEX_OFFSET);
+        while vptr < it_v_reg.end {
+            if !provide_cap(
+                root_cnode_cap,
+                create_it_pud_cap(&vspace_cap, it_alloc_paging(), vptr, IT_ASID).unsplay(),
+            ) {
+                return cap_vspace_cap::new(0, 0, 0);
+            }
+            vptr += bit!(PGD_INDEX_OFFSET);
         }
-        vptr += bit!(PGD_INDEX_OFFSET);
     }
 
     // Create any PDs needed for the user land image
-    vptr = it_v_reg.start.align_down(PUD_INDEX_OFFSET);
+    let mut vptr = it_v_reg.start.align_down(PUD_INDEX_OFFSET);
     while vptr < it_v_reg.end {
         if !provide_cap(
             root_cnode_cap,

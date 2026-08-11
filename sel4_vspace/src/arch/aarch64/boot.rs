@@ -16,7 +16,7 @@ use crate::{
     set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t, PTE,
 };
 
-use super::{map_kernel_devices, page_slice};
+use super::{map_kernel_devices, page_slice, vspace_root_slice};
 
 #[derive(PartialEq, Eq, Debug)]
 enum find_type {
@@ -102,7 +102,10 @@ pub fn map_kernel_frame(
     vm_rights: vm_rights_t,
     attributes: vm_attributes_t,
 ) {
-    let uxn = 1;
+    #[cfg(feature = "hypervisor")]
+    let uxn = attributes.get_arm_execute_never() as usize;
+    #[cfg(not(feature = "hypervisor"))]
+    let uxn = 1; /* unprivileged execute never */
     let attr_index: usize;
     let shareable: usize;
     if attributes.get_page_cacheable() != 0 {
@@ -120,7 +123,7 @@ pub fn map_kernel_frame(
             0,
             1,
             shareable,
-            PTE::ap_from_vm_rights_t(vm_rights).bits() >> 6,
+            PTE::ap_from_vm_rights_t(vm_rights),
             attr_index,
         ),
     );
@@ -139,28 +142,38 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
     target_pte.set_attr(3);
 }
 
-/// TODO: Write the comments.
+/// When hypervisor support is enabled (AARCH64_VSPACE_S2_START_L1), vspaceRoot
+/// is directly the PUD level — skip PGD lookup.
+/// Now the we assume hypervisor =  AARCH64_VSPACE_S2_START_L1, because I don't want to add more features like sel4 kernel. It is so complicated in rust.
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn map_it_pd_cap(vspace_cap: &cap_vspace_cap, pd_cap: &cap_page_table_cap) {
-    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
     let pd_addr = pd_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pd_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pd_cap.get_capPTIsMapped(), 1);
-    // TODO: move 0x3 into a proper position.
-    assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
-    let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
-    pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
+    #[cfg(feature = "hypervisor")]
+    {
+        // SL0=1: root table is PUD with 1024 entries, write directly
+        let pud = vspace_root_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
+        pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
+    }
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
+        assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
+        let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
+        pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
+    }
 }
 
-/// TODO: Write the comments.
+/// When hypervisor support is enabled, this function is unused
+/// (PUD creation is skipped entirely).
+#[cfg(not(feature = "hypervisor"))]
 pub fn map_it_pud_cap(vspace_cap: &cap_vspace_cap, pud_cap: &cap_page_table_cap) {
     let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
     let pud_addr = pud_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pud_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pud_cap.get_capPTIsMapped(), 1);
-
-    // TODO: move 0x3 into a proper position.
     pgd[vptr.pgd_index()] = PTE::new_page(pptr!(pud_addr).to_paddr(), 0x3);
 }
 
@@ -179,13 +192,22 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     #[cfg(not(feature = "hypervisor"))]
     let (ng, attr) = (1, mair_types::NORMAL as usize);
     #[cfg(feature = "hypervisor")]
-    let (ng, attr) = (1, mair_types::NORMAL as usize);
-    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, paddr!(0), ng, 1, shareable, 1, attr).0);
+    let (ng, attr) = (0, mair_types::S2_NORMAL as usize);
+    // AP=1 for the initial thread frame caps (VMReadWrite in Stage-1, S2AP=01? no: Stage-2 uses S2AP=11 for RW)
+    // But this is boot code using hardcoded AP=1. In C kernel, APFromVMRights(VMReadWrite) returns 3 for hypervisor.
+    // However, map_it_frame_cap hardcodes AP=1 (VMReadWrite in S2AP=01 = Read-only!)
+    // This is a bug in the original Rust code. Let's fix with correct S2AP.
+    #[cfg(feature = "hypervisor")]
+    let ap = PTE::ap_from_vm_rights_t(vm_rights_t::VMReadWrite); // S2AP=11
+    #[cfg(not(feature = "hypervisor"))]
+    let ap = 1; // AP[2:1]=01: EL0 RW
+    pte.set_attr(PTE::pte_new_4k_page((!exec) as usize, paddr!(0), ng, 1, shareable, ap, attr).0);
     pte.set_next_level_paddr(pptr!(frame_cap.get_capFBasePtr()).to_paddr());
 }
 
 /// TODO: Write the comments.
 #[link_section = ".boot.text"]
+#[cfg(not(feature = "hypervisor"))]
 fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
     let pgd = page_slice::<PTE>(pptr!(vspace_root));
     let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
@@ -201,10 +223,27 @@ fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
     pt[vptr.pt_index()].self_addr()
 }
 
+/// Hypervisor (SL0=1) variant: vspaceRoot IS the PUD (1024 entries), skip PGD lookup.
+#[link_section = ".boot.text"]
+#[cfg(feature = "hypervisor")]
+fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
+    let pud = vspace_root_slice::<PTE>(pptr!(vspace_root));
+    let pd = pud[vptr.pud_index()].next_level_slice::<PTE>();
+    if ftype == find_type::PDE {
+        return pd[vptr.pd_index()].self_addr();
+    }
+    let pt = pd[vptr.pd_index()].next_level_slice::<PTE>();
+    assert_eq!(ftype, find_type::PTE);
+    pt[vptr.pt_index()].self_addr()
+}
+
 /// Create a new pud cap in the vspace.
+/// Only used in non-hypervisor mode (4-level page table).
+/// hypervisor mode only support 3-level 40 bit page table
 ///
 /// vptr is the virtual address of the pud cap will be created
 /// pptr is the address to the physical address will be mapped
+#[cfg(not(feature = "hypervisor"))]
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn create_it_pud_cap(

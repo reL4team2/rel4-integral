@@ -45,6 +45,10 @@ pub fn arch_create_object(
         ObjectType::seL4_ARM_PageTableObject => {
             cap_page_table_cap::new(ASID_INVALID as u64, region_base.raw() as u64, 0, 0).unsplay()
         }
+        #[cfg(feature = "hypervisor")]
+        ObjectType::seL4_ARM_VCPUObject => {
+            sel4_common::structures_gen::cap_vcpu_cap::new(region_base.raw() as u64).unsplay()
+        }
         _ => {
             unimplemented!(
                 "create object: {:?} region: {:#x} - {:#x}",

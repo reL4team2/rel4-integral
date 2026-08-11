@@ -23,7 +23,20 @@ pub fn init_cpu() -> bool {
     activate_kernel_vspace();
 
     #[cfg(feature = "hypervisor")]
-    super::vcpu::vcpu_boot_init();
+    {
+        // Set CPACR_EL1.FPEN=0b11 BEFORE vcpu_boot_init, as vcpu_disable sets
+        // HCR_NATIVE.TGE=1 which makes CPACR_EL1 inaccessible from EL2.
+        // Mirrors C kernel fpsimd_init → enableFpuEL01.
+        // Without this, CPTR_EL2.TFP=0 + CPACR_EL1.FPEN=0b00 would cause
+        // EL0 FP/SIMD instructions to be Undefined (EC=0x00).
+        unsafe { super::fpu::enable_fpen_el01(); }
+        // Log TCR_EL2 for diagnostics (elf-loader should have already configured it).
+        // let tcr_el2: usize;
+        // unsafe {
+        //    core::arch::asm!("mrs {}, tcr_el2", out(reg) tcr_el2);
+        // }
+        super::vcpu::vcpu_boot_init();
+    }
 
     // CPU's exception vector table
     set_vtable(ffi_addr!(arm_vector_table));
