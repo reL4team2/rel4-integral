@@ -16,7 +16,7 @@ use crate::{
     set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t, PTE,
 };
 
-use super::{map_kernel_devices, page_slice, vspace_root_slice};
+use super::{map_kernel_devices, page_slice};
 
 #[derive(PartialEq, Eq, Debug)]
 enum find_type {
@@ -48,25 +48,15 @@ pub fn rust_map_kernel_window() {
 
     while paddr < PADDR_TOP {
         #[cfg(feature = "hypervisor")]
-        set_kernel_page_directory_by_index(
-            VAddr(vaddr).get_kpt_index(1),
-            VAddr(vaddr).get_kpt_index(2),
-            PTE::pte_new_page(
-                0,
-                paddr!(paddr),
-                0,
-                1,
-                shareable,
-                0,
-                mair_types::NORMAL as usize,
-            ),
-        );
+        let uxn = 0; // stage-2: UXN not applicable
         #[cfg(not(feature = "hypervisor"))]
+        let uxn = 1; // stage-1: unprivileged execute never
+
         set_kernel_page_directory_by_index(
             VAddr(vaddr).get_kpt_index(1),
             VAddr(vaddr).get_kpt_index(2),
             PTE::pte_new_page(
-                1,
+                uxn,
                 paddr!(paddr),
                 0,
                 1,
@@ -142,33 +132,28 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
     target_pte.set_attr(3);
 }
 
-/// When hypervisor support is enabled (AARCH64_VSPACE_S2_START_L1), vspaceRoot
+/// When hypervisor support is enabled with S2_START_L1 (QEMU 40-bit), vspaceRoot
 /// is directly the PUD level — skip PGD lookup.
-/// Now the we assume hypervisor =  AARCH64_VSPACE_S2_START_L1, because I don't want to add more features like sel4 kernel. It is so complicated in rust.
+/// For RPI4 (44-bit, S2_START_L0), the PGD level exists — use full 4-level path.
+/// For now, always use 4-level (RPI4 path). TODO: make configurable.
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn map_it_pd_cap(vspace_cap: &cap_vspace_cap, pd_cap: &cap_page_table_cap) {
     let pd_addr = pd_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pd_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pd_cap.get_capPTIsMapped(), 1);
-    #[cfg(feature = "hypervisor")]
-    {
-        // SL0=1: root table is PUD with 1024 entries, write directly
-        let pud = vspace_root_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
-        pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
-    }
-    #[cfg(not(feature = "hypervisor"))]
-    {
-        let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
-        assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
-        let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
-        pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
-    }
+    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
+    assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
+    let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
+    pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
 }
 
-/// When hypervisor support is enabled, this function is unused
-/// (PUD creation is skipped entirely).
-#[cfg(not(feature = "hypervisor"))]
+/// Map a PUD cap into the vspace (PGD → PUD level).
+/// Used for 4-level page tables. In 3-level mode (QEMU 40-bit),
+/// PUD IS the root and this function is unused.
+/// For now, always available (RPI4 4-level path). TODO: make configurable.
+#[no_mangle]
+#[link_section = ".boot.text"]
 pub fn map_it_pud_cap(vspace_cap: &cap_vspace_cap, pud_cap: &cap_page_table_cap) {
     let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
     let pud_addr = pud_cap.get_capPTBasePtr() as usize;
@@ -205,9 +190,12 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
     pte.set_next_level_paddr(pptr!(frame_cap.get_capFBasePtr()).to_paddr());
 }
 
-/// TODO: Write the comments.
+/// Find the page table slot for a given virtual address and type.
+/// Walks PGD → PUD → PD → PT (4-level page table).
+/// For RPI4 44-bit PA with hypervisor (SL0=2), this is the correct 4-level path.
+/// For QEMU 40-bit PA (SL0=1), a 3-level variant would skip PGD.
+/// For now, hardcoded to 4-level (RPI4 path). TODO: make configurable per platform.
 #[link_section = ".boot.text"]
-#[cfg(not(feature = "hypervisor"))]
 fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
     let pgd = page_slice::<PTE>(pptr!(vspace_root));
     let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
@@ -223,27 +211,10 @@ fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
     pt[vptr.pt_index()].self_addr()
 }
 
-/// Hypervisor (SL0=1) variant: vspaceRoot IS the PUD (1024 entries), skip PGD lookup.
-#[link_section = ".boot.text"]
-#[cfg(feature = "hypervisor")]
-fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
-    let pud = vspace_root_slice::<PTE>(pptr!(vspace_root));
-    let pd = pud[vptr.pud_index()].next_level_slice::<PTE>();
-    if ftype == find_type::PDE {
-        return pd[vptr.pd_index()].self_addr();
-    }
-    let pt = pd[vptr.pd_index()].next_level_slice::<PTE>();
-    assert_eq!(ftype, find_type::PTE);
-    pt[vptr.pt_index()].self_addr()
-}
-
-/// Create a new pud cap in the vspace.
-/// Only used in non-hypervisor mode (4-level page table).
-/// hypervisor mode only support 3-level 40 bit page table
-///
-/// vptr is the virtual address of the pud cap will be created
-/// pptr is the address to the physical address will be mapped
-#[cfg(not(feature = "hypervisor"))]
+/// Create a new PUD cap in the vspace (PGD level).
+/// Used for 4-level page tables. In 3-level mode (QEMU 40-bit),
+/// the PUD IS the root and this function is not needed.
+/// For now, always available (RPI4 4-level path). TODO: make configurable.
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn create_it_pud_cap(

@@ -41,6 +41,12 @@ memory:
   stack_bits: 12 # 2^12 4K
 
 definitions:
+  ARM_HIKEY_OUTSTANDING_PREFETCHERS: "0"
+  ARM_HIKEY_PREFETCHER_STRIDE: "0"
+  ARM_HIKEY_PREFETCHER_NPFSTRM: "0"
+  ARM_HIKEY_PREFETCHER_STBPFDIS: false
+  ARM_HIKEY_PREFETCHER_STBPFRS: false
+  PLAT_IMX7: false
   ARCH_AARCH32: false
   ARCH_AARCH64: true # KernelSel4ArchAarch64=ON
   ARCH_ARM_HYP: false
@@ -53,31 +59,46 @@ definitions:
   ARCH: "arm"
   WORD_SIZE: "64"
   ARM_PLAT: "qemu-arm-virt"
-  USER_TOP: "0xa0000000"
+  PLAT_BCM2711: false
+  PLAT_BCM2837: false
+  PLAT_FVP: false
+  PLAT_HIKEY: false
+  PLAT_IMX8MQ_EVK: false
+  PLAT_IMX8MM_EVK: false
+  PLAT_IMX8MP_EVK: false
+  PLAT_MAAXBOARD: false
+  PLAT_ODROIDC2: false
+  PLAT_ODROIDC4: false
   PLAT_QEMU_ARM_VIRT: true # KernelPlatformQEMUArmVirt=ON
+  PLAT_QUARTZ64: false
+  PLAT_ROCKPRO64: false
+  PLAT_TQMA8XQP1GB: false
+  PLAT_TX1: false
+  PLAT_TX2: false
+  PLAT_ZYNQMP: false
   PLAT: "qemu-arm-virt"
   ARM_CORTEX_A7: false
   ARM_CORTEX_A8: false
   ARM_CORTEX_A9: false
   ARM_CORTEX_A15: false
   ARM_CORTEX_A35: false
-  ARM_CORTEX_A53: true # KernelArmCortexA53=ON
+  ARM_CORTEX_A53: false
   ARM_CORTEX_A55: false
   ARM_CORTEX_A57: false
-  ARM_CORTEX_A72: false
+  ARM_CORTEX_A72: true # KernelArmCortexA72=ON
   ARCH_ARM_V7A: false
   ARCH_ARM_V7VE: false
   ARCH_ARM_V8A: true # KernelArchArmV8a=ON
   ARM_MACH: ""
   KERNEL_MCS: false
-  ARM_PA_SIZE_BITS_40: true # KernelArmPASizeBits40=ON
-  ARM_PA_SIZE_BITS_44: false
-  ARM_ICACHE_VIPT: true # KernelArmICacheVIPT=ON
+  ARM_PA_SIZE_BITS_40: false
+  ARM_PA_SIZE_BITS_44: true # KernelArmPASizeBits44=ON
+  ARM_ICACHE_VIPT: ""
   DEBUG_DISABLE_L2_CACHE: false
   DEBUG_DISABLE_L1_ICACHE: false
   DEBUG_DISABLE_L1_DCACHE: false
   DEBUG_DISABLE_BRANCH_PREDICTION: false
-  ARM_HYPERVISOR_SUPPORT: true
+  ARM_HYPERVISOR_SUPPORT: true # KernelArmHypervisorSupport=TRUE
   ARM_GIC_V3_SUPPORT: false
   AARCH64_VSPACE_S2_START_L1: false
   ARM_HYP_ENABLE_VCPU_CP14_SAVE_AND_RESTORE: false
@@ -90,6 +111,7 @@ definitions:
   DISABLE_WFI_WFE_TRAPS: false
   SMMU_INTERRUPT_ENABLE: false
   AARCH32_FPU_ENABLE_CONTEXT_SWITCH: false
+  AARCH64_USER_CACHE_ENABLE: true # KernelAArch64UserCacheEnable=ON
   AARCH64_SERROR_IGNORE: false
   ALLOW_SMC_CALLS: false
   L1_CACHE_LINE_SIZE_BITS: "6"
@@ -99,8 +121,8 @@ definitions:
   EXPORT_VTMR_USER: false
   VTIMER_UPDATE_VOFFSET: true # KernelArmVtimerUpdateVOffset=ON
   HAVE_FPU: true # KernelHaveFPU=ON
-  PADDR_USER_DEVICE_TOP: "1099511627776"
-  ROOT_CNODE_SIZE_BITS: "12"
+  PADDR_USER_DEVICE_TOP: "17592186044416"
+  ROOT_CNODE_SIZE_BITS: "13"
   TIMER_TICK_MS: "2"
   TIME_SLICE: "5"
   RETYPE_FAN_OUT_LIMIT: "256"

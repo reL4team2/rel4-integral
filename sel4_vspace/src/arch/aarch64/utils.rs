@@ -7,22 +7,23 @@ use sel4_common::{
 };
 
 pub const KPT_LEVELS: usize = 4;
-#[cfg(feature = "hypervisor")]
-pub const UPT_LEVELS: usize = 3;
-#[cfg(not(feature = "hypervisor"))]
+/// User page table levels.
+/// Non-hypervisor: 4 levels (PGD → PUD → PD → PT).
+/// Hypervisor 40-bit PA (QEMU, SL0=1): 3 levels, PGD skipped, VSPACE_INDEX_BITS=10 for concatenated PUD root.
+/// Hypervisor 44-bit PA (RPI4, SL0=2): 4 levels, same as non-hypervisor.
+/// For now, hardcoded to 4 levels (RPI4 path). TODO: make configurable per platform.
 pub const UPT_LEVELS: usize = 4;
-#[cfg(feature = "hypervisor")]
-pub const VSPACE_INDEX_BITS: usize = 10;
-#[cfg(not(feature = "hypervisor"))]
+/// Virtual space index bits for the root level.
+/// 4-level: 9 bits (512 entries per table, standard).
+/// 3-level: 10 bits (4 concatenated PUD tables, 2048 entries for the root).
+/// For now, hardcoded to 9 (RPI4 4-level path). TODO: make configurable per platform.
 pub const VSPACE_INDEX_BITS: usize = 9;
 pub(self) const PAGE_ADDR_MASK: usize = mask_bits!(48) & !0xfff;
+/// Map ARM PT level to user PT level index.
+/// For 4-level page tables (RPI4 path), the mapping is identity.
+/// For 3-level (QEMU 40-bit), level 0 is skipped (n-1).
+/// For now, hardcoded to identity (RPI4 4-level path). TODO: make configurable.
 #[inline]
-#[cfg(feature = "hypervisor")]
-pub fn ulvl_frm_arm_pt_lvl(n: usize) -> usize {
-    n - 1
-}
-#[inline]
-#[cfg(not(feature = "hypervisor"))]
 pub fn ulvl_frm_arm_pt_lvl(n: usize) -> usize {
     n
 }

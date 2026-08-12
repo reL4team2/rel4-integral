@@ -29,17 +29,13 @@ pub(crate) static mut armKSGlobalKernelPDs: PageAligned<PageAligned<PTE>> =
 #[link_section = ".page_table"]
 pub(crate) static mut armKSGlobalKernelPT: PageAligned<PTE> = PageAligned::new(PTE(0));
 
+/// Global user vspace root (PGD for 4-level, concatenated PUD for 3-level).
+/// For 4-level (RPI4): single 4KB page, 512 entries (9-bit index).
+/// For 3-level (QEMU 40-bit): 2 pages (8KB), 2048 entries (10-bit index).
+/// For now, hardcoded to 4-level (RPI4 path). TODO: make configurable per platform.
 #[no_mangle]
 #[link_section = ".page_table"]
-#[cfg(not(feature = "hypervisor"))]
 pub(crate) static mut armKSGlobalUserVSpace: PageAligned<PTE> = PageAligned::new(PTE(0));
-
-/// In hypervisor mode (SL0=1), the root PUD table needs 1024 entries (10-bit index).
-/// This requires 2 physical pages (8KB).
-#[no_mangle]
-#[link_section = ".page_table"]
-#[cfg(feature = "hypervisor")]
-pub(crate) static mut armKSGlobalUserVSpace: [PageAligned<PTE>; 2] = [PageAligned::new(PTE(0)), PageAligned::new(PTE(0))];
 
 /// Separate PUD page used for Stage-1 identity mapping of user-space VA→IPA.
 /// Set as the target of PGD[0] when hypervisor is enabled.

@@ -732,11 +732,10 @@ unsafe fn rust_create_it_address_space(
     // let PGD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 3;
     // let PUD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 2;
     // let PD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS;
-    // With SL0=1 (40-bit IPA), VTTBR_EL2 points directly to PUD.
-    // Create entries at PUD granularity (1 GiB) to cover all user VA.
-    // With AARCH64_VSPACE_S2_START_L1 (SL0=1), VTTBR_EL2 points directly
-    // to PUD level. The PUD creation loop is skipped entirely.
-    #[cfg(not(feature = "hypervisor"))]
+    // Create any PUDs needed for the user land image.
+    // For 3-level (QEMU 40-bit, SL0=1): VTTBR_EL2 points directly to PUD, skip this loop.
+    // For 4-level (RPI4 44-bit, SL0=2): PGD → PUD path exists, create PUD entries.
+    // For now, always create PUD entries (RPI4 4-level path). TODO: make configurable.
     {
         let mut vptr = it_v_reg.start.align_down(PGD_INDEX_OFFSET);
         while vptr < it_v_reg.end {

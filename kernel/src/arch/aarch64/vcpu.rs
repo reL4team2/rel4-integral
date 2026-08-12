@@ -8,6 +8,7 @@ use sel4_task::tcb_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use sel4_common::arch::MessageLabel;
+use sel4_common::sel4_config::CONFIG_AARCH64_VSPACE_S2_START_L1;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_cspace::interface::cte_t;
 
@@ -78,12 +79,20 @@ pub fn armv_vcpu_boot_init() {
     if ID_AA64MMFR0_EL1.matches_all(ID_AA64MMFR0_EL1::TGran4::NotSupported) {
         panic!("Processor doesn't support 4KB");
     }
-    VTCR_EL2.write(
-        // CONFIG_ARM_PA_SIZE_BITS_40
+    // Select VTCR_EL2 configuration based on stage-2 starting level:
+    // - S2_START_L1 (40-bit PA, e.g. QEMU): T0SZ=24, PS=1TB,  SL0=1 (3-level s2)
+    // - S2_START_L0 (44-bit PA, e.g. RPI4): T0SZ=20, PS=16TB, SL0=2 (4-level s2)
+    let vtcr_val = if CONFIG_AARCH64_VSPACE_S2_START_L1 {
         VTCR_EL2::T0SZ.val(24)
             + VTCR_EL2::PS::PA_40B_1TB
             + VTCR_EL2::SL0.val(1)
-        // END CONFIG_ARM_PA_SIZE_BITS_40
+    } else {
+        VTCR_EL2::T0SZ.val(20)
+            + VTCR_EL2::PS::PA_44B_16TB
+            + VTCR_EL2::SL0.val(2)
+    };
+    VTCR_EL2.write(
+        vtcr_val
             + VTCR_EL2::IRGN0::NormalWBRAWA
             + VTCR_EL2::ORGN0::NormalWBRAWA
             + VTCR_EL2::SH0::Inner
@@ -94,6 +103,14 @@ pub fn armv_vcpu_boot_init() {
 
 pub fn vcpu_boot_init() {
     armv_vcpu_boot_init();
+    // Set SCTLR_EL1 to a known default. Mirrors C kernel's setSCTLR(SCTLR_DEFAULT).
+    SCTLR_EL1.set(SCTLR_DEFAULT);
+    barrier::isb(barrier::SY);
+    // Set HCR_EL2 for native (non-VCPU) execution.
+    // TGE=1 traps EL0 execution to EL2, VM=1 enables stage-2 translation.
+    // Without HCR_EL2 properly configured, ERET to EL0 faults on real hardware.
+    HCR_EL2.set(HCR_NATIVE);
+    barrier::isb(barrier::SY);
     // Initialize VGIC: cache list register count from VTR
     unsafe {
         GIC_NUM_LIST_REGS = gic_vcpu_num_list_regs();
