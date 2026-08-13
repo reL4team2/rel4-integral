@@ -16,7 +16,7 @@ use crate::{
     set_kernel_page_table_by_index, set_kernel_page_upper_directory_by_index, vm_attributes_t, PTE,
 };
 
-use super::{map_kernel_devices, page_slice};
+use super::{map_kernel_devices, page_slice, vspace_root_slice};
 
 #[derive(PartialEq, Eq, Debug)]
 enum find_type {
@@ -132,34 +132,45 @@ pub fn map_it_pt_cap(vspace_cap: &cap_vspace_cap, pt_cap: &cap_page_table_cap) {
     target_pte.set_attr(3);
 }
 
-/// When hypervisor support is enabled with S2_START_L1 (QEMU 40-bit), vspaceRoot
-/// is directly the PUD level — skip PGD lookup.
-/// For RPI4 (44-bit, S2_START_L0), the PGD level exists — use full 4-level path.
-/// For now, always use 4-level (RPI4 path). TODO: make configurable.
+/// Map a PD cap into the vspace.
+/// 44-bit: PGD → PUD path (PUD[pud_index] = PD table).
+/// 40-bit: PUD root path (root[pud_index] = PD table).
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn map_it_pd_cap(vspace_cap: &cap_vspace_cap, pd_cap: &cap_page_table_cap) {
     let pd_addr = pd_cap.get_capPTBasePtr() as usize;
     let vptr: VAddr = (pd_cap.get_capPTMappedAddress() as usize).into();
     assert_eq!(pd_cap.get_capPTIsMapped(), 1);
-    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
-    assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
-    let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
+    #[cfg(all(feature = "pa_40bit", feature = "hypervisor"))]
+    let pud = vspace_root_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
+    #[cfg(not(all(feature = "pa_40bit", feature = "hypervisor")))]
+    let pud = {
+        let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
+        assert_eq!(pgd[vptr.pgd_index()].attr(), 0x3);
+        pgd[vptr.pgd_index()].next_level_slice::<PTE>()
+    };
     pud[vptr.pud_index()] = PTE::new_page(pptr!(pd_addr).to_paddr(), 0x3);
 }
 
 /// Map a PUD cap into the vspace (PGD → PUD level).
-/// Used for 4-level page tables. In 3-level mode (QEMU 40-bit),
+/// Only used for 4-level page tables. In 3-level mode (pa_40bit),
 /// PUD IS the root and this function is unused.
-/// For now, always available (RPI4 4-level path). TODO: make configurable.
 #[no_mangle]
 #[link_section = ".boot.text"]
 pub fn map_it_pud_cap(vspace_cap: &cap_vspace_cap, pud_cap: &cap_page_table_cap) {
-    let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
-    let pud_addr = pud_cap.get_capPTBasePtr() as usize;
-    let vptr: VAddr = (pud_cap.get_capPTMappedAddress() as usize).into();
-    assert_eq!(pud_cap.get_capPTIsMapped(), 1);
-    pgd[vptr.pgd_index()] = PTE::new_page(pptr!(pud_addr).to_paddr(), 0x3);
+    #[cfg(all(feature = "pa_40bit", feature = "hypervisor"))]
+    {
+        let _ = (vspace_cap, pud_cap);
+        panic!("map_it_pud_cap must not be called in 3-level (pa_40bit) mode");
+    }
+    #[cfg(not(all(feature = "pa_40bit", feature = "hypervisor")))]
+    {
+        let pgd = page_slice::<PTE>(pptr!(vspace_cap.get_capVSBasePtr()));
+        let pud_addr = pud_cap.get_capPTBasePtr() as usize;
+        let vptr: VAddr = (pud_cap.get_capPTMappedAddress() as usize).into();
+        assert_eq!(pud_cap.get_capPTIsMapped(), 1);
+        pgd[vptr.pgd_index()] = PTE::new_page(pptr!(pud_addr).to_paddr(), 0x3);
+    }
 }
 
 /// TODO: Write the comments.
@@ -191,17 +202,20 @@ pub fn map_it_frame_cap(vspace_cap: &cap_vspace_cap, frame_cap: &cap_frame_cap, 
 }
 
 /// Find the page table slot for a given virtual address and type.
-/// Walks PGD → PUD → PD → PT (4-level page table).
-/// For RPI4 44-bit PA with hypervisor (SL0=2), this is the correct 4-level path.
-/// For QEMU 40-bit PA (SL0=1), a 3-level variant would skip PGD.
-/// For now, hardcoded to 4-level (RPI4 path). TODO: make configurable per platform.
+/// Walks page tables from the root down.
+/// 44-bit (default): PGD → PUD → PD → PT (4-level).
+/// 40-bit (pa_40bit): PUD (root) → PD → PT (3-level).
 #[link_section = ".boot.text"]
 fn find_pt(vspace_root: usize, vptr: VAddr, ftype: find_type) -> usize {
-    let pgd = page_slice::<PTE>(pptr!(vspace_root));
-    let pud = pgd[vptr.pgd_index()].next_level_slice::<PTE>();
-    if ftype == find_type::PUDE {
-        return pud[vptr.pud_index()].self_addr();
-    }
+    // Root: PGD for 4-level, concatenated PUD for 3-level.
+    #[cfg(all(feature = "pa_40bit", feature = "hypervisor"))]
+    let pud = vspace_root_slice::<PTE>(pptr!(vspace_root));
+    #[cfg(not(all(feature = "pa_40bit", feature = "hypervisor")))]
+    let pud = {
+        let pgd = page_slice::<PTE>(pptr!(vspace_root));
+        pgd[vptr.pgd_index()].next_level_slice::<PTE>()
+    };
+
     let pd = pud[vptr.pud_index()].next_level_slice::<PTE>();
     if ftype == find_type::PDE {
         return pd[vptr.pd_index()].self_addr();

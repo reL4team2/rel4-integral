@@ -14,6 +14,10 @@ fn main() {
     // let arch = arch.as_str();
     let platform = std::env::var("PLATFORM").unwrap();
     println!("cargo:rerun-if-changed=pbf/{}/structure_gen.rs", arch);
+    // Re-run the generator when these env vars change (e.g. switching
+    // hypervisor/pa_40bit features), otherwise stale generated code is reused.
+    println!("cargo:rerun-if-env-changed=MARCOS");
+    println!("cargo:rerun-if-env-changed=PLATFORM");
     let out_dir = path::Path::new(env::var("OUT_DIR").unwrap().as_str()).join("pbf");
     let src_dir = path::Path::new(env::var("CARGO_MANIFEST_DIR").unwrap().as_str()).join("pbf");
     if out_dir.exists() && out_dir.is_dir() {
@@ -48,8 +52,14 @@ fn main() {
         // TODO: enable fpu fault handler if build aarch64, maybe need provide by build command
         common_defs.push("have_fpu=true".to_string());
     }
-    // TODO: pt levels should config by config file
-    common_defs.push("PT_LEVELS=3".to_string());
+    // pt levels: 3-level only when hypervisor + pa_40bit, otherwise 4-level.
+    let hypervisor = std::env::var("CARGO_FEATURE_HYPERVISOR").is_ok();
+    let pa_40bit = std::env::var("CARGO_FEATURE_PA_40BIT").is_ok();
+    if hypervisor && pa_40bit {
+        common_defs.push("PT_LEVELS=3".to_string());
+    } else {
+        common_defs.push("PT_LEVELS=4".to_string());
+    }
 
     rel4_config::generator::config_gen(&platform, &common_defs);
     let out_inc_dir = env::var("OUT_DIR").unwrap();

@@ -42,9 +42,15 @@ pub fn arch_get_n_paging(it_v_reg: VRegion) -> usize {
 
 #[cfg(target_arch = "aarch64")]
 pub fn arch_get_n_paging(it_v_reg: VRegion) -> usize {
-    let n = get_n_paging(it_v_reg, 3 * PT_INDEX_BITS + PAGE_SIZE_BITS)
-        + get_n_paging(it_v_reg, PT_INDEX_BITS + PAGE_SIZE_BITS + PT_INDEX_BITS)
-        + get_n_paging(it_v_reg, PT_INDEX_BITS + PAGE_SIZE_BITS);
+    // Use upt_level_shift for level-aware page table count.
+    // For 4-level (44-bit): includes PGD, PUD, PD levels.
+    // For 3-level (40-bit): includes only PUD, PD levels (PGD doesn't exist).
+    use sel4_vspace::{upt_level_shift, UPT_LEVELS};
+    let mut n = 0;
+    // Iterate over user PT levels 0..UPT_LEVELS-1 (skip the PT leaf level).
+    for lvl in 0..(UPT_LEVELS - 1) {
+        n += get_n_paging(it_v_reg, upt_level_shift(lvl));
+    }
     n
 }
 

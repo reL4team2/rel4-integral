@@ -63,6 +63,12 @@ pub struct BuildOptions {
         help = "Enable hypervisor feature(TODO)"
     )]
     pub arm_hypervisor: bool,
+    #[clap(
+        long,
+        default_value_t = false,
+        help = "Use 40-bit PA (3-level page tables) instead of default 44-bit"
+    )]
+    pub pa_40bit: bool,
     #[clap(long, help = "Only build the reL4 rust kernel")]
     pub rust_only: bool,
     #[clap(
@@ -186,7 +192,10 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
     if opts.arm_hypervisor && target.contains("aarch64") {
         append_features(&mut args, "hypervisor".to_string());
         marcos.push("ARCH_ARM_HYP=true".to_string());
-        marcos.push("AARCH64_VSPACE_S2_START_L1=true".to_string());
+    }
+
+    if opts.pa_40bit && target.contains("aarch64") {
+        append_features(&mut args, "pa_40bit".to_string());
     }
 
     match fs::remove_file(&easy_setting_cmake_file) {

@@ -57,6 +57,7 @@ kernel_mcs = [
 ]
 enable_smc = ["sel4_common/enable_smc", "sel4_cspace/enable_smc"]
 build_binary = ["sel4_common/build_binary"]
+pa_40bit = ["sel4_common/pa_40bit", "sel4_vspace/pa_40bit"]
 enable_arm_pcnt = []
 enable_arm_ptmr = []
 enable_benchmark = []

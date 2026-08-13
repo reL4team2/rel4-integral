@@ -180,16 +180,21 @@ pub const SEL4_PML4_BITS: usize = 12;
 /// Only used for the VSpace root, NOT for lower levels
 /// (PageTableObject / PageDir use SEL4_PAGE_TABLE_BITS / SEL4_PAGE_DIR_BITS respectively).
 ///
-/// Hypervisor mode: 13 (8KB, 1024 entries of 8 bytes) — 3-level translation needs
-/// a wider root (10-bit index) to cover 40-bit PA without a PGD level.
-/// Non-hypervisor mode: 12 (4KB, 512 entries) — standard 4-level translation.
-#[cfg(feature = "hypervisor")]
+/// Hypervisor 40-bit: 13 (8KB, concatenated PUD root, 1024 entries).
+/// Hypervisor 44-bit: 12 (4KB, single PGD root, 512 entries).
+/// Non-hypervisor: 12 (4KB, 512 entries).
+#[cfg(all(feature = "hypervisor", feature = "pa_40bit"))]
 pub const SEL4_VSPACE_BITS: usize = 13;
-#[cfg(not(feature = "hypervisor"))]
+#[cfg(not(all(feature = "hypervisor", feature = "pa_40bit")))]
 pub const SEL4_VSPACE_BITS: usize = 12;
 pub const SEL4_WORD_BITS: usize = 64;
-#[cfg(feature = "hypervisor")]
+/// Hypervisor + 40-bit: 40-bit user address space (3-level stage-2).
+/// Hypervisor + 44-bit: 44-bit user address space (4-level stage-2).
+/// Non-hypervisor: 48-bit user address space (4-level stage-1).
+#[cfg(all(feature = "hypervisor", feature = "pa_40bit"))]
 pub const SEL4_USER_TOP: usize = 0x000000ffffffffff;
+#[cfg(all(feature = "hypervisor", not(feature = "pa_40bit")))]
+pub const SEL4_USER_TOP: usize = 0x00000fffffffffff;
 #[cfg(not(feature = "hypervisor"))]
 pub const SEL4_USER_TOP: usize = 0x00007fffffffffff;
 pub const USER_TOP: usize = SEL4_USER_TOP;

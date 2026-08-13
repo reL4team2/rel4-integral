@@ -727,15 +727,9 @@ unsafe fn rust_create_it_address_space(
         vspace_cap.clone().unsplay(),
     );
 
-    // lxy: use these constants defined in sel4_config
-    // // Create any PUDs needed for the user land image, should config `PGD_INDEX_OFFSET`, `PUD_INDEX_OFFSET`...
-    // let PGD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 3;
-    // let PUD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS * 2;
-    // let PD_INDEX_OFFSET = PAGE_BITS + PT_INDEX_BITS;
-    // Create any PUDs needed for the user land image.
-    // For 3-level (QEMU 40-bit, SL0=1): VTTBR_EL2 points directly to PUD, skip this loop.
-    // For 4-level (RPI4 44-bit, SL0=2): PGD → PUD path exists, create PUD entries.
-    // For now, always create PUD entries (RPI4 4-level path). TODO: make configurable.
+    // Create PUDs under PGD (4-level only).
+    // For 3-level (pa_40bit): PUD IS the root, skip this loop.
+    #[cfg(not(all(feature = "pa_40bit", feature = "hypervisor")))]
     {
         let mut vptr = it_v_reg.start.align_down(PGD_INDEX_OFFSET);
         while vptr < it_v_reg.end {

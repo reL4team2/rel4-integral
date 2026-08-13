@@ -8,7 +8,6 @@ use sel4_task::tcb_t;
 use sel4_task::{get_currenct_thread, set_thread_state, ThreadState};
 
 use sel4_common::arch::MessageLabel;
-use sel4_common::sel4_config::CONFIG_AARCH64_VSPACE_S2_START_L1;
 use sel4_common::structures::{exception_t, seL4_IPCBuffer};
 use sel4_cspace::interface::cte_t;
 
@@ -44,8 +43,8 @@ const HCR_NATIVE: u64 = HCR_COMMON
     | HCR_EL2::TGE::EnableTrapGeneralExceptionsToEl2.value
     | HCR_EL2::SWIO::SET.value
     | bit!(12)  // DC: Default Cacheability – disables EL0 Stage‑1, forces VA→IPA passthrough
-    // HVM(26) | TTLB(25) | TPU(24) | TPC(23) | TSW(22) | TAC(21)
-    | bits!(26, 25, 24, 23, 22, 21);
+    // TVM(26) | TTLB(25) | TAC(21)
+    | bits!(26, 25, 21);
 
 // TWE(14) | TWI(13)
 const HCR_VCPU: u64 = HCR_COMMON | bits!(14, 13);
@@ -80,24 +79,28 @@ pub fn armv_vcpu_boot_init() {
         panic!("Processor doesn't support 4KB");
     }
     // Select VTCR_EL2 configuration based on stage-2 starting level:
-    // - S2_START_L1 (40-bit PA, e.g. QEMU): T0SZ=24, PS=1TB,  SL0=1 (3-level s2)
-    // - S2_START_L0 (44-bit PA, e.g. RPI4): T0SZ=20, PS=16TB, SL0=2 (4-level s2)
-    let vtcr_val = if CONFIG_AARCH64_VSPACE_S2_START_L1 {
+    // - 40-bit (feature "pa_40bit"): T0SZ=24, PS=1TB,  SL0=1 (3-level s2)
+    // - 44-bit (default):        T0SZ=20, PS=16TB, SL0=2 (4-level s2)
+    #[cfg(all(feature = "pa_40bit", feature = "hypervisor"))]
+    let vtcr_val = {
         VTCR_EL2::T0SZ.val(24)
             + VTCR_EL2::PS::PA_40B_1TB
             + VTCR_EL2::SL0.val(1)
-    } else {
+    };
+    #[cfg(not(all(feature = "pa_40bit", feature = "hypervisor")))]
+    let vtcr_val = {
         VTCR_EL2::T0SZ.val(20)
             + VTCR_EL2::PS::PA_44B_16TB
             + VTCR_EL2::SL0.val(2)
     };
-    VTCR_EL2.write(
-        vtcr_val
-            + VTCR_EL2::IRGN0::NormalWBRAWA
-            + VTCR_EL2::ORGN0::NormalWBRAWA
-            + VTCR_EL2::SH0::Inner
-            + VTCR_EL2::TG0::Granule4KB,
-    );
+    let vtcr_val = (vtcr_val
+        + VTCR_EL2::IRGN0::NormalWBRAWA
+        + VTCR_EL2::ORGN0::NormalWBRAWA
+        + VTCR_EL2::SH0::Inner
+        + VTCR_EL2::TG0::Granule4KB)
+        .value
+        | (1u64 << 31); // RES1: bit 31 must be 1 (ARM ARM)
+    unsafe { core::arch::asm!("msr vtcr_el2, {}", in(reg) vtcr_val) };
     barrier::dsb(barrier::SY);
 }
 

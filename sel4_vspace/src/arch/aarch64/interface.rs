@@ -29,12 +29,21 @@ pub(crate) static mut armKSGlobalKernelPDs: PageAligned<PageAligned<PTE>> =
 #[link_section = ".page_table"]
 pub(crate) static mut armKSGlobalKernelPT: PageAligned<PTE> = PageAligned::new(PTE(0));
 
-/// Global user vspace root (PGD for 4-level, concatenated PUD for 3-level).
-/// For 4-level (RPI4): single 4KB page, 512 entries (9-bit index).
-/// For 3-level (QEMU 40-bit): 2 pages (8KB), 2048 entries (10-bit index).
-/// For now, hardcoded to 4-level (RPI4 path). TODO: make configurable per platform.
+/// Global user vspace root.
+/// 40-bit: 1024 entries (2 pages concatenated PUD, 10-bit index), 8KB aligned.
+/// 44-bit: 512 entries (1 page PGD, 9-bit index), 4KB aligned.
+#[cfg(all(feature = "pa_40bit", feature = "hypervisor"))]
+#[repr(C, align(8192))]
+#[derive(Clone, Copy)]
+pub(crate) struct VSpaceRoot40(pub(crate) [PTE; 1024]);
 #[no_mangle]
 #[link_section = ".page_table"]
+#[cfg(all(feature = "pa_40bit", feature = "hypervisor"))]
+pub(crate) static mut armKSGlobalUserVSpace: VSpaceRoot40 = VSpaceRoot40([PTE(0); 1024]);
+
+#[no_mangle]
+#[link_section = ".page_table"]
+#[cfg(not(all(feature = "pa_40bit", feature = "hypervisor")))]
 pub(crate) static mut armKSGlobalUserVSpace: PageAligned<PTE> = PageAligned::new(PTE(0));
 
 /// Separate PUD page used for Stage-1 identity mapping of user-space VA→IPA.
@@ -139,35 +148,6 @@ pub fn set_vm_root(thread_root: &cap) -> Result<(), lookup_fault> {
 #[link_section = ".boot.text"]
 pub fn activate_kernel_vspace() {
     clean_invalidate_l1_caches();
-    #[cfg(feature = "hypervisor")]
-    {
-        // PGD[0] covers user-space VA [0x0 .. 0x8000000000).
-        // Set PGD[0] to a table descriptor that points to a dedicated
-        // PUD filled with 1 GiB identity block descriptors, so that
-        // EL0 instruction fetches can pass Stage‑1.
-        // Note: C kernel relies on HCR_EL2.DC to bypass Stage‑1 entirely,
-        // but QEMU TCG does not fully implement this behavior for instruction
-        // fetch, so we explicitly populate PGD[0].
-        set_kernel_page_global_directory_by_index(
-            0,
-            PTE::pte_new_table(kpptr_to_paddr(&raw mut armKSGlobalUserPUD as usize)),
-        );
-        let shareable = if cfg!(feature = "enable_smp") { 3 } else { 0 };
-        for idx in 0..512 {
-            let va = idx << 30; // 1 GiB stride
-            unsafe {
-                armKSGlobalUserPUD[idx] = PTE::pte_new_page(
-                    0,              // UXN = 0 (allow execution)
-                    paddr!(va),
-                    0,              // nG = 0
-                    1,              // AF = 1
-                    shareable,
-                    PTE::ap_from_vm_rights_t(sel4_common::arch::vm_rights_t::VMReadWrite),
-                    super::mair_types::NORMAL as usize,
-                );
-            }
-        }
-    }
     set_current_kernel_vspace_root(ttbr_new(
         0,
         kpptr_to_paddr(get_kernel_page_global_directory_base()),
