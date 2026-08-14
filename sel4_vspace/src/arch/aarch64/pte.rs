@@ -252,7 +252,7 @@ impl PTE {
             | (AF & 0x1) << 10
             | (SH & 0x3) << 8
             | (AP & 0x3) << 6
-            | (AttrIndx & 0x7) << 2
+            | (AttrIndx & 0xF) << 2
             | (0x1 << 0);
 
         PTE(val)
@@ -274,7 +274,7 @@ impl PTE {
             | (AF & 0x1) << 10
             | (SH & 0x3) << 8
             | (AP & 0x3) << 6
-            | (AttrIndx & 0x7) << 2
+            | (AttrIndx & 0xF) << 2
             | 0x400000000000003;
         PTE(val)
     }

@@ -4,7 +4,7 @@ use std::io;
 use std::path;
 
 use rust_sel4_pbf_parser::parser::pbf_parser;
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let arch = match env::var("TARGET").expect("TARGET not set").as_str() {
         "aarch64-unknown-none-softfloat" => "aarch64",
         "riscv64gc-unknown-none-elf" => "riscv64",
@@ -18,6 +18,20 @@ fn main() {
     // hypervisor/pa_40bit features), otherwise stale generated code is reused.
     println!("cargo:rerun-if-env-changed=MARCOS");
     println!("cargo:rerun-if-env-changed=PLATFORM");
+    // Source definitions YAML.
+    println!(
+        "cargo:rerun-if-changed={}",
+        rel4_config::get_definitions_yaml_path(&platform).display()
+    );
+    // Source platform YAML (plain and hypervisor variant).
+    println!(
+        "cargo:rerun-if-changed={}",
+        rel4_config::get_platform_yaml_path(&platform, false).display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        rel4_config::get_platform_yaml_path(&platform, true).display()
+    );
     let out_dir = path::Path::new(env::var("OUT_DIR").unwrap().as_str()).join("pbf");
     let src_dir = path::Path::new(env::var("CARGO_MANIFEST_DIR").unwrap().as_str()).join("pbf");
     if out_dir.exists() && out_dir.is_dir() {
@@ -61,6 +75,28 @@ fn main() {
         common_defs.push("PT_LEVELS=4".to_string());
     }
 
+    // Generate the definitions YAML from feature flags (at build time) so
+    // `config_gen` reads the generated copy instead of the source file.
+    let mcs = std::env::var("CARGO_FEATURE_KERNEL_MCS").is_ok();
+    let smc = std::env::var("CARGO_FEATURE_ENABLE_SMC").is_ok();
+    let arm_pcnt = std::env::var("CARGO_FEATURE_ENABLE_ARM_PCNT").is_ok();
+    let arm_ptmr = std::env::var("CARGO_FEATURE_ENABLE_ARM_PTMR").is_ok();
+    let smp = std::env::var("CARGO_FEATURE_ENABLE_SMP").is_ok();
+    let fastpath = common_defs.iter().any(|m| m == "FASTPATH=true");
+    let num_nodes = common_defs
+        .iter()
+        .find_map(|m| m.strip_prefix("MAX_NUM_NODES=").and_then(|v| v.parse().ok()))
+        .unwrap_or(1);
+
+    let overrides = rel4_config::build_definitions_overrides(
+        hypervisor, pa_40bit, mcs, smc, arm_pcnt, arm_ptmr, fastpath, smp, num_nodes,
+    );
+    rel4_config::generate_definitions_yaml(
+        &platform,
+        &overrides,
+        path::Path::new(env::var("OUT_DIR").unwrap().as_str()),
+    )?;
+
     rel4_config::generator::config_gen(&platform, &common_defs);
     let out_inc_dir = env::var("OUT_DIR").unwrap();
 
@@ -93,5 +129,6 @@ fn main() {
         out_dir.to_str().unwrap().to_string(),
     );
 
-    rel4_config::generator::platform_gen(&platform);
+    rel4_config::generator::platform_gen(&platform, hypervisor);
+    Ok(())
 }

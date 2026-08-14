@@ -408,7 +408,7 @@ pub enum mair_types {
     NORMAL = 4,
     NORMAL_WT = 5,
 
-    // Stage-2 normal memory attribute index.
-    // Device attributes (0-3) are identical between Stage-1 and Stage-2.
+    // Stage-2 normal memory attribute index. MAIR_EL2 holds 16 attributes
+    // (Attr0-Attr15) of 4 bits each; index 15 = Normal Inner/Outer WB-WA-RA.
     S2_NORMAL = 15,
 }

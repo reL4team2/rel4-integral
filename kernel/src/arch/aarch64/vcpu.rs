@@ -106,6 +106,17 @@ pub fn armv_vcpu_boot_init() {
 
 pub fn vcpu_boot_init() {
     armv_vcpu_boot_init();
+    // Set MAIR_EL2 for stage-2 translation. Stage-2 uses 16 x 4-bit attributes
+    // (Attr0-Attr15); attribute 15 (S2_NORMAL) = Normal Inner/Outer WB-WA
+    // (0b1111). The elfloader programs MAIR_EL2 with stage-1's 8-bit layout,
+    // leaving Attr15 as Device — so stage-2 Normal pages fault on real hardware.
+    const MAIR_EL2_VALUE: u64 = (0x0u64 << 0)   // Attr0:  Device-nGnRnE
+        | (0x1u64 << 4)                          // Attr1:  Device-nGnRE
+        | (0x2u64 << 8)                          // Attr2:  Device-nGRE
+        | (0x3u64 << 12)                         // Attr3:  Device-GRE
+        | (0xfu64 << 60); // Attr15: S2_NORMAL (Normal WB-WA/WB-WA)
+    unsafe { core::arch::asm!("msr mair_el2, {}", in(reg) MAIR_EL2_VALUE) };
+    barrier::isb(barrier::SY);
     // Set SCTLR_EL1 to a known default. Mirrors C kernel's setSCTLR(SCTLR_DEFAULT).
     SCTLR_EL1.set(SCTLR_DEFAULT);
     barrier::isb(barrier::SY);

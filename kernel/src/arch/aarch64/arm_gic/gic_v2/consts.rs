@@ -1,13 +1,11 @@
 // GIC register blocks: platform-specific virtual addresses.
-// BCM2711: GIC is a single contiguous block; GICH = GIC_BASE + 0x4000.
-// QEMU:    GIC components are separate devices; GICH = separate mapping.
+// GICH (VCPU interface control) is at GIC_BASE + 0x3000 on both BCM2711 and QEMU.
+// BCM2711's arm_local_intc (0xff800000) is a separate BCM local interrupt controller,
+// NOT the GIC virtual interface.
 use sel4_common::arch::config::KDEV_BASE;
 
 pub const GIC_V2_DISTRIBUTOR_PPTR: usize = KDEV_BASE + 0x1000;
 pub const GIC_V2_CONTROLLER_PPTR: usize = KDEV_BASE + 0x2000;
-#[cfg(feature = "platform_bcm2711")]
-pub const GIC_V2_VCPUIFACE_PPTR: usize = KDEV_BASE + 0x4000;
-#[cfg(not(feature = "platform_bcm2711"))]
 pub const GIC_V2_VCPUIFACE_PPTR: usize = KDEV_BASE + 0x3000;
 
 /// Number of VGIC list registers supported (GICv2 maximum).

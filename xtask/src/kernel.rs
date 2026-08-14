@@ -149,21 +149,15 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         args.push("--lib".into());
     }
 
-    println!("Building kernel with command: cargo {:?}", args);
-
     let rustflags = vec_rustflags()?;
     let mut cmd = Command::new("cargo");
 
     // build gcc marcos, we must add macros add xtask
     let mut marcos = vec![format!(
         "KERNEL_STACK_BITS={}",
-        rel4_config::get_int_from_cfg(&opts.platform, "memory.stack_bits").unwrap()
+        rel4_config::get_int_from_cfg(&opts.platform, opts.arm_hypervisor, "memory.stack_bits")
+            .unwrap()
     )];
-
-    println!(
-        "Building kernel with rustflags: {:?} and marcos: {:?}",
-        rustflags, marcos
-    );
 
     if !opts.nofastpath {
         marcos.push("FASTPATH=true".to_string());
@@ -191,7 +185,7 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
 
     if opts.arm_hypervisor && target.contains("aarch64") {
         append_features(&mut args, "hypervisor".to_string());
-        marcos.push("ARCH_ARM_HYP=true".to_string());
+        marcos.push("ARM_HYPERVISOR_SUPPORT=true".to_string());
     }
 
     if opts.pa_40bit && target.contains("aarch64") {
@@ -237,8 +231,6 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         }
     }
 
-    println!("Building kernel with command: cargo {:?}", args);
-
     if opts.num_nodes > 1 {
         append_features(&mut args, "enable_smp".to_string());
         marcos.push(format!("MAX_NUM_NODES={}", opts.num_nodes));
@@ -260,8 +252,6 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         }
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
-
-    println!("Building kernel with command: cargo {:?}", args);
 
     let status = cmd
         .current_dir(dir)

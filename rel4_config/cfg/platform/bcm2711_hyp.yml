@@ -17,10 +17,11 @@ device:
     - {paddr: 0xfe215000, pptr_offset: 0x0, arm_execute_never: 2, user_available: 1, desc: "uart"}
     - {paddr: 0xff841000, pptr_offset: 0x1000, arm_execute_never: 2, user_available: 0, desc: "gicv2_distributor"}
     - {paddr: 0xff842000, pptr_offset: 0x2000, arm_execute_never: 2, user_available: 0, desc: "gicv2_controller"}
+    - {paddr: 0xff844000, pptr_offset: 0x3000, arm_execute_never: 2, user_available: 0, desc: "gicv2_vcpu_ctrl"}
     - {paddr: 0xff800000, pptr_offset: 0x4000, arm_execute_never: 2, user_available: 0, desc: "arm_local_intc"}
   irqs:
     - {label: "INTERRUPT_VTIMER_EVENT", number: 27}
-    - {label: "KERNEL_TIMER_IRQ", number: 27}
+    - {label: "KERNEL_TIMER_IRQ", number: 26}
     - {label: "MAX_IRQ", number: 216}
     - {label: "IRQ_INVALID", number: 65535}
     - {label: "NUM_PPI", number: 32}
@@ -28,7 +29,7 @@ device:
 
 # memory layout
 memory:
-  vmem_offset: 0xffffff8000000000
+  vmem_offset: 0x0000008000000000
   pmem_start: 0x1000000
   kernel_start: 0x1000000
   avail_mem_zone:

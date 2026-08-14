@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use tera::{Context, Tera};
 
-pub fn linker_gen(platform: &str) -> PathBuf {
-    let yaml_cfg = crate::utils::get_root().join(format!("cfg/platform/{}.yml", platform));
+pub fn linker_gen(platform: &str, hypervisor: bool) -> PathBuf {
+    let yaml_cfg = crate::get_platform_yaml_path(platform, hypervisor);
     let kstart =
         crate::utils::get_int_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.kernel_start")
             .expect("memory.kernel_start not set");
@@ -29,8 +29,8 @@ pub fn linker_gen(platform: &str) -> PathBuf {
     linker_file
 }
 
-pub fn platform_gen(platform: &str) -> PathBuf {
-    let yaml_cfg = crate::utils::get_root().join(format!("cfg/platform/{}.yml", platform));
+pub fn platform_gen(platform: &str, hypervisor: bool) -> PathBuf {
+    let yaml_cfg = crate::get_platform_yaml_path(platform, hypervisor);
     let mem_zones: Vec<crate::utils::MemZone> =
         crate::utils::get_array_from_yaml(&yaml_cfg.to_str().unwrap(), "memory.avail_mem_zone")
             .expect("memory.avail_mem_zone not set");
@@ -112,7 +112,7 @@ pub fn asm_gen(dir: &str, name: &str, inc_dir: Vec<&str>, defs: &Vec<String>, ou
 
 // generate config.h and config.rs
 pub fn config_gen(platform: &str, custom_defs: &Vec<String>) {
-    let yaml_cfg = crate::utils::get_root().join(format!("cfg/platform/{}.yml", platform));
+    let yaml_cfg = crate::resolve_definitions_yaml_path(platform);
     let mut defs = crate::utils::get_all_defs(yaml_cfg.to_str().unwrap());
     for d in custom_defs {
         let mut split = d.split('=');
