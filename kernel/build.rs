@@ -48,6 +48,18 @@ fn asm_gen(
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("cargo:rerun-if-changed=build.rs");
+    // The generated head.S/traps.S are produced by preprocessing the assembly
+    // sources (and the headers they #include) below, so track them explicitly:
+    // otherwise editing traps.S/head.S would not re-run this build script and
+    // the kernel would be linked against a stale copy.
+    println!("cargo:rerun-if-changed=src/arch/aarch64/head.S");
+    println!("cargo:rerun-if-changed=src/arch/aarch64/traps.S");
+    println!("cargo:rerun-if-changed=src/arch/riscv/head.S");
+    println!("cargo:rerun-if-changed=src/arch/riscv/traps.S");
+    println!("cargo:rerun-if-changed=include");
+    println!("cargo:rerun-if-changed=../rel4_config/cfg");
+    println!("cargo:rerun-if-env-changed=MARCOS");
+    println!("cargo:rerun-if-env-changed=PLATFORM");
 
     let defs = std::env::var("MARCOS").unwrap();
     let platform = std::env::var("PLATFORM").unwrap();

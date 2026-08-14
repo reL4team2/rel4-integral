@@ -15,6 +15,99 @@ use sel4_task::*;
 #[cfg(feature = "have_fpu")]
 use crate::arch::fpu::lazy_fpu_restore;
 
+/// Snapshot of the faulting register context, written by the
+/// `save_fault_registers` macro in traps.S before `halt` is reached.
+///
+/// Layout (must match `save_fault_registers` in traps.S):
+///   [0..31] = x0..x30
+///   [31]    = ELR (faulting PC)
+///   [32]    = ESR (exception syndrome)
+///   [33]    = SPSR (saved program status)
+///   [34]    = FAR (fault address)
+///   [35]    = valid marker (== FAULT_REGISTERS_MAGIC once captured)
+#[no_mangle]
+pub static mut FAULT_REGISTERS: [usize; 36] = [0; 36];
+
+/// Must match `FAULT_REGISTERS_MAGIC` in traps.S.
+const FAULT_REGISTERS_MAGIC: usize = 0xCAFE;
+
+/// Print the register context captured by traps.S at the fault entry, if any.
+///
+/// This is the "real" fault-time state: it is snapshotted in assembly at the
+/// exception vector, before any Rust/C code clobbers the caller-saved
+/// registers. When halt() is reached through a non-fault path (e.g. a Rust
+/// panic) the marker is absent and nothing is printed.
+pub fn dump_fault_registers() {
+    let regs = unsafe { core::ptr::addr_of!(FAULT_REGISTERS).read() };
+    if regs[35] != FAULT_REGISTERS_MAGIC {
+        return;
+    }
+
+    log::info!("===== Fault register dump (trap entry) =====");
+    log::info!(
+        "x0  = {:#018x}  x1  = {:#018x}  x2  = {:#018x}  x3  = {:#018x}",
+        regs[0],
+        regs[1],
+        regs[2],
+        regs[3]
+    );
+    log::info!(
+        "x4  = {:#018x}  x5  = {:#018x}  x6  = {:#018x}  x7  = {:#018x}",
+        regs[4],
+        regs[5],
+        regs[6],
+        regs[7]
+    );
+    log::info!(
+        "x8  = {:#018x}  x9  = {:#018x}  x10 = {:#018x}  x11 = {:#018x}",
+        regs[8],
+        regs[9],
+        regs[10],
+        regs[11]
+    );
+    log::info!(
+        "x12 = {:#018x}  x13 = {:#018x}  x14 = {:#018x}  x15 = {:#018x}",
+        regs[12],
+        regs[13],
+        regs[14],
+        regs[15]
+    );
+    log::info!(
+        "x16 = {:#018x}  x17 = {:#018x}  x18 = {:#018x}  x19 = {:#018x}",
+        regs[16],
+        regs[17],
+        regs[18],
+        regs[19]
+    );
+    log::info!(
+        "x20 = {:#018x}  x21 = {:#018x}  x22 = {:#018x}  x23 = {:#018x}",
+        regs[20],
+        regs[21],
+        regs[22],
+        regs[23]
+    );
+    log::info!(
+        "x24 = {:#018x}  x25 = {:#018x}  x26 = {:#018x}  x27 = {:#018x}",
+        regs[24],
+        regs[25],
+        regs[26],
+        regs[27]
+    );
+    log::info!(
+        "x28 = {:#018x}  x29 = {:#018x}  x30(lr) = {:#018x}",
+        regs[28],
+        regs[29],
+        regs[30]
+    );
+    log::info!(
+        "ELR = {:#018x}  ESR = {:#018x}  SPSR = {:#018x}  FAR = {:#018x}",
+        regs[31],
+        regs[32],
+        regs[33],
+        regs[34]
+    );
+}
+
 #[no_mangle]
 pub fn restore_user_context() {
     // NODE_UNLOCK_IF_HELD;

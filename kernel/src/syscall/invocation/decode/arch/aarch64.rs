@@ -241,13 +241,10 @@ fn decode_page_clean_invocation(
 
     #[cfg(feature = "hypervisor")]
     {
-        // In EL2, user virtual addresses are not valid.
-        // Use kernel virtual addresses (physical mapping) for cache operations.
-        let size = end - start;
-        let kstart = unsafe { (pstart.raw() as *const u8).add(start) as usize };
-        let kend = kstart + size;
+        // In EL2, user virtual addresses are not valid; do_flush converts the
+        // physical address to a kernel VA internally.
         if start < end {
-            do_flush(label, kstart, kend, pstart);
+            do_flush(label, start, end, pstart);
         }
     }
     #[cfg(not(feature = "hypervisor"))]
@@ -878,13 +875,10 @@ fn decode_vspace_flush_invocation(
 ) -> exception_t {
     #[cfg(feature = "hypervisor")]
     {
-        // In EL2, user virtual addresses are not valid.
-        // Use kernel virtual addresses (paddr_to_pptr) for cache operations.
-        let size = end.raw() - start.raw();
-        let kstart = pstart.to_pptr().raw();
-        let kend = kstart + size;
+        // In EL2, user virtual addresses are not valid; do_flush converts the
+        // physical address to a kernel VA internally.
         if start < end {
-            do_flush(label, kstart, kend, pstart);
+            do_flush(label, start.raw(), end.raw(), pstart);
         }
     }
     #[cfg(not(feature = "hypervisor"))]

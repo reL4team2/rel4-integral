@@ -17,6 +17,7 @@
 #define ESR     esr_el2
 #define SPSR    spsr_el2
 #define TPIDR   tpidr_el2
+#define FAR     far_el2
 
 #else
 
@@ -24,8 +25,13 @@
 #define ESR     esr_el1
 #define SPSR    spsr_el1
 #define TPIDR   tpidr_el1
+#define FAR     far_el1
 
 #endif
+
+/* Marker written to FAULT_REGISTERS[35] when save_fault_registers runs. Must
+ * match FAULT_REGISTERS_MAGIC in the Rust side (c_traps.rs). */
+#define FAULT_REGISTERS_MAGIC 0xCAFE
 
 
 .macro lsp_i _tmp
@@ -93,13 +99,55 @@ END_FUNC(arm_vector_table)
     stp     x22, x23, [sp, #PT_ELR_EL1]
 .endm
 
+/*
+ * Save the faulting register context (x0..x30 plus ELR/ESR/SPSR/FAR) into the
+ * global FAULT_REGISTERS buffer so that halt() can print it. This runs at the
+ * trap entry, before any C/Rust code can clobber the caller-saved registers.
+ *
+ * x19 is used as the scratch base pointer here; its original value is already
+ * unrecoverable because lsp_i clobbered it, so FAULT_REGISTERS[19] will contain
+ * the buffer address instead. x20..x23 are clobbered after being saved (they
+ * are reused to read the fault information registers).
+ */
+.macro save_fault_registers
+    adrp    x19, FAULT_REGISTERS
+    add     x19, x19, :lo12:FAULT_REGISTERS
+    stp     x0,  x1,  [x19, #16 * 0]
+    stp     x2,  x3,  [x19, #16 * 1]
+    stp     x4,  x5,  [x19, #16 * 2]
+    stp     x6,  x7,  [x19, #16 * 3]
+    stp     x8,  x9,  [x19, #16 * 4]
+    stp     x10, x11, [x19, #16 * 5]
+    stp     x12, x13, [x19, #16 * 6]
+    stp     x14, x15, [x19, #16 * 7]
+    stp     x16, x17, [x19, #16 * 8]
+    stp     x18, x19, [x19, #16 * 9]
+    stp     x20, x21, [x19, #16 * 10]
+    stp     x22, x23, [x19, #16 * 11]
+    stp     x24, x25, [x19, #16 * 12]
+    stp     x26, x27, [x19, #16 * 13]
+    stp     x28, x29, [x19, #16 * 14]
+    str     x30,      [x19, #30 * 8]
+    /* Read the fault information (clobbers x20..x23, already saved above). */
+    mrs     x20, ELR
+    mrs     x21, ESR
+    mrs     x22, SPSR
+    mrs     x23, FAR
+    stp     x20, x21, [x19, #31 * 8]
+    stp     x22, x23, [x19, #33 * 8]
+    mov     x20, #FAULT_REGISTERS_MAGIC
+    str     x20, [x19, #35 * 8]
+.endm
+
 BEGIN_FUNC(invalid_vector_entry)
     lsp_i   x19
+    save_fault_registers
     b       halt
 END_FUNC(invalid_vector_entry)
 
 BEGIN_FUNC(cur_el_sync)
     lsp_i   x19
+    save_fault_registers
     /* Read esr and branch to respective labels */
     mrs     x25, ESR
     lsr     x24, x25, #ESR_EC_SHIFT

@@ -2,7 +2,7 @@
 use core::intrinsics::likely;
 
 use aarch64_cpu::registers::Readable;
-use log::debug;
+use log::{debug, error};
 #[cfg(all(feature = "enable_smp", feature = "build_binary"))]
 use sel4_common::utils::cpu_id;
 use sel4_common::{
@@ -77,18 +77,18 @@ pub fn handle_unknown_syscall(w: isize) -> exception_t {
         let cap_type = lu_ret.capability.get_tag();
 
         if cap_type != cap_tag::cap_thread_cap {
-            debug!("SYS_DEBUG_NAME_THREAD: cap is not a TCB, halting");
+            error!("SYS_DEBUG_NAME_THREAD: cap is not a TCB, halting");
             halt();
         }
         let name = lookup_ipc_buffer(true, thread) + 1;
         if name == 0 {
-            debug!("SYS_DEBUG_NAME_THREAD: Failed to lookup IPC buffer, halting");
+            error!("SYS_DEBUG_NAME_THREAD: Failed to lookup IPC buffer, halting");
             halt();
         }
 
         let len = strnlen(name as *const u8, SEL4_MSG_MAX_LENGTH * 8);
         if len == SEL4_MSG_MAX_LENGTH * 8 {
-            debug!("SYS_DEBUG_NAME_THREAD: Name too long, halting");
+            error!("SYS_DEBUG_NAME_THREAD: Name too long, halting");
             halt();
         }
 

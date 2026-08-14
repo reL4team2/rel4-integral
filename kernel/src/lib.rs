@@ -39,6 +39,16 @@ mod smp;
 
 #[no_mangle]
 pub extern "C" fn halt() {
+    // Capture the link register before any call clobbers it: for a `bl halt`
+    // call this is the caller's return address (who called halt); for a `b halt`
+    // tail branch it is whatever the trap left in x30. Look the printed address
+    // up in the kernel symbol table to identify the call site.
+    let caller: usize;
+    unsafe {
+        core::arch::asm!("mov {caller}, x30", caller = out(reg) caller);
+    }
+    log::error!("halt() called from {:#018x}", caller);
+    crate::arch::dump_fault_registers();
     shutdown()
 }
 

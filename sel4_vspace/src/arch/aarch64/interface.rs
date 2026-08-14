@@ -396,6 +396,18 @@ pub fn unmap_page(
 }
 
 pub fn do_flush(invLabel: MessageLabel, start: usize, end: usize, pstart: PAddr) {
+    // In hypervisor mode, the kernel does not share an address space with
+    // userspace, so cache maintenance must be performed by kernel virtual
+    // address (via the physical-memory window) rather than the user VA. ARMv8
+    // caches are PIPT, so the VA used makes no difference to which line is
+    // affected, but it still has to be a valid, mapped VA.
+    #[cfg(feature = "hypervisor")]
+    let (start, end) = {
+        let size = end - start;
+        let kstart = pstart.to_pptr().raw();
+        (kstart, kstart + size)
+    };
+
     match invLabel {
         MessageLabel::ARMPageClean_Data | MessageLabel::ARMVSpaceClean_Data => {
             clean_cache_range_ram(start, end, pstart)

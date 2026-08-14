@@ -5,8 +5,8 @@
 //! - [aarch64] aarch64 specific resources, include instructions. pagetable and register definations
 //! - [riscv64] riscv64 specific resources, include instructions, pagetable and register definations
 //! - [basic] the foundation of rel4, this contains structure that used frequently.
-//! - [platform] platform specific resources, code for platform specific resource, eg: driver address, memory size
-//!
+//! - [platform] platform specific resources, code for platform specific resource, eg: driver
+//!   address, memory size
 #![no_std]
 #![deny(warnings)]
 
