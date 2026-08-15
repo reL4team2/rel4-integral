@@ -4,7 +4,6 @@ use rel4_utils::impl_multi;
 
 #[cfg(target_arch = "aarch64")]
 use crate::aarch64::config::PPTR_BASE_OFFSET;
-
 #[cfg(target_arch = "riscv64")]
 use crate::riscv64::config::PPTR_BASE_OFFSET;
 

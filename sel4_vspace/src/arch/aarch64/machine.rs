@@ -80,6 +80,61 @@ pub fn invalidate_local_tlb_asid(asid: usize) {
     isb();
 }
 
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn invalidate_local_tlb_vmid(vmid: usize) {
+    use aarch64_cpu::registers::{Readable, Writeable, VTTBR_EL2};
+
+    let vttbr = VTTBR_EL2.get();
+    let v = ((vttbr >> 48) & 0xffff) as usize;
+    dsb();
+    // tlbi vmalls12e1 only affects the VMID currently in VTTBR_EL2, so switch
+    // to the target VMID first (matches C kernel invalidateLocalTLB_VMID).
+    if v != vmid {
+        VTTBR_EL2.set((vmid as u64) << 48);
+        dsb();
+        isb();
+    }
+    unsafe { asm!("tlbi vmalls12e1") };
+    dsb();
+    isb();
+    if v != vmid {
+        VTTBR_EL2.set(vttbr);
+        dsb();
+        isb();
+    }
+}
+
+#[cfg(feature = "hypervisor")]
+#[inline]
+pub fn invalidate_local_tlb_ipa_vmid(ipa_plus_vmid: usize) {
+    use aarch64_cpu::registers::{Readable, Writeable, VTTBR_EL2};
+
+    let vttbr = VTTBR_EL2.get();
+    let v = ((vttbr >> 48) & 0xffff) as usize;
+    let vmid = (ipa_plus_vmid >> 48) & 0xffff;
+    // C kernel: "The [0:35] bits are IPA, other bits are reserved as 0".
+    let ipa = ipa_plus_vmid & 0xfffffffff;
+    dsb();
+    if v != vmid {
+        VTTBR_EL2.set((vmid as u64) << 48);
+        dsb();
+        isb();
+    }
+    unsafe {
+        asm!("tlbi ipas2e1, {}", in(reg) ipa);
+        dsb();
+        asm!("tlbi vmalle1");
+    }
+    dsb();
+    isb();
+    if v != vmid {
+        VTTBR_EL2.set(vttbr);
+        dsb();
+        isb();
+    }
+}
+
 #[inline(always)]
 pub fn invalidate_local_tlb_va_asid(mva_plus_asid: usize) {
     unsafe {
@@ -95,13 +150,16 @@ pub fn invalidate_local_tlb_va_asid(mva_plus_asid: usize) {
 
 #[inline(always)]
 pub fn clean_by_va_pou(vaddr: usize, _paddr: PAddr) {
+    // Matches C kernel cleanByVA_PoU: dc cvau (clean to PoU) + dmb.
+    // The C kernel uses this for page-table writes in both stage-1 and
+    // stage-2 (hypervisor) cases.
     unsafe {
         core::arch::asm!(
-            "dc civac, {}",
+            "dc cvau, {}",
             in(reg) vaddr,
         );
     }
-    dsb();
+    dmb();
 }
 
 #[inline(always)]
@@ -109,6 +167,7 @@ pub fn clean_by_va(vaddr: usize, _paddr: PAddr) {
     unsafe {
         asm!("dc cvac, {}", in(reg) vaddr);
     }
+    // Matches C kernel cleanByVA (dmb). The enclosing clean*Range_RAM does dsb().
     dmb();
 }
 
@@ -117,6 +176,7 @@ pub fn invalidate_by_va(vaddr: usize, _paddr: PAddr) {
     unsafe {
         asm!("dc ivac, {}", in(reg) vaddr);
     }
+    // Matches C kernel invalidateByVA (dmb).
     dmb();
 }
 
@@ -172,9 +232,21 @@ pub fn invalidate_cache_range_i(start: usize, end: usize, pstart: PAddr) {
     if start == 0 || end <= start {
         return;
     }
-    for idx in LINE_INDEX(start)..LINE_INDEX(end) + 1 {
-        let line = idx << CONFIG_L1_CACHE_LINE_SIZE_BITS;
-        invalidate_by_va_i(line, pstart + line - start);
+    #[cfg(feature = "hypervisor")]
+    {
+        // A72 L1 I-cache is VIPT. In hypervisor mode the VA passed here is a
+        // kernel alias for the underlying physical memory, which cannot correctly
+        // index a VIPT I-cache. Invalidate the entire I-cache instead (matches
+        // C kernel invalidateCacheRange_I under ICACHE_VIPT + hypervisor).
+        let _ = (start, end, pstart);
+        invalidate_i_pou();
+    }
+    #[cfg(not(feature = "hypervisor"))]
+    {
+        for idx in LINE_INDEX(start)..LINE_INDEX(end) + 1 {
+            let line = idx << CONFIG_L1_CACHE_LINE_SIZE_BITS;
+            invalidate_by_va_i(line, pstart + line - start);
+        }
     }
 }
 

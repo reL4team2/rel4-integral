@@ -1,6 +1,6 @@
 use core::mem::offset_of;
 
-use aarch64_cpu::registers::{Readable, SPSR_EL1, TPIDR_EL0, TPIDRRO_EL0, Writeable};
+use aarch64_cpu::registers::{Readable, Writeable, SPSR_EL1, TPIDRRO_EL0, TPIDR_EL0};
 use static_assertions::const_assert;
 
 use crate::regs::ArchReg;

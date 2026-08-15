@@ -192,13 +192,7 @@ pub fn invalidate_tlb_by_asid(asid: asid_t) {
                 sel4_common::structures_gen::asid_map_Splayed::asid_map_vspace(data) => {
                     if data.get_stored_vmid_valid() != 0 {
                         let hw_vmid = data.get_stored_hw_vmid() as usize;
-                        // Invalidate Stage-2 TLB by VMID
-                        // At EL2, TLBI ASIDE1 treats the ASID value as VMID.
-                        unsafe {
-                            core::arch::asm!("tlbi aside1is, {}", in(reg) (hw_vmid << 48));
-                        }
-                        dsb();
-                        isb();
+                        invalidate_local_tlb_vmid(hw_vmid);
                         return;
                     }
                 }
@@ -231,9 +225,9 @@ pub fn invalidate_tlb_by_asid_va(asid: asid_t, vaddr: VPtr) {
                 sel4_common::structures_gen::asid_map_Splayed::asid_map_vspace(data) => {
                     if data.get_stored_vmid_valid() != 0 {
                         let hw_vmid = data.get_stored_hw_vmid() as usize;
-                        let mva_plus_vmid: usize =
+                        let ipa_plus_vmid: usize =
                             (hw_vmid << 48) | (vaddr.raw() >> SEL4_PAGE_BITS);
-                        invalidate_local_tlb_va_asid(mva_plus_vmid);
+                        invalidate_local_tlb_ipa_vmid(ipa_plus_vmid);
                         return;
                     }
                 }
