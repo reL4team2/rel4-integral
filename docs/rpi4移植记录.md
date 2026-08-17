@@ -349,4 +349,170 @@ unsafe {
 ## 验证
 
 修复后 sel4test 单核测试套件全部通过。RPi4 平台上内核可正常启动，中断正常触发，
-页表映射/取消映射后 TLB 刷新正确。
+
+---
+
+# Hypervisor 移植记录
+
+## 概述
+
+在非 hypervisor RPi4 移植的基础上，进一步支持 `CONFIG_ARM_HYPERVISOR_SUPPORT`
+（内核运行在 EL2，用户态通过 VTTBR_EL2 的 stage-2 页表管理），并同时通过
+RPi4 与 QEMU arm-virt（a72）的 sel4test。
+
+改动起点 commit：`89ffda4c`（"reL4 kernel loader success"），主要 commit：
+
+| Commit | 描述 |
+|--------|------|
+| `e0e67ad` | fix some hypervisor features |
+| `dfabdae` | fix pt test bug on qemu |
+| `6d4edec` | add all hypervisor features in kernel and pass sel4test |
+| `a6a1e41` | work save for multi-feature support |
+| `431b19f` | modify build config system |
+| `8281bf5` | support hypervisor and pass sel4test on rpi4 and qemu |
+
+## 关键改动
+
+### 1. HCR_EL2：补齐 TWI/TWE trap
+
+**文件:** `kernel/src/arch/aarch64/vcpu.rs`
+
+hypervisor 下 native 线程跑在 EL0，异常路由到 EL2（TGE=1）。C 版 `HCR_COMMON`
+（`DISABLE_WFI_WFE_TRAPS=false`）包含 TWI/TWE，Rust 版之前漏掉，导致 EL0 的
+WFI/WFE 走 EL1 VBAR 而不是直接 trap 到 EL2。
+
+```rust
+const HCR_NATIVE: u64 = HCR_COMMON
+    | HCR_EL2::TGE::EnableTrapGeneralExceptionsToEl2.value
+    | HCR_EL2::SWIO::SET.value
+    | bit!(12)               // DC
+    | bits!(26, 25, 21)      // TVM | TTLB | TAC
+    | bits!(14, 13);         // TWE | TWI  ← 补齐
+```
+
+最终 `HCR_NATIVE = 0x8E28703B`，与 C 版一致。
+
+### 2. VTCR_EL2：RES1 + PA 宽度选择
+
+**文件:** `kernel/src/arch/aarch64/vcpu.rs`
+
+- 补上 VTCR_EL2 bit31（RES1）。
+- 按 PA 宽度选择 stage-2 起始级别：
+  - 40-bit（feature `pa_40bit`）：T0SZ=24, SL0=1（3-level stage-2）
+  - 44-bit（默认）：T0SZ=20, SL0=2（4-level stage-2）
+
+### 3. MAIR_EL2：8×8 / 16×4 双布局兼容
+
+**文件:** `kernel/src/arch/aarch64/vcpu.rs`
+
+MAIR_EL2 被两种翻译机制**共用但解释不同**：
+
+| 使用者 | 布局 |
+|--------|------|
+| 内核窗口（EL2 stage-1, TTBR0_EL2） | 8×8-bit（Attr0-7） |
+| 用户态（stage-2, VTTBR_EL2） | 16×4-bit（Attr0-15） |
+
+elfloader 只按 stage-1 的 8-bit 布局设置，导致 stage-2 的 Attr15=Device，
+Normal 页在真机上 fault。内核在 `vcpu_boot_init` 覆盖为双布局兼容值：
+
+```rust
+const MAIR_EL2_VALUE: u64 = (0x00u64 << 0)   // Attr0: Device-nGnRnE
+    | (0x04u64 << 8)                          // Attr1: Device-nGnRE
+    | (0x0cu64 << 16)                         // Attr2: Device-GRE
+    | (0x44u64 << 24)                         // Attr3: Normal-NC
+    | (0xffu64 << 32)                         // Attr4: Normal WB-WA（内核窗口 NORMAL=4 引用）
+    | (0xaau64 << 40)                         // Attr5: Normal-WT
+    | (0xf0u64 << 56);                        // Attr7 高半=0xf → stage-2 Attr15=Normal
+// = 0xF000_AAFF_440C_0400
+```
+
+### 4. stage-2 页表属性：S2_NORMAL + 4-bit AttrIndx
+
+**文件:** `sel4_vspace/src/arch/aarch64/machine.rs`、`pte.rs`、`boot.rs`
+
+- `mair_types` 新增 `S2_NORMAL = 15`（stage-2 Normal WB-WA）。
+- `pte_new_page` / `pte_new_4k_page` 的 AttrIndx 用 `& 0xF`（stage-2 是 4 位）。
+- `make_user_pte` / `map_it_frame_cap` 在 hypervisor 下 cacheable 帧用 `S2_NORMAL`，
+  device 帧用 `DEVICE_nGnRnE`。
+
+### 5. ⭐ stage-2 TLB 刷新（核心 bug）
+
+**文件:** `sel4_vspace/src/arch/aarch64/machine.rs`、`interface.rs`
+
+**症状:** map/unmap 后旧映射仍生效（FRAMEEXPORTS0001 / map-unmap 失败）。
+
+**根因:** Rust 版在 hypervisor 下用 `tlbi vae1` / `tlbi aside1`，这两个指令
+只刷 **EL1 stage-1** TLB，刷不到 stage-2。注释里"在 EL2 执行时 ASID 被当作
+VMID"是错误的。
+
+**正确做法（对齐 C 版 `armv/tlb.h`）:**
+- `tlbi ipas2e1`：按 IPA 刷 stage-2（当前 VMID）。
+- `tlbi vmalls12e1`：刷 stage-1 + stage-2（当前 VMID）。
+
+这两个指令只作用于 **VTTBR_EL2 当前 VMID**，必须先切 VMID → 刷 → 恢复：
+
+```rust
+// invalidate_local_tlb_ipa_vmid
+let vttbr = VTTBR_EL2.get();
+let v = (vttbr >> 48) & 0xffff;
+let vmid = (ipa_plus_vmid >> 48) & 0xffff;
+let ipa = ipa_plus_vmid & 0xfffffffff;   // C: "[0:35] bits are IPA"
+if v != vmid { VTTBR_EL2.set((vmid as u64) << 48); dsb(); isb(); }
+asm!("tlbi ipas2e1, {}", in(reg) ipa);
+dsb(); asm!("tlbi vmalle1"); dsb(); isb();
+if v != vmid { VTTBR_EL2.set(vttbr); dsb(); isb(); }
+```
+
+`invalidate_tlb_by_asid_va` / `invalidate_tlb_by_asid` 的 hypervisor 分支
+分别改用 `invalidate_local_tlb_ipa_vmid` / `invalidate_local_tlb_vmid`。
+
+### 6. 页表 cache clean：dc cvau（PoU）
+
+**文件:** `sel4_vspace/src/arch/aarch64/machine.rs`
+
+页表写入后的 clean 用 `dc cvau`（clean to PoU）+ dmb，对齐 C 版
+`cleanByVA_PoU`（不区分 stage-1/stage-2，统一 PoU）。
+
+### 7. instruction cache：VIPT 整个 invalidate
+
+**文件:** `sel4_vspace/src/arch/aarch64/machine.rs`
+
+A72 L1 I-cache 是 VIPT，hypervisor 下 flush 用的是内核别名地址，无法正确
+索引 VIPT I-cache。`invalidate_cache_range_i` 在 hypervisor 下改为整个
+I-cache invalidate（`ic iallu`），对齐 C 版 `invalidateCacheRange_I`
+（`ICACHE_VIPT + hypervisor` 分支）。
+
+### 8. do_flush：地址转换移到调用处
+
+**文件:** `sel4_vspace/src/arch/aarch64/interface.rs`、`decode/arch/aarch64.rs`
+
+对齐 C 版结构：`do_flush` 只负责 flush 给定地址；hypervisor 的内核 VA 计算
+（`paddr_to_pptr`）放在调用处 `decode_page_flush` / `decode_vspace_flush_invocation`。
+
+### 9. pa_40bit feature
+
+**文件:** `Cargo.toml`、`sel4_common`、`sel4_vspace`
+
+40-bit PA（QEMU）→ 3-level stage-2，44-bit PA（RPi4）→ 4-level stage-2，
+通过 `pa_40bit` feature 门控 `PT_LEVELS` / `UPT_LEVELS` / `VSPACE_INDEX_BITS` /
+`SEL4_VSPACE_BITS` / `SEL4_USER_TOP` 等。
+
+### 10. YAML 配置拆分
+
+**文件:** `rel4_config/`
+
+拆分为 `platform/`（cpu/timer/device/memory）和 `definitions/`（build 配置），
+新增 `qemu-arm-virt_hyp.yml`、`bcm2711_hyp.yml`；`rel4_config` 支持
+`get_platform_yaml_path(platform, hypervisor)` 选择 `_hyp` 变体。
+
+### 11. 平台相关
+
+- `KERNEL_TIMER_IRQ`：hypervisor=26（hyp timer），非 hypervisor=27（virtual timer）。
+- `gicv2_vcpu_ctrl`（GICH）仅在 hypervisor 模式启用。
+- `vmem_offset` 匹配 `PPTR_BASE`（hypervisor `0x8000000000`，非 hypervisor `0xffffff8000000000`）。
+- GIC VCPU 接口地址统一 `KDEV_BASE + 0x3000`。
+
+## 验证
+
+hypervisor 模式 sel4test 在 RPi4 与 QEMU arm-virt（a72）均通过，包括
+FRAMEEXPORTS0001、map/unmap、CACHEFLUSH 系列。
