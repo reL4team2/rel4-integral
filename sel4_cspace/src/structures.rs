@@ -1,7 +1,7 @@
 use crate::cte::cte_t;
 use sel4_common::{
     structures::exception_t,
-    structures_gen::{cap, cap_null_cap},
+    structures_gen::{cap, cap_null_cap, lookup_fault, lookup_fault_invalid_root},
 };
 
 /// This struct is used when finaliseSlot return a value,
@@ -39,11 +39,12 @@ pub struct FinaliseCapRet {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct resolveAddressBits_ret_t {
     pub status: exception_t,
     pub slot: *mut cte_t,
     pub bitsRemaining: usize,
+    pub fault: lookup_fault,
 }
 
 impl Default for resolveAddressBits_ret_t {
@@ -53,6 +54,7 @@ impl Default for resolveAddressBits_ret_t {
             status: exception_t::EXCEPTION_NONE,
             slot: core::ptr::null_mut::<cte_t>(),
             bitsRemaining: 0,
+            fault: lookup_fault_invalid_root::new().unsplay(),
         }
     }
 }

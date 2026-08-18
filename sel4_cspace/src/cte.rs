@@ -12,7 +12,10 @@ use core::intrinsics::{likely, unlikely};
 use core::ptr;
 use sel4_common::{
     sel4_bitfield_types::Bitfield,
-    structures_gen::{cap, cap_null_cap, cap_tag, mdb_node},
+    structures_gen::{
+        cap, cap_null_cap, cap_tag, lookup_fault_depth_mismatch, lookup_fault_guard_mismatch,
+        lookup_fault_invalid_root, mdb_node,
+    },
 };
 use sel4_common::{
     sel4_config::WORD_RADIX,
@@ -525,6 +528,7 @@ pub fn resolve_address_bits(
 
     if unlikely(nodeCap.clone().get_tag() != cap_tag::cap_cnode_cap) {
         ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
+        ret.fault = lookup_fault_invalid_root::new().unsplay();
         return ret;
     }
 
@@ -535,14 +539,21 @@ pub fn resolve_address_bits(
         let levelBits = radixBits + guardBits;
         assert_ne!(levelBits, 0);
         let capGuard = cnode_cap.get_capCNodeGuard() as usize;
-        let guard =
-            (cap_ptr >> ((n_bits - guardBits) & mask_bits!(WORD_RADIX))) & mask_bits!(guardBits);
+        let guard = (cap_ptr >> ((n_bits.wrapping_sub(guardBits)) & mask_bits!(WORD_RADIX)))
+            & mask_bits!(guardBits);
         if unlikely(guardBits > n_bits || guard != capGuard) {
             ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
+            ret.fault = lookup_fault_guard_mismatch::new(
+                capGuard as u64,
+                n_bits as u64,
+                guardBits as u64,
+            )
+            .unsplay();
             return ret;
         }
         if unlikely(levelBits > n_bits) {
             ret.status = exception_t::EXCEPTION_LOOKUP_FAULT;
+            ret.fault = lookup_fault_depth_mismatch::new(levelBits as u64, n_bits as u64).unsplay();
             return ret;
         }
         let offset = (cap_ptr >> (n_bits - levelBits)) & mask_bits!(radixBits);

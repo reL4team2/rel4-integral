@@ -189,6 +189,7 @@ pub fn lookup_slot_for_cnode_op(
         unsafe {
             current_syscall_error._type = SEL4_FAILED_LOOKUP;
             current_syscall_error.failedLookupWasSource = is_source as usize;
+            current_lookup_fault = res_ret.fault;
         }
         ret.status = exception_t::EXCEPTION_SYSCALL_ERROR;
         return ret;

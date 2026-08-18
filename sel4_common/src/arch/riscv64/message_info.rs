@@ -22,7 +22,6 @@ pub enum MessageLabel {
     #[cfg(all(feature = "enable_smp", not(feature = "kernel_mcs")))]
     TCBSetAffinity,
     TCBSetTLSBase,
-    TCBSetFlags,
     CNodeRevoke,
     CNodeDelete,
     CNodeCancelBadgedSends,
@@ -38,8 +37,6 @@ pub enum MessageLabel {
     IRQSetIRQHandler,
     IRQClearIRQHandler,
     DomainSetSet,
-    DomainScheduleConfigure,
-    DomainScheduleSetStart,
     #[cfg(feature = "kernel_mcs")]
     SchedControlConfigureFlags,
     #[cfg(feature = "kernel_mcs")]
