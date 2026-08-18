@@ -78,7 +78,7 @@ pub fn decode_mmu_invocation(
         #[cfg(feature = "hypervisor")]
         cap_Splayed::vcpu_cap(_) => {
             use crate::arch::vcpu::decode_vcpu_invocation;
-            decode_vcpu_invocation(label, length, slot, buffer)
+            decode_vcpu_invocation(label, length, slot, call, buffer)
         }
         _ => {
             panic!("Invalid arch cap type");

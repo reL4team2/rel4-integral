@@ -29,9 +29,18 @@ fn asm_gen(
         .find_map(|m| m.strip_prefix("MAX_NUM_NODES=").and_then(|v| v.parse().ok()))
         .unwrap_or(1);
 
-    let overrides = rel4_config::build_definitions_overrides(
+    // Feature-flag overrides first (they gate `#[cfg(feature = "...")]` code, so
+    // they must win over any external config), followed by the optional external
+    // C kernel `gen_config.yaml` for the remaining static values (e.g.
+    // ROOT_CNODE_SIZE_BITS). The first matching override wins.
+    let mut overrides = rel4_config::build_definitions_overrides(
         hypervisor, pa_40bit, mcs, smc, arm_pcnt, arm_ptmr, fastpath, smp, num_nodes,
     );
+    if let Ok(path) = env::var("SEL4_KERNEL_GEN_CONFIG") {
+        let c_config = rel4_config::load_c_gen_config(std::path::Path::new(&path))?;
+        rel4_config::warn_on_config_conflicts(&overrides, &c_config);
+        overrides.extend(c_config);
+    }
     rel4_config::generate_definitions_yaml(
         platform,
         &overrides,
@@ -60,6 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("cargo:rerun-if-changed=../rel4_config/cfg");
     println!("cargo:rerun-if-env-changed=MARCOS");
     println!("cargo:rerun-if-env-changed=PLATFORM");
+    println!("cargo:rerun-if-env-changed=SEL4_KERNEL_GEN_CONFIG");
 
     let defs = std::env::var("MARCOS").unwrap();
     let platform = std::env::var("PLATFORM").unwrap();

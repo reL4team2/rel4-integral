@@ -47,6 +47,8 @@ pub fn arch_create_object(
         }
         #[cfg(feature = "hypervisor")]
         ObjectType::seL4_ARM_VCPUObject => {
+            use crate::arch::vcpu::{vcpu_init, VCpu};
+            vcpu_init(region_base.get_mut_ref::<VCpu>());
             sel4_common::structures_gen::cap_vcpu_cap::new(region_base.raw() as u64).unsplay()
         }
         _ => {

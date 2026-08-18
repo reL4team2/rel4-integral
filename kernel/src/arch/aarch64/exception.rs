@@ -16,7 +16,7 @@ use sel4_common::{
         cap_tag, seL4_Fault_UnknownSyscall, seL4_Fault_UserException, seL4_Fault_VMFault,
     },
 };
-use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedule};
+use sel4_task::{activateThread, get_currenct_thread, get_current_domain, schedule, ThreadState};
 #[cfg(feature = "kernel_mcs")]
 use sel4_task::{check_budget_restart, update_timestamp};
 use sel4_vspace::PTE;
@@ -268,13 +268,17 @@ pub fn c_handle_instruction_fault() -> ! {
 
 #[no_mangle]
 pub fn c_handle_vcpu_fault(hsr: usize) -> ! {
-    let esr_ec = (hsr >> 26) & 0x3F;
     #[cfg(feature = "hypervisor")]
     {
         let handled = unsafe { super::vcpu::handle_vcpu_fault(hsr) };
         if !handled {
             schedule();
             activateThread();
+            // Monitor: if the scheduler fell back to the idle thread, the VMM
+            // (VCPU fault handler) wasn't runnable, so fault delivery failed.
+            if get_currenct_thread().get_state() == ThreadState::ThreadStateIdleThreadState {
+                error!("[VCPU] c_handle_vcpu_fault: switched to idle thread (VMM not schedulable?)");
+            }
         }
     }
     #[cfg(feature = "build_binary")]

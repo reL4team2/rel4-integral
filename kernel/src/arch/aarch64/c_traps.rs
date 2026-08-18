@@ -273,6 +273,19 @@ pub fn c_handle_syscall(_cptr: usize, _msgInfo: usize, syscall: usize) {
     // debug!("c_handle_syscall complete");
 }
 
+/// Debug-only handler called by `cur_el_sync` in traps.S on a current-EL data
+/// abort (`#ifdef CONFIG_DEBUG_BUILD`). Stub: the real kernel fault dump is done
+/// by traps.S itself via `save_fault_registers` before reaching `halt`.
+#[no_mangle]
+#[cfg(feature = "build_binary")]
+pub fn kernelDataAbort(_elr: usize) {}
+
+/// Debug-only handler called by `cur_el_sync` in traps.S on a current-EL
+/// prefetch (instruction) abort (`#ifdef CONFIG_DEBUG_BUILD`). Stub.
+#[no_mangle]
+#[cfg(feature = "build_binary")]
+pub fn kernelPrefetchAbort(_elr: usize) {}
+
 /// This function should be the first thing called from after entry.
 /// This function Save TPIDR(TLS) in aarch64.
 #[inline]

@@ -57,7 +57,7 @@ pub fn resolve_definitions_yaml_path(platform: &str) -> std::path::PathBuf {
 /// text to write (e.g. `"true"`, `"false"`, `"\"1\""`).
 pub fn generate_yaml(
     src_path: &std::path::Path,
-    overrides: &[(&str, String)],
+    overrides: &[(String, String)],
     out_path: &std::path::Path,
 ) -> Result<(), anyhow::Error> {
     let contents = std::fs::read_to_string(src_path)?;
@@ -83,22 +83,22 @@ pub fn build_definitions_overrides(
     fastpath: bool,
     smp: bool,
     num_nodes: usize,
-) -> Vec<(&'static str, String)> {
+) -> Vec<(String, String)> {
     let b = |v: bool| v.to_string();
     let s = |v: usize| format!("\"{}\"", v);
     vec![
-        ("ARM_HYPERVISOR_SUPPORT", b(hypervisor)),
-        ("ARM_PA_SIZE_BITS_40", b(pa_40bit)),
-        ("ARM_PA_SIZE_BITS_44", b(!pa_40bit)),
+        ("ARM_HYPERVISOR_SUPPORT".to_string(), b(hypervisor)),
+        ("ARM_PA_SIZE_BITS_40".to_string(), b(pa_40bit)),
+        ("ARM_PA_SIZE_BITS_44".to_string(), b(!pa_40bit)),
         // 3-level stage-2 only when hypervisor + 40-bit PA.
-        ("AARCH64_VSPACE_S2_START_L1", b(hypervisor && pa_40bit)),
-        ("KERNEL_MCS", b(mcs)),
-        ("ALLOW_SMC_CALLS", b(smc)),
-        ("EXPORT_PCNT_USER", b(arm_pcnt)),
-        ("EXPORT_PTMR_USER", b(arm_ptmr)),
-        ("FASTPATH", b(fastpath)),
-        ("ENABLE_SMP_SUPPORT", b(smp)),
-        ("MAX_NUM_NODES", s(num_nodes)),
+        ("AARCH64_VSPACE_S2_START_L1".to_string(), b(hypervisor && pa_40bit)),
+        ("KERNEL_MCS".to_string(), b(mcs)),
+        ("ALLOW_SMC_CALLS".to_string(), b(smc)),
+        ("EXPORT_PCNT_USER".to_string(), b(arm_pcnt)),
+        ("EXPORT_PTMR_USER".to_string(), b(arm_ptmr)),
+        ("FASTPATH".to_string(), b(fastpath)),
+        ("ENABLE_SMP_SUPPORT".to_string(), b(smp)),
+        ("MAX_NUM_NODES".to_string(), s(num_nodes)),
     ]
 }
 
@@ -107,13 +107,88 @@ pub fn build_definitions_overrides(
 /// generated copy. Returns the generated path.
 pub fn generate_definitions_yaml(
     platform: &str,
-    overrides: &[(&str, String)],
+    overrides: &[(String, String)],
     out_dir: &std::path::Path,
 ) -> Result<std::path::PathBuf, anyhow::Error> {
     let out_path = out_dir.join("definitions.yml");
     generate_yaml(&get_definitions_yaml_path(platform), overrides, &out_path)?;
     std::env::set_var("GENERATED_DEFINITIONS_YAML", &out_path);
     Ok(out_path)
+}
+
+/// Parse a C kernel `gen_config.yaml` (a flat `KEY: value` mapping produced by
+/// the seL4 CMake configuration system) into override pairs so the Rust kernel
+/// reuses the exact same configuration values as the C components.
+///
+/// The C file is parsed line-by-line rather than with a YAML parser: it is a
+/// flat `KEY: value` file and can contain duplicate keys (platform entries are
+/// emitted twice), which a strict YAML parser rejects. On duplicates the last
+/// occurrence wins.
+///
+/// Values are rendered as the literal YAML scalar text expected by
+/// `apply_yaml_overrides`: booleans stay unquoted, numbers and strings are
+/// quoted. Keys not present in the Rust definitions YAML are simply ignored by
+/// the override pass.
+pub fn load_c_gen_config(path: &std::path::Path) -> Result<Vec<(String, String)>, anyhow::Error> {
+    let contents = std::fs::read_to_string(path)?;
+    let mut overrides: Vec<(String, String)> = Vec::new();
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let Some((key, raw_value)) = trimmed.split_once(':') else {
+            continue;
+        };
+        let key = key.trim();
+        if key.is_empty() {
+            continue;
+        }
+        let raw_value = raw_value.trim();
+        // Strip any trailing inline comment (" #...").
+        let value_text = match raw_value.find(" #") {
+            Some(i) => raw_value[..i].trim(),
+            None => raw_value,
+        };
+        if value_text.is_empty() {
+            continue;
+        }
+        let normalized = if value_text == "true" || value_text == "false" {
+            value_text.to_string()
+        } else {
+            // Numbers and strings stay quoted (the C config already quotes
+            // them); strip/re-add quotes to normalise any bare scalars.
+            let unquoted = value_text.trim_matches('"');
+            format!("\"{}\"", unquoted)
+        };
+        // Last occurrence of a duplicate key wins.
+        if let Some(existing) = overrides.iter_mut().find(|(k, _)| k == key) {
+            existing.1 = normalized;
+        } else {
+            overrides.push((key.to_string(), normalized));
+        }
+    }
+    Ok(overrides)
+}
+
+/// Print a build warning for every key present in both `feature_overrides`
+/// (CLI/feature flags, which take precedence) and `external` (an imported C
+/// `gen_config.yaml`) whose values differ. This surfaces configuration drift
+/// between the CLI flags and the imported config file instead of silently
+/// letting the CLI value win.
+pub fn warn_on_config_conflicts(
+    feature_overrides: &[(String, String)],
+    external: &[(String, String)],
+) {
+    for (key, feat_val) in feature_overrides {
+        if let Some((_, ext_val)) = external.iter().find(|(k, _)| k == key) {
+            if feat_val != ext_val {
+                println!(
+                    "cargo:warning=config conflict on '{key}': CLI/feature value '{feat_val}' (used) != gen_config.yaml value '{ext_val}' (ignored)"
+                );
+            }
+        }
+    }
 }
 
 /// Apply text overrides to YAML contents, preserving comments and formatting.
@@ -123,7 +198,7 @@ pub fn generate_definitions_yaml(
 /// - `("!comment", text)`: comment out any line containing `text`.
 /// - `("!uncomment", text)`: un-comment any line containing `text`.
 /// - `("!replace", "old=>new")`: replace `old` with `new` in any line containing `old`.
-fn apply_yaml_overrides(contents: &str, overrides: &[(&str, String)]) -> String {
+fn apply_yaml_overrides(contents: &str, overrides: &[(String, String)]) -> String {
     let mut out = String::with_capacity(contents.len());
 
     for line in contents.lines() {
@@ -132,9 +207,9 @@ fn apply_yaml_overrides(contents: &str, overrides: &[(&str, String)]) -> String 
         let mut handled = false;
 
         for (key, value) in overrides {
-            if *key == "!comment" || *key == "!uncomment" {
+            if key.as_str() == "!comment" || key.as_str() == "!uncomment" {
                 if line.contains(value.as_str()) {
-                    if *key == "!comment" {
+                    if key.as_str() == "!comment" {
                         if !trimmed.starts_with('#') {
                             out.push_str(&format!("{}# {}\n", indent, trimmed));
                         } else {
@@ -154,7 +229,7 @@ fn apply_yaml_overrides(contents: &str, overrides: &[(&str, String)]) -> String 
                     handled = true;
                     break;
                 }
-            } else if *key == "!replace" {
+            } else if key.as_str() == "!replace" {
                 if let Some(pos) = value.find("=>") {
                     let old = &value[..pos];
                     let new = &value[pos + 2..];

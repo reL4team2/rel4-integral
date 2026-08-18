@@ -89,6 +89,12 @@ pub struct BuildOptions {
     pub log: String,
     #[clap(long)]
     pub benchmark: bool,
+    #[clap(
+        long,
+        help = "Path to a C kernel gen_config.yaml to reuse the exact same \
+                kernel config values (e.g. ROOT_CNODE_SIZE_BITS)"
+    )]
+    pub sel4_config: Option<PathBuf>,
 }
 
 /// Parse CMAKE DEFINES from build options
@@ -252,6 +258,10 @@ pub fn cargo(command: &str, dir: &str, opts: &BuildOptions) -> Result<(), anyhow
         }
         _ => return Err(anyhow::anyhow!("Unsupported platform")),
     };
+
+    if let Some(ref path) = opts.sel4_config {
+        cmd.env("SEL4_KERNEL_GEN_CONFIG", path);
+    }
 
     let status = cmd
         .current_dir(dir)
