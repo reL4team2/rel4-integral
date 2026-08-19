@@ -1,4 +1,5 @@
 pub mod generator;
+pub mod message_label_gen;
 pub(crate) mod template;
 pub mod utils;
 

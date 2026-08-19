@@ -140,5 +140,47 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     );
 
     rel4_config::generator::platform_gen(&platform, hypervisor);
+
+    // Generate the invocation `MessageLabel` enum from the libsel4 XML files
+    // (方案 A), plus a compile-time consistency check (方案 B). This keeps the
+    // kernel's labels aligned with libsel4 for every config combination.
+    let (kernel_arch, sel4_arch) = match arch {
+        "aarch64" => ("arm", "aarch64"),
+        "riscv64" => ("riscv", "riscv64"),
+        other => panic!("Unsupported target: {}", other),
+    };
+
+    // Locate the libsel4 interfaces directory. Override with LIBSEL4_DIR if the
+    // default relative layout (kernel/ and rel4_kernel/ as siblings) differs.
+    let libsel4_dir = match std::env::var("LIBSEL4_DIR") {
+        Ok(dir) => path::PathBuf::from(dir),
+        Err(_) => path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../kernel/libsel4"),
+    };
+
+    println!("cargo:rerun-if-env-changed=LIBSEL4_DIR");
+    println!(
+        "cargo:rerun-if-changed={}",
+        libsel4_dir.join("include/interfaces/object-api.xml").display()
+    );
+
+    let mut enabled_features: Vec<&str> = Vec::new();
+    for feat in ["kernel_mcs", "enable_smp", "hypervisor", "enable_smc"] {
+        let var = format!("CARGO_FEATURE_{}", feat.to_uppercase());
+        if std::env::var(var).is_ok() {
+            enabled_features.push(feat);
+        }
+    }
+
+    let message_label_out = path::Path::new(env::var("OUT_DIR").unwrap().as_str())
+        .join("message_label.rs");
+    rel4_config::message_label_gen::generate_message_label(
+        &libsel4_dir,
+        kernel_arch,
+        sel4_arch,
+        &enabled_features,
+        &message_label_out,
+    )?;
+
     Ok(())
 }
