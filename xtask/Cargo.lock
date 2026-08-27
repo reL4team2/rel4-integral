@@ -693,6 +693,7 @@ dependencies = [
  "anyhow",
  "roxmltree",
  "serde",
+ "serde_json",
  "serde_yaml",
  "tera",
 ]

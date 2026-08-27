@@ -131,6 +131,11 @@ pub fn generate_definitions_yaml(
 /// quoted. Keys not present in the Rust definitions YAML are simply ignored by
 /// the override pass.
 pub fn load_c_gen_config(path: &std::path::Path) -> Result<Vec<(String, String)>, anyhow::Error> {
+    // Installed configs are JSON (`gen_config.json`); build-tree configs are
+    // flat YAML (`gen_config.yaml`). Normalise both to the same override form.
+    if path.extension().and_then(|e| e.to_str()) == Some("json") {
+        return load_c_gen_config_json(path);
+    }
     let contents = std::fs::read_to_string(path)?;
     let mut overrides: Vec<(String, String)> = Vec::new();
     for line in contents.lines() {
@@ -170,6 +175,77 @@ pub fn load_c_gen_config(path: &std::path::Path) -> Result<Vec<(String, String)>
         }
     }
     Ok(overrides)
+}
+
+/// Parse an installed `gen_config.json` (a flat object of bool / quoted-scalar
+/// values) into the same `(key, value)` override form as the YAML parser above.
+fn load_c_gen_config_json(
+    path: &std::path::Path,
+) -> Result<Vec<(String, String)>, anyhow::Error> {
+    let contents = std::fs::read_to_string(path)?;
+    let value: serde_json::Value = serde_json::from_str(&contents)
+        .map_err(|e| anyhow::anyhow!("failed to parse {}: {}", path.display(), e))?;
+    let serde_json::Value::Object(map) = value else {
+        anyhow::bail!("{} is not a JSON object", path.display());
+    };
+    let mut overrides: Vec<(String, String)> = Vec::new();
+    for (key, value) in map {
+        let normalized = match value {
+            serde_json::Value::Bool(b) => b.to_string(),
+            serde_json::Value::Number(n) => format!("\"{}\"", n),
+            serde_json::Value::String(s) => format!("\"{}\"", s),
+            _ => continue,
+        };
+        overrides.push((key, normalized));
+    }
+    Ok(overrides)
+}
+
+/// Resolve the directory containing the seL4 libsel4 interface XML files, in
+/// priority order:
+/// 1. `SEL4_INSTALL_DIR` env var — `ninja install` layout, which flattens the
+///    interfaces into `<prefix>/libsel4/include` (this is a mode: when set it
+///    wins over everything below);
+/// 2. `LIBSEL4_DIR` env var — source-tree layout (`kernel/libsel4`);
+/// 3. otherwise the standard layout: `<seL4 root>/kernel/libsel4`, where
+///    `<seL4 root>` is the parent of `rel4_kernel` (reL4 is a sibling of `kernel/`).
+pub fn resolve_libsel4_dir() -> std::path::PathBuf {
+    if let Ok(dir) = std::env::var("SEL4_INSTALL_DIR") {
+        return std::path::Path::new(&dir).join("libsel4/include");
+    }
+    if let Ok(dir) = std::env::var("LIBSEL4_DIR") {
+        return std::path::PathBuf::from(dir);
+    }
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../kernel/libsel4")
+}
+
+/// Resolve the C kernel `gen_config` path, in priority order:
+/// 1. `SEL4_INSTALL_DIR` — the installed kernel config (`*.json`);
+/// 2. `SEL4_KERNEL_GEN_CONFIG` env var (explicit override, `.yaml` or `.json`);
+/// 3. derived from the libsel4 dir (the seL4 project's build dir):
+///    `<libsel4 dir>/../../build/kernel/gen_config/kernel/gen_config.yaml`;
+/// 4. otherwise `None` (fall back to the Rust definitions defaults).
+pub fn resolve_gen_config_path() -> Option<std::path::PathBuf> {
+    if let Ok(dir) = std::env::var("SEL4_INSTALL_DIR") {
+        let prefix = std::path::Path::new(&dir);
+        for candidate in [
+            prefix.join("libsel4/include/kernel/gen_config.json"),
+            prefix.join("libsel4/include/gen_config.json"),
+            prefix.join("kernel/gen_config.json"),
+        ] {
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+    if let Ok(path) = std::env::var("SEL4_KERNEL_GEN_CONFIG") {
+        return Some(std::path::PathBuf::from(path));
+    }
+    let candidate = resolve_libsel4_dir().join("../../build/kernel/gen_config/kernel/gen_config.yaml");
+    if candidate.exists() {
+        return Some(candidate);
+    }
+    None
 }
 
 /// Print a build warning for every key present in both `feature_overrides`

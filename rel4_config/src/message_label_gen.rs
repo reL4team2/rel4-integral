@@ -147,6 +147,22 @@ fn parse_labels(xml_path: &Path) -> Result<Vec<Label>> {
     Ok(labels)
 }
 
+/// Resolve an interface XML file, trying the source-tree layout first and the
+/// flattened `ninja install` layout (`<prefix>/libsel4/include/interfaces/*.xml`)
+/// second.
+fn resolve_xml_file(
+    libsel4_dir: &std::path::Path,
+    source_subdir: &str,
+    file: &str,
+) -> std::path::PathBuf {
+    let source = libsel4_dir.join(source_subdir).join(file);
+    if source.exists() {
+        source
+    } else {
+        libsel4_dir.join("interfaces").join(file)
+    }
+}
+
 /// Generate the `MessageLabel` enum and a consistency check (方案 B).
 pub fn generate_message_label(
     libsel4_dir: &Path,
@@ -155,13 +171,21 @@ pub fn generate_message_label(
     enabled_features: &[&str],
     out_path: &Path,
 ) -> Result<()> {
-    let api = parse_labels(&libsel4_dir.join("include/interfaces/object-api.xml"))?;
-    let sel4_arch_labels = parse_labels(&libsel4_dir.join(format!(
-        "sel4_arch_include/{sel4_arch}/interfaces/object-api-sel4-arch.xml"
-    )))?;
-    let arch_labels = parse_labels(&libsel4_dir.join(format!(
-        "arch_include/{arch}/interfaces/object-api-arch.xml"
-    )))?;
+    let api = parse_labels(&resolve_xml_file(
+        libsel4_dir,
+        "include/interfaces",
+        "object-api.xml",
+    ))?;
+    let sel4_arch_labels = parse_labels(&resolve_xml_file(
+        libsel4_dir,
+        &format!("sel4_arch_include/{sel4_arch}/interfaces"),
+        "object-api-sel4-arch.xml",
+    ))?;
+    let arch_labels = parse_labels(&resolve_xml_file(
+        libsel4_dir,
+        &format!("arch_include/{arch}/interfaces"),
+        "object-api-arch.xml",
+    ))?;
 
     let enabled: BTreeSet<&str> = enabled_features.iter().copied().collect();
 

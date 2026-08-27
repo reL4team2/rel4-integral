@@ -96,8 +96,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut overrides = rel4_config::build_definitions_overrides(
         hypervisor, pa_40bit, mcs, smc, arm_pcnt, arm_ptmr, fastpath, smp, num_nodes,
     );
-    if let Ok(path) = env::var("SEL4_KERNEL_GEN_CONFIG") {
-        let c_config = rel4_config::load_c_gen_config(path::Path::new(&path))?;
+    if let Some(path) = rel4_config::resolve_gen_config_path() {
+        println!("cargo:warning=rel4: using gen config {}", path.display());
+        let c_config = rel4_config::load_c_gen_config(&path)?;
         rel4_config::warn_on_config_conflicts(&overrides, &c_config);
         overrides.extend(c_config);
     }
@@ -152,13 +153,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Locate the libsel4 interfaces directory. Override with LIBSEL4_DIR if the
     // default relative layout (kernel/ and rel4_kernel/ as siblings) differs.
-    let libsel4_dir = match std::env::var("LIBSEL4_DIR") {
-        Ok(dir) => path::PathBuf::from(dir),
-        Err(_) => path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../kernel/libsel4"),
-    };
+    let libsel4_dir = rel4_config::resolve_libsel4_dir();
+    println!("cargo:warning=rel4: using libsel4 dir {}", libsel4_dir.display());
 
     println!("cargo:rerun-if-env-changed=LIBSEL4_DIR");
+    println!("cargo:rerun-if-env-changed=SEL4_INSTALL_DIR");
     println!(
         "cargo:rerun-if-changed={}",
         libsel4_dir.join("include/interfaces/object-api.xml").display()

@@ -36,8 +36,9 @@ fn asm_gen(
     let mut overrides = rel4_config::build_definitions_overrides(
         hypervisor, pa_40bit, mcs, smc, arm_pcnt, arm_ptmr, fastpath, smp, num_nodes,
     );
-    if let Ok(path) = env::var("SEL4_KERNEL_GEN_CONFIG") {
-        let c_config = rel4_config::load_c_gen_config(std::path::Path::new(&path))?;
+    if let Some(path) = rel4_config::resolve_gen_config_path() {
+        println!("cargo:warning=rel4: using gen config {}", path.display());
+        let c_config = rel4_config::load_c_gen_config(&path)?;
         rel4_config::warn_on_config_conflicts(&overrides, &c_config);
         overrides.extend(c_config);
     }
@@ -70,6 +71,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("cargo:rerun-if-env-changed=MARCOS");
     println!("cargo:rerun-if-env-changed=PLATFORM");
     println!("cargo:rerun-if-env-changed=SEL4_KERNEL_GEN_CONFIG");
+    println!("cargo:rerun-if-env-changed=LIBSEL4_DIR");
+    println!("cargo:rerun-if-env-changed=SEL4_INSTALL_DIR");
 
     let defs = std::env::var("MARCOS").unwrap();
     let platform = std::env::var("PLATFORM").unwrap();
